@@ -1,0 +1,205 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const pool = require('../db/pool');
+const { generateToken } = require('../utils/jwt');
+const { requireAuth } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Register (for initial setup - can be restricted later)
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, role } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if user exists
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user (default to EDUCATOR if role not specified)
+    const result = await pool.query(
+      `INSERT INTO users (email, password_hash, first_name, last_name, role)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, email, first_name, last_name, role`,
+      [email, passwordHash, firstName, lastName, role || 'EDUCATOR']
+    );
+
+    const user = result.rows[0];
+    const token = generateToken(user);
+
+    res.json({ user, token });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    // Get user from users table (all users including parents are in users table)
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+
+    // Check if active
+    if (!user.is_active) {
+      return res.status(401).json({ error: 'Account is inactive' });
+    }
+
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate unified token
+    const tokenPayload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    // For PARENT users, get the parent record ID and include it in the token
+    if (user.role === 'PARENT') {
+      const parentResult = await pool.query(
+        'SELECT id FROM parents WHERE user_id = $1',
+        [user.id]
+      );
+
+      if (parentResult.rows.length > 0) {
+        tokenPayload.parentId = parentResult.rows[0].id;
+      }
+    }
+
+    const token = generateToken(tokenPayload);
+
+    // Return user without password
+    const { password_hash, ...userWithoutPassword } = user;
+
+    res.json({ user: userWithoutPassword, token });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Get current user
+router.get('/me', requireAuth, async (req, res) => {
+  res.json({ user: req.user });
+});
+
+// Self-service password change
+router.post('/change-password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    // Get user with password hash
+    const userResult = await pool.query(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const validPassword = await bcrypt.compare(currentPassword, userResult.rows[0].password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newPasswordHash, req.user.id]
+    );
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Admin reset user password
+router.post('/admin/reset-password', requireAuth, async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+
+    // Only admins can reset passwords
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    if (!userId || !newPassword) {
+      return res.status(400).json({ error: 'User ID and new password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, first_name, last_name',
+      [passwordHash, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      message: 'Password reset successfully',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Admin reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+module.exports = router;
