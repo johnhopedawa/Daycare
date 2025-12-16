@@ -378,13 +378,13 @@ function AdminAttendance() {
             <div className="card" style={{ width: 'min(420px, 95vw)', padding: '1.5rem' }}>
               <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Select Date</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <button type="button" className="btn-secondary" style={{ padding: '0.35rem 0.75rem' }} onClick={goToPreviousMonthPicker}>
+                <button type="button" className="btn-sm secondary" style={{ padding: '0.35rem 0.75rem' }} onClick={goToPreviousMonthPicker}>
                   ‹
                 </button>
                 <span style={{ fontWeight: 600, fontSize: '1rem', color: '#1f2937' }}>
                   {datePickerMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </span>
-                <button type="button" className="btn-secondary" style={{ padding: '0.35rem 0.75rem' }} onClick={goToNextMonthPicker}>
+                <button type="button" className="btn-sm secondary" style={{ padding: '0.35rem 0.75rem' }} onClick={goToNextMonthPicker}>
                   ›
                 </button>
               </div>
@@ -511,7 +511,7 @@ function AdminAttendance() {
                       <>
                         <button
                           onClick={() => handleCheckIn(child.id)}
-                          className="btn"
+                          className="btn-sm"
                           style={{ marginRight: '0.5rem', fontSize: '0.875rem', padding: '0.4rem 0.75rem' }}
                           disabled={submittingChildId === child.id}
                         >
@@ -537,7 +537,7 @@ function AdminAttendance() {
                     {isCheckedIn && (
                       <button
                         onClick={() => handleCheckOut(child.id)}
-                        className="btn-secondary"
+                        className="btn-sm secondary"
                         style={{ fontSize: '0.875rem', padding: '0.4rem 0.75rem' }}
                         disabled={submittingChildId === child.id}
                       >

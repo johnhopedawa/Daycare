@@ -81,8 +81,7 @@ function ParentInvoices() {
                   <td>
                     <button
                       onClick={() => downloadPDF(inv.id, inv.invoice_number)}
-                      className="btn-secondary"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
+                      className="btn-sm secondary"
                     >
                       Download PDF
                     </button>
@@ -94,7 +93,7 @@ function ParentInvoices() {
         </div>
       )}
 
-      <button onClick={() => navigate('/parent/dashboard')} className="btn-secondary">
+      <button onClick={() => navigate('/parent/dashboard')} className="secondary">
         Back to Dashboard
       </button>
     </div>

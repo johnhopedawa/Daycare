@@ -71,7 +71,7 @@ function ParentChildren() {
         ))
       )}
 
-      <button onClick={() => navigate('/parent/dashboard')} className="btn-secondary">
+      <button onClick={() => navigate('/parent/dashboard')} className="secondary">
         Back to Dashboard
       </button>
     </div>

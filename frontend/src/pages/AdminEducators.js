@@ -399,15 +399,14 @@ function AdminEducators() {
                 <td>
                   <div className="flex" style={{ gap: '0.5rem' }}>
                     <button
+                      className="btn-sm"
                       onClick={() => handleEditClick(educator)}
-                      style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
                     >
                       Edit
                     </button>
                     <button
-                      className={educator.is_active ? 'danger' : 'success'}
+                      className={`btn-sm ${educator.is_active ? 'danger' : 'success'}`}
                       onClick={() => toggleActive(educator.id, educator.is_active)}
-                      style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
                     >
                       {educator.is_active ? 'Deactivate' : 'Activate'}
                     </button>
@@ -578,14 +577,13 @@ function AdminEducators() {
                         </div>
                       </div>
                       <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-                        <button type="submit" className="success" style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}>
+                        <button type="submit" className="success">
                           Save Changes
                         </button>
                         <button
                           type="button"
                           className="secondary"
                           onClick={() => setEditingId(null)}
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
                         >
                           Cancel
                         </button>

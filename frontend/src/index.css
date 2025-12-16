@@ -149,6 +149,25 @@ nav button:hover {
   min-height: 80px;
 }
 
+/* =================================================================
+   BUTTON SYSTEM
+
+   Single, consistent button system for the entire application.
+
+   Usage:
+   - Base button (primary/blue): <button>Save</button>
+   - Secondary (gray): <button className="secondary">Cancel</button>
+   - Danger (red): <button className="danger">Delete</button>
+   - Success (green): <button className="success">Approve</button>
+   - Link style: <button className="link">Reset</button>
+   - Small size: <button className="btn-sm">←</button>
+   - Large size: <button className="btn-lg">Submit</button>
+   - Combined: <button className="btn-sm secondary">Cancel</button>
+
+   DO NOT USE: .btn, .btn-secondary, .btn-danger (legacy classes removed)
+   ================================================================= */
+
+/* Base button (Primary - Blue) */
 button {
   background: #3498db;
   color: white;
@@ -157,7 +176,9 @@ button {
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
+  line-height: 1.5;
   transition: background 0.2s;
+  font-weight: 500;
 }
 
 button:hover {
@@ -167,8 +188,10 @@ button:hover {
 button:disabled {
   background: #95a5a6;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
+/* Variant: Secondary (Gray - for cancel/back/less important actions) */
 button.secondary {
   background: #95a5a6;
 }
@@ -177,30 +200,64 @@ button.secondary:hover {
   background: #7f8c8d;
 }
 
+button.secondary:disabled {
+  background: #bdc3c7;
+}
+
+/* Variant: Danger (Red - for destructive actions like delete/reject) */
 button.danger {
   background: #e74c3c;
-  color: white;
-  line-height: 1.5;
-  border: none;
-  margin: 0;
 }
 
 button.danger:hover {
   background: #c0392b;
-  color: white;
 }
 
+button.danger:disabled {
+  background: #e67e73;
+}
+
+/* Variant: Success (Green - for approve/confirm actions) */
 button.success {
   background: #27ae60;
-  color: white;
-  line-height: 1.5;
-  border: none;
-  margin: 0;
 }
 
 button.success:hover {
   background: #229954;
-  color: white;
+}
+
+button.success:disabled {
+  background: #52be80;
+}
+
+/* Variant: Link (Text-only button, no background) */
+button.link {
+  background: transparent;
+  color: #3498db;
+  padding: 0.5rem 1rem;
+  text-decoration: underline;
+}
+
+button.link:hover {
+  background: transparent;
+  color: #2980b9;
+}
+
+button.link:disabled {
+  background: transparent;
+  color: #95a5a6;
+}
+
+/* Size: Small (for calendar navigation, filter chips, compact UIs) */
+button.btn-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* Size: Large (for prominent CTAs) */
+button.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
 }
 
 /* Tables */
@@ -559,9 +616,6 @@ tbody tr:hover {
   .sidebar,
   .top-nav,
   button,
-  .btn,
-  .btn-secondary,
-  .secondary,
   input[type="date"],
   label,
   .attendance-controls {

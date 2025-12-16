@@ -299,7 +299,7 @@ function AdminPayPeriods() {
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => { setShowPreview(false); setPreview(null); }}
-                className="btn-secondary"
+                className="secondary"
               >
                 Cancel
               </button>

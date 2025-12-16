@@ -34,7 +34,7 @@ function ParentDashboard() {
     <div className="main-content">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Parent Dashboard</h1>
-        <button onClick={handleLogout} className="btn-secondary">Logout</button>
+        <button onClick={handleLogout} className="secondary">Logout</button>
       </div>
 
       <div className="card-grid">
@@ -63,9 +63,9 @@ function ParentDashboard() {
       <div className="card">
         <h2>Quick Links</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-          <button onClick={() => navigate('/parent/children')} className="btn">My Children</button>
-          <button onClick={() => navigate('/parent/invoices')} className="btn">Invoices</button>
-          <button onClick={() => navigate('/parent/messages')} className="btn">Messages</button>
+          <button onClick={() => navigate('/parent/children')}>My Children</button>
+          <button onClick={() => navigate('/parent/invoices')}>Invoices</button>
+          <button onClick={() => navigate('/parent/messages')}>Messages</button>
         </div>
       </div>
 

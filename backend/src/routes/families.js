@@ -120,6 +120,7 @@ router.post('/', async (req, res) => {
       childLastName,
       childDob,
       childStatus,
+      childMonthlyRate,
       allergies,
       medical_notes,
       notes,
@@ -224,14 +225,15 @@ router.post('/', async (req, res) => {
     const childResult = await client.query(
       `INSERT INTO children (
         first_name, last_name, date_of_birth, enrollment_start_date,
-        status, billing_cycle, allergies, medical_notes, notes, waitlist_priority, created_by
-      ) VALUES ($1, $2, $3, CURRENT_DATE, $4, 'MONTHLY', $5, $6, $7, $8, $9)
+        status, billing_cycle, monthly_rate, allergies, medical_notes, notes, waitlist_priority, created_by
+      ) VALUES ($1, $2, $3, CURRENT_DATE, $4, 'MONTHLY', $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         childFirstName,
         childLastName,
         childDob,
         status,
+        childMonthlyRate ? parseFloat(childMonthlyRate) : null,
         allergiesJson,
         medical_notes || null,
         notes || null,

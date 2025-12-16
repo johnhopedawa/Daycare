@@ -471,7 +471,7 @@ function AdminReports() {
               title="Revenue by Month"
               subtitle="Payments collected across the selected range"
               actions={
-                <button onClick={() => exportToCSV(financialData.revenue, 'revenue')} className="btn-secondary">
+                <button onClick={() => exportToCSV(financialData.revenue, 'revenue')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -503,7 +503,7 @@ function AdminReports() {
               title="Outstanding Balances"
               subtitle="Current parent receivables and oldest due dates"
               actions={
-                <button onClick={() => exportToCSV(financialData.outstanding, 'outstanding')} className="btn-secondary">
+                <button onClick={() => exportToCSV(financialData.outstanding, 'outstanding')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -539,7 +539,7 @@ function AdminReports() {
               title="Invoice Aging"
               subtitle="Overdue invoices grouped by aging bucket"
               actions={
-                <button onClick={() => exportToCSV(financialData.aging, 'aging')} className="btn-secondary">
+                <button onClick={() => exportToCSV(financialData.aging, 'aging')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -581,7 +581,7 @@ function AdminReports() {
               title="Enrollment Summary"
               subtitle="Active, pending, and withdrawn enrollment counts"
               actions={
-                <button onClick={() => exportToCSV(enrollmentData.summary, 'enrollment-summary')} className="btn-secondary">
+                <button onClick={() => exportToCSV(enrollmentData.summary, 'enrollment-summary')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -613,7 +613,7 @@ function AdminReports() {
               title="Waitlist"
               subtitle="Families waiting for placement"
               actions={
-                <button onClick={() => exportToCSV(enrollmentData.waitlist, 'waitlist')} className="btn-secondary">
+                <button onClick={() => exportToCSV(enrollmentData.waitlist, 'waitlist')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -655,7 +655,7 @@ function AdminReports() {
               title="Hours Worked by Educator"
               subtitle="Approved log entries within the selected period"
               actions={
-                <button onClick={() => exportToCSV(staffingData.hours, 'staffing-hours')} className="btn-secondary">
+                <button onClick={() => exportToCSV(staffingData.hours, 'staffing-hours')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -691,7 +691,7 @@ function AdminReports() {
               title="Payroll Summary"
               subtitle="Gross pay and hours per pay period"
               actions={
-                <button onClick={() => exportToCSV(staffingData.payroll, 'payroll')} className="btn-secondary">
+                <button onClick={() => exportToCSV(staffingData.payroll, 'payroll')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -725,7 +725,7 @@ function AdminReports() {
               title="Schedule Coverage"
               subtitle="Confirmed vs pending educator shifts"
               actions={
-                <button onClick={() => exportToCSV(staffingData.coverage, 'coverage')} className="btn-secondary">
+                <button onClick={() => exportToCSV(staffingData.coverage, 'coverage')} className="btn-sm secondary">
                   Export CSV
                 </button>
               }
@@ -822,7 +822,6 @@ function AdminReports() {
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={handleGenerateReport}
-                  className="btn"
                   disabled={attendanceLoading}
                 >
                   {attendanceLoading ? 'Loading...' : 'Generate Report'}
@@ -830,7 +829,7 @@ function AdminReports() {
                 {(summaryData.length > 0 || detailedData.length > 0) && (
                   <button
                     onClick={handleOpenPrintView}
-                    className="btn-secondary"
+                    className="btn-sm secondary"
                     disabled={attendanceLoading}
                   >
                     Open Print View
@@ -875,7 +874,7 @@ function AdminReports() {
                       <button
                         type="button"
                         onClick={goToPreviousModalMonth}
-                        className="btn-secondary"
+                        className="btn-sm secondary"
                         style={{ padding: '0.45rem 0.9rem', fontSize: '0.9rem' }}
                       >
                         ‹
@@ -884,7 +883,7 @@ function AdminReports() {
                       <button
                         type="button"
                         onClick={goToNextModalMonth}
-                        className="btn-secondary"
+                        className="btn-sm secondary"
                         style={{ padding: '0.45rem 0.9rem', fontSize: '0.9rem' }}
                       >
                         ›

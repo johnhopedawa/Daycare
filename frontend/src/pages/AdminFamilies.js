@@ -2,11 +2,48 @@
 import api from '../utils/api';
 
 function AdminFamilies() {
+  // Tab state - default to Children (educator-focused view)
+  const [activeTab, setActiveTab] = useState('children');
+
+  // Families tab state
   const [families, setFamilies] = useState([]);
+  const [familiesLoading, setFamiliesLoading] = useState(true);
+  const [familiesError, setFamiliesError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingFamily, setDeletingFamily] = useState(null);
   const [generatedPasswords, setGeneratedPasswords] = useState([]);
   const [expandedChildren, setExpandedChildren] = useState({});
   const [expandedParents, setExpandedParents] = useState({});
+  const [familyFilters, setFamilyFilters] = useState({
+    search: ''
+  });
+  const [selectedFamily, setSelectedFamily] = useState(null);
+  const [showFamilyDetails, setShowFamilyDetails] = useState(false);
+  const [editForm, setEditForm] = useState({
+    parent1Id: null,
+    parent1FirstName: '',
+    parent1LastName: '',
+    parent1Email: '',
+    parent1Phone: '',
+    parent2Id: null,
+    parent2FirstName: '',
+    parent2LastName: '',
+    parent2Email: '',
+    parent2Phone: '',
+    childId: null,
+    childFirstName: '',
+    childLastName: '',
+    childDob: '',
+    childStatus: '',
+    childMonthlyRate: '',
+    allergies: { common: [], other: '' },
+    medical_notes: '',
+    notes: ''
+  });
+  const [editEmergencyContacts, setEditEmergencyContacts] = useState([]);
+
+  // Children tab state
   const [showFilesModal, setShowFilesModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
   const [childDocuments, setChildDocuments] = useState([]);
@@ -18,7 +55,7 @@ function AdminFamilies() {
     tags: ''
   });
   const [editingChild, setEditingChild] = useState(null);
-  const [editForm, setEditForm] = useState({});
+  const [childEditForm, setChildEditForm] = useState({});
   const [showAllergyEdit, setShowAllergyEdit] = useState(false);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [childDirectory, setChildDirectory] = useState([]);
@@ -27,12 +64,25 @@ function AdminFamilies() {
   const [showDirectoryEditModal, setShowDirectoryEditModal] = useState(false);
   const [directoryEditingChild, setDirectoryEditingChild] = useState(null);
   const [directoryFilters, setDirectoryFilters] = useState({
-    status: 'all',
+    status: 'enrolled', // Default to showing enrolled children
     hasAllergies: 'all',
     search: ''
   });
+  const [childSort, setChildSort] = useState('alpha'); // 'alpha' or 'age'
   const [expandedChildRows, setExpandedChildRows] = useState({});
   const [formEmergencyContacts, setFormEmergencyContacts] = useState([]);
+
+  // Parents tab state
+  const [parentDirectory, setParentDirectory] = useState([]);
+  const [parentDirectoryLoading, setParentDirectoryLoading] = useState(true);
+  const [parentDirectoryError, setParentDirectoryError] = useState(null);
+  const [parentFilters, setParentFilters] = useState({
+    status: 'all',
+    hasChildren: 'all',
+    billingStatus: 'all',
+    search: ''
+  });
+  const [expandedParentRows, setExpandedParentRows] = useState({});
 
   const [formData, setFormData] = useState({
     parent1FirstName: '',
@@ -47,6 +97,7 @@ function AdminFamilies() {
     childLastName: '',
     childDob: '',
     childStatus: 'ACTIVE',
+    childMonthlyRate: '',
     allergies: { common: [], other: '' },
     medical_notes: '',
     emergency_contact_name: '',
@@ -62,12 +113,19 @@ function AdminFamilies() {
   ];
 
   useEffect(() => {
-    loadFamilies();
-    loadChildDirectory();
-  }, []);
+    if (activeTab === 'families') {
+      loadFamilies();
+    } else if (activeTab === 'children') {
+      loadChildDirectory();
+    } else if (activeTab === 'parents') {
+      loadParentDirectory();
+    }
+  }, [activeTab]);
 
   const loadFamilies = async () => {
     try {
+      setFamiliesLoading(true);
+      setFamiliesError(null);
       const response = await api.get('/families');
       const familiesData = response.data.families;
 
@@ -85,8 +143,11 @@ function AdminFamilies() {
       }
 
       setFamilies(familiesData);
+      setFamiliesLoading(false);
     } catch (error) {
       console.error('Load families error:', error);
+      setFamiliesError(error.response?.data?.error || 'Failed to load families');
+      setFamiliesLoading(false);
     }
   };
 
@@ -117,6 +178,22 @@ function AdminFamilies() {
       setChildDirectoryError('Failed to load child list. Please try again.');
     } finally {
       setChildDirectoryLoading(false);
+    }
+  };
+
+  const loadParentDirectory = async () => {
+    try {
+      setParentDirectoryLoading(true);
+      setParentDirectoryError(null);
+      const response = await api.get('/parents/directory');
+      console.log('loadParentDirectory response:', response.data);
+      const parentsData = response.data.parents || [];
+      setParentDirectory(parentsData);
+    } catch (error) {
+      console.error('Load parent directory error:', error);
+      setParentDirectoryError('Failed to load parent list. Please try again.');
+    } finally {
+      setParentDirectoryLoading(false);
     }
   };
 
@@ -156,8 +233,12 @@ function AdminFamilies() {
   };
 
   const handleToggleStatus = async (familyId, currentStatus) => {
-    const action = currentStatus ? 'deactivate' : 'activate';
-    if (!window.confirm(`Are you sure you want to ${action} all parent accounts in this family?`)) {
+    const action = currentStatus ? 'disable' : 'enable';
+    const confirmMessage = currentStatus
+      ? 'Disable all parent login accounts for this family?\n\nParents will not be able to log in until re-enabled.'
+      : 'Enable all parent login accounts for this family?\n\nParents will be able to log in again.';
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -175,23 +256,22 @@ function AdminFamilies() {
   };
 
   const handleDeleteFamily = async (familyId, deleteAccounts = false) => {
-    const message = deleteAccounts
-      ? 'Are you sure you want to delete this family? This will PERMANENTLY remove:\n\n• All children records\n• All parent accounts and login access\n• All associated data (emergency contacts, files, etc.)\n\nThis action CANNOT be undone!'
-      : 'Are you sure you want to delete this family? This will remove all children. Parent accounts will be preserved but can be deleted separately.';
-
-    if (!window.confirm(message)) {
-      return;
-    }
-
     try {
       const url = deleteAccounts ? `/families/${familyId}?deleteParents=true` : `/families/${familyId}`;
       await api.delete(url);
+      setShowDeleteModal(false);
+      setDeletingFamily(null);
       loadFamilies();
       loadChildDirectory();
     } catch (error) {
       console.error('Delete family error:', error);
       alert(error.response?.data?.error || 'Failed to delete family');
     }
+  };
+
+  const openDeleteModal = (family) => {
+    setDeletingFamily(family);
+    setShowDeleteModal(true);
   };
 
   const resetForm = () => {
@@ -208,6 +288,7 @@ function AdminFamilies() {
       childLastName: '',
       childDob: '',
       childStatus: 'ACTIVE',
+      childMonthlyRate: '',
       allergies: { common: [], other: '' },
       medical_notes: '',
       emergency_contact_name: '',
@@ -216,6 +297,150 @@ function AdminFamilies() {
       notes: '',
     });
     setFormEmergencyContacts([]);
+  };
+
+  const handleOpenEditFamily = (family) => {
+    setSelectedFamily(family);
+
+    // Populate edit form from family data
+    const parent1 = family.parents && family.parents.length > 0 ? family.parents[0] : null;
+    const parent2 = family.parents && family.parents.length > 1 ? family.parents[1] : null;
+    const child = family.children && family.children.length > 0 ? family.children[0] : null;
+
+    // Parse allergies
+    let allergiesData = { common: [], other: '' };
+    if (child && child.allergies) {
+      try {
+        if (typeof child.allergies === 'string') {
+          allergiesData = JSON.parse(child.allergies);
+        } else {
+          allergiesData = child.allergies;
+        }
+      } catch (e) {
+        allergiesData = { common: [], other: child.allergies };
+      }
+    }
+
+    // Format date properly for input[type="date"] (YYYY-MM-DD)
+    let formattedDob = '';
+    if (child?.date_of_birth) {
+      const dobDate = new Date(child.date_of_birth);
+      formattedDob = dobDate.toISOString().split('T')[0];
+    }
+
+    setEditForm({
+      parent1Id: parent1?.parent_id || null,
+      parent1FirstName: parent1?.parent_first_name || '',
+      parent1LastName: parent1?.parent_last_name || '',
+      parent1Email: parent1?.parent_email || '',
+      parent1Phone: parent1?.parent_phone || '',
+      parent2Id: parent2?.parent_id || null,
+      parent2FirstName: parent2?.parent_first_name || '',
+      parent2LastName: parent2?.parent_last_name || '',
+      parent2Email: parent2?.parent_email || '',
+      parent2Phone: parent2?.parent_phone || '',
+      childId: child?.id || null,
+      childFirstName: child?.first_name || '',
+      childLastName: child?.last_name || '',
+      childDob: formattedDob,
+      childStatus: child?.status || 'ACTIVE',
+      childMonthlyRate: child?.monthly_rate || '',
+      allergies: allergiesData,
+      medical_notes: child?.medical_notes || '',
+      notes: child?.notes || ''
+    });
+
+    // Load emergency contacts for the child
+    if (child?.id) {
+      loadEditEmergencyContacts(child.id);
+    } else {
+      setEditEmergencyContacts([]);
+    }
+
+    setShowFamilyDetails(true);
+  };
+
+  const loadEditEmergencyContacts = async (childId) => {
+    try {
+      const response = await api.get(`/children/${childId}/emergency-contacts`);
+      setEditEmergencyContacts(response.data.emergency_contacts || []);
+    } catch (error) {
+      console.error('Error loading emergency contacts:', error);
+      setEditEmergencyContacts([]);
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Update Parent 1 if exists
+      if (editForm.parent1Id) {
+        await api.patch(`/parents/${editForm.parent1Id}`, {
+          firstName: editForm.parent1FirstName,
+          lastName: editForm.parent1LastName,
+          email: editForm.parent1Email,
+          phone: editForm.parent1Phone
+        });
+      }
+
+      // Update Parent 2 if exists
+      if (editForm.parent2Id) {
+        await api.patch(`/parents/${editForm.parent2Id}`, {
+          firstName: editForm.parent2FirstName,
+          lastName: editForm.parent2LastName,
+          email: editForm.parent2Email,
+          phone: editForm.parent2Phone
+        });
+      }
+
+      // Update Child if exists (backend expects snake_case fields)
+      if (editForm.childId) {
+        await api.patch(`/children/${editForm.childId}`, {
+          first_name: editForm.childFirstName,
+          last_name: editForm.childLastName,
+          date_of_birth: editForm.childDob,
+          status: editForm.childStatus,
+          monthly_rate: editForm.childMonthlyRate,
+          allergies: JSON.stringify(editForm.allergies),
+          medical_notes: editForm.medical_notes,
+          notes: editForm.notes
+        });
+      }
+
+      // Close modal and refresh
+      setShowFamilyDetails(false);
+      setSelectedFamily(null);
+      loadFamilies();
+      loadChildDirectory();
+      loadParentDirectory();
+
+      alert('Family updated successfully!');
+    } catch (error) {
+      console.error('Error updating family:', error);
+      alert(error.response?.data?.error || 'Failed to update family');
+    }
+  };
+
+  const handleEditAllergyToggle = (allergy) => {
+    const current = editForm.allergies.common || [];
+    if (current.includes(allergy)) {
+      setEditForm({
+        ...editForm,
+        allergies: {
+          ...editForm.allergies,
+          common: current.filter(a => a !== allergy)
+        }
+      });
+    } else {
+      setEditForm({
+        ...editForm,
+        allergies: {
+          ...editForm.allergies,
+          common: [...current, allergy]
+        }
+      });
+    }
   };
 
   const handleAllergyToggle = (allergy) => {
@@ -325,7 +550,7 @@ function AdminFamilies() {
       }
     }
 
-    setEditForm({
+    setChildEditForm({
       allergies: allergiesData,
       medical_notes: child.medical_notes || '',
       notes: child.notes || ''
@@ -453,15 +678,15 @@ function AdminFamilies() {
     }
   };
 
-  const handleEditAllergyToggle = (allergy) => {
-    const current = editForm.allergies?.common || [];
+  const handleChildAllergyToggle = (allergy) => {
+    const current = childEditForm.allergies?.common || [];
 
     // Handle "None" option - if selected, clear all others
     if (allergy === 'None') {
-      setEditForm({
-        ...editForm,
+      setChildEditForm({
+        ...childEditForm,
         allergies: {
-          ...editForm.allergies,
+          ...childEditForm.allergies,
           common: current.includes('None') ? [] : ['None']
         }
       });
@@ -472,18 +697,18 @@ function AdminFamilies() {
     const filteredCurrent = current.filter(a => a !== 'None');
 
     if (filteredCurrent.includes(allergy)) {
-      setEditForm({
-        ...editForm,
+      setChildEditForm({
+        ...childEditForm,
         allergies: {
-          ...editForm.allergies,
+          ...childEditForm.allergies,
           common: filteredCurrent.filter(a => a !== allergy)
         }
       });
     } else {
-      setEditForm({
-        ...editForm,
+      setChildEditForm({
+        ...childEditForm,
         allergies: {
-          ...editForm.allergies,
+          ...childEditForm.allergies,
           common: [...filteredCurrent, allergy]
         }
       });
@@ -492,7 +717,7 @@ function AdminFamilies() {
 
   const handleSaveChild = async (childId) => {
     try {
-      await api.patch(`/children/${childId}`, editForm);
+      await api.patch(`/children/${childId}`, childEditForm);
       await saveEmergencyContacts(childId);
       setEditingChild(null);
       setEmergencyContacts([]);
@@ -506,7 +731,7 @@ function AdminFamilies() {
 
   const handleCancelEdit = () => {
     setEditingChild(null);
-    setEditForm({});
+    setChildEditForm({});
     setEmergencyContacts([]);
   };
 
@@ -516,8 +741,8 @@ function AdminFamilies() {
     try {
       // Prepare the payload - convert allergies object to JSON string
       const payload = {
-        ...editForm,
-        allergies: editForm.allergies ? JSON.stringify(editForm.allergies) : null
+        ...childEditForm,
+        allergies: childEditForm.allergies ? JSON.stringify(childEditForm.allergies) : null
       };
 
       console.log('Saving child data:', payload);
@@ -544,7 +769,7 @@ function AdminFamilies() {
   const handleCancelDirectoryEdit = () => {
     setShowDirectoryEditModal(false);
     setDirectoryEditingChild(null);
-    setEditForm({});
+    setChildEditForm({});
     setEmergencyContacts([]);
   };
 
@@ -743,11 +968,22 @@ function AdminFamilies() {
   const getFilteredChildren = () => {
     let filtered = [...childDirectory];
 
-    // Filter by status
+    // Filter by status - handle enrolled (ACTIVE + ENROLLED) separately
     if (directoryFilters.status !== 'all') {
-      filtered = filtered.filter(child =>
-        child.status?.toUpperCase() === directoryFilters.status.toUpperCase()
-      );
+      if (directoryFilters.status === 'enrolled') {
+        filtered = filtered.filter(child => {
+          const status = child.status?.toUpperCase();
+          return status === 'ACTIVE' || status === 'ENROLLED';
+        });
+      } else if (directoryFilters.status === 'waitlist') {
+        filtered = filtered.filter(child =>
+          child.status?.toUpperCase() === 'WAITLIST'
+        );
+      } else if (directoryFilters.status === 'inactive') {
+        filtered = filtered.filter(child =>
+          child.status?.toUpperCase() === 'INACTIVE'
+        );
+      }
     }
 
     // Filter by allergies
@@ -776,50 +1012,495 @@ function AdminFamilies() {
       });
     }
 
+    // Apply sorting based on childSort state
+    if (childSort === 'age') {
+      // Sort by age (youngest first)
+      filtered.sort((a, b) => {
+        const dobA = a.date_of_birth ? new Date(a.date_of_birth) : new Date(0);
+        const dobB = b.date_of_birth ? new Date(b.date_of_birth) : new Date(0);
+        return dobB - dobA; // More recent dates first (younger children)
+      });
+    } else {
+      // Sort alphabetically by last name, then first name
+      filtered.sort((a, b) => {
+        const lastA = (a.last_name || '').toLowerCase();
+        const lastB = (b.last_name || '').toLowerCase();
+        if (lastA !== lastB) {
+          return lastA.localeCompare(lastB);
+        }
+        const firstA = (a.first_name || '').toLowerCase();
+        const firstB = (b.first_name || '').toLowerCase();
+        return firstA.localeCompare(firstB);
+      });
+    }
+
+    // For waitlist children, maintain priority order within their group
+    if (directoryFilters.status === 'waitlist') {
+      filtered.sort((a, b) => {
+        const priorityA = a.waitlist_priority || 9999;
+        const priorityB = b.waitlist_priority || 9999;
+        return priorityA - priorityB;
+      });
+    }
+
+    return filtered;
+  };
+
+  // Get child counts for summary
+  const getChildCounts = () => {
+    const enrolled = childDirectory.filter(c => {
+      const status = c.status?.toUpperCase();
+      return status === 'ACTIVE' || status === 'ENROLLED';
+    }).length;
+    const waitlist = childDirectory.filter(c =>
+      c.status?.toUpperCase() === 'WAITLIST'
+    ).length;
+    const inactive = childDirectory.filter(c =>
+      c.status?.toUpperCase() === 'INACTIVE'
+    ).length;
+    return { enrolled, waitlist, inactive, total: childDirectory.length };
+  };
+
+  // Parent Directory Helper Functions
+  const getParentFullName = (parent) => {
+    return `${parent.first_name || ''} ${parent.last_name || ''}`.trim() || 'Unnamed Parent';
+  };
+
+  const getParentChildren = (parent) => {
+    if (!parent.children || parent.children.length === 0) return '—';
+    const childrenArray = typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
+    return childrenArray
+      .map(c => `${c.first_name} ${c.last_name}`)
+      .join(', ') || '—';
+  };
+
+  const getParentChildrenWithStatus = (parent) => {
+    if (!parent.children || parent.children.length === 0) return [];
+    return typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
+  };
+
+  // Family Helper Functions
+  const getFilteredFamilies = () => {
+    let filtered = [...families];
+
+    // Search filter
+    if (familyFilters.search) {
+      const searchLower = familyFilters.search.toLowerCase();
+      filtered = filtered.filter(family => {
+        const primaryParent = family.primary_parent || (family.parents && family.parents[0]);
+        const parentName = primaryParent
+          ? `${primaryParent.parent_first_name} ${primaryParent.parent_last_name}`.toLowerCase()
+          : '';
+        const parentEmail = primaryParent?.parent_email?.toLowerCase() || '';
+        const childNames = family.children.map(c => `${c.first_name} ${c.last_name}`.toLowerCase()).join(' ');
+
+        return parentName.includes(searchLower) ||
+               parentEmail.includes(searchLower) ||
+               childNames.includes(searchLower);
+      });
+    }
+
+    return filtered;
+  };
+
+  const getFamilyCounts = () => {
+    const totalFamilies = families.length;
+    let totalEnrolled = 0;
+    let totalWaitlist = 0;
+
+    families.forEach(family => {
+      family.children.forEach(child => {
+        const status = child.status?.toUpperCase();
+        if (status === 'ACTIVE' || status === 'ENROLLED') {
+          totalEnrolled++;
+        } else if (status === 'WAITLIST') {
+          totalWaitlist++;
+        }
+      });
+    });
+
+    return { totalFamilies, totalEnrolled, totalWaitlist };
+  };
+
+  const getBillingStatusBadge = (parent) => {
+    const outstanding = parseFloat(parent.total_outstanding || 0);
+    if (outstanding > 0) {
+      return { label: `$${outstanding.toFixed(2)} Due`, class: 'badge-overdue' };
+    }
+    return { label: 'Current', class: 'badge-approved' };
+  };
+
+  const toggleParentRow = (parentId) => {
+    setExpandedParentRows(prev => {
+      const isCurrentlyExpanded = prev[parentId];
+      return { [parentId]: !isCurrentlyExpanded };
+    });
+  };
+
+  const getFilteredParents = () => {
+    let filtered = [...parentDirectory];
+
+    // Filter by account status
+    if (parentFilters.status !== 'all') {
+      const isActive = parentFilters.status === 'active';
+      filtered = filtered.filter(parent => parent.is_active === isActive);
+    }
+
+    // Filter by has children
+    if (parentFilters.hasChildren === 'yes') {
+      filtered = filtered.filter(parent => {
+        const childrenArray = typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
+        return childrenArray && childrenArray.length > 0;
+      });
+    } else if (parentFilters.hasChildren === 'no') {
+      filtered = filtered.filter(parent => {
+        const childrenArray = typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
+        return !childrenArray || childrenArray.length === 0;
+      });
+    }
+
+    // Filter by billing status
+    if (parentFilters.billingStatus === 'overdue') {
+      filtered = filtered.filter(parent => parseFloat(parent.total_outstanding || 0) > 0);
+    } else if (parentFilters.billingStatus === 'current') {
+      filtered = filtered.filter(parent => parseFloat(parent.total_outstanding || 0) === 0);
+    }
+
+    // Filter by search
+    if (parentFilters.search.trim()) {
+      const searchLower = parentFilters.search.toLowerCase();
+      filtered = filtered.filter(parent => {
+        const fullName = getParentFullName(parent).toLowerCase();
+        const email = (parent.email || '').toLowerCase();
+        const phone = (parent.phone || '').toLowerCase();
+        const children = getParentChildren(parent).toLowerCase();
+        return fullName.includes(searchLower) ||
+               email.includes(searchLower) ||
+               phone.includes(searchLower) ||
+               children.includes(searchLower);
+      });
+    }
+
     return filtered;
   };
 
   return (
     <div className="main-content">
-      <div className="flex-between mb-2">
-        <h1>Family Management</h1>
-        <button onClick={() => {
-          setShowForm(true);
-          resetForm();
-        }}>
-          Add New Family
+      <h1>Family Management</h1>
+
+      {/* Tab Navigation - Children first (educator workflow) */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+        <button
+          onClick={() => setActiveTab('children')}
+          className={activeTab === 'children' ? 'btn' : 'btn-secondary'}
+        >
+          Children
+        </button>
+        <button
+          onClick={() => setActiveTab('parents')}
+          className={activeTab === 'parents' ? 'btn' : 'btn-secondary'}
+        >
+          Parents
+        </button>
+        <button
+          onClick={() => setActiveTab('families')}
+          className={activeTab === 'families' ? 'btn' : 'btn-secondary'}
+        >
+          Family Accounts
         </button>
       </div>
 
-      {generatedPasswords.length > 0 && (
-        <div className="alert alert-success mb-2" style={{
-          backgroundColor: '#d4edda',
-          border: '1px solid #c3e6cb',
-          padding: '1rem',
-          borderRadius: '4px',
-          marginBottom: '1rem'
-        }}>
-          <h3 style={{ marginTop: 0 }}>Family Account Created Successfully</h3>
-          {generatedPasswords.map((pwd, idx) => (
-            <div key={idx} style={{ marginBottom: '1rem' }}>
-              <p style={{ margin: '0.5rem 0' }}>
-                <strong>Login Email:</strong> {pwd.email}
-              </p>
-              <p style={{ margin: '0.5rem 0' }}>
-                <strong>Default Password:</strong> <code style={{
-                  backgroundColor: '#fff',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '3px'
-                }}>{pwd.password}</code>
-              </p>
+      {/* FAMILIES TAB */}
+      {activeTab === 'families' && (
+        <>
+          <div className="card">
+            <div className="report-card-header">
+              <div>
+                <h2 className="report-card-title">Family Accounts</h2>
+                <p className="report-card-subtitle">Households combining parents, children, and parent logins</p>
+              </div>
+              {!familiesLoading && (() => {
+                const counts = getFamilyCounts();
+                return (
+                  <div className="report-card-actions">
+                    <span className="badge open" style={{ marginRight: '0.5rem' }}>
+                      {counts.totalFamilies} {counts.totalFamilies === 1 ? 'Family' : 'Families'}
+                    </span>
+                    {counts.totalEnrolled > 0 && (
+                      <span className="badge badge-approved" style={{ marginRight: '0.5rem' }}>
+                        {counts.totalEnrolled} Enrolled
+                      </span>
+                    )}
+                    {counts.totalWaitlist > 0 && (
+                      <span className="badge badge-pending">
+                        {counts.totalWaitlist} Waitlist
+                      </span>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowForm(true);
+                        resetForm();
+                      }}
+                    >
+                      Add New Family
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
-          ))}
-          <p style={{ margin: '0.5rem 0', fontSize: '0.9rem', color: '#856404' }}>
-            Please provide these credentials to the parents. They can change their password after logging in.
-          </p>
-          <button onClick={() => setGeneratedPasswords([])} style={{ marginTop: '0.5rem' }}>Dismiss</button>
-        </div>
-      )}
+
+            {!familiesLoading && families.length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: '1rem',
+                marginBottom: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Search Families</label>
+                  <input
+                    type="text"
+                    placeholder="Search by parent name, email, or child name..."
+                    value={familyFilters.search}
+                    onChange={(e) => setFamilyFilters({ ...familyFilters, search: e.target.value })}
+                    style={{ fontSize: '0.9rem' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {familiesLoading ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', color: '#666' }}>
+                Loading families...
+              </div>
+            ) : familiesError ? (
+              <div
+                className="alert alert-error"
+                style={{
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#f8d7da',
+                  color: '#721c24',
+                  border: '1px solid #f5c6cb',
+                  borderRadius: '4px',
+                }}
+              >
+                <strong>Error:</strong> {familiesError}
+                <button
+                  onClick={loadFamilies}
+                  style={{
+                    marginLeft: '1rem',
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : families.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                <p>No families yet. Use "Add New Family" above to create a family with parents and a child.</p>
+              </div>
+            ) : getFilteredFamilies().length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                <p>No families match your search.</p>
+                <button
+                  onClick={() => setFamilyFilters({ search: '' })}
+                  className="secondary"
+                  style={{ marginTop: '1rem' }}
+                >
+                  Clear Search
+                </button>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Family</th>
+                      <th>Primary Contact</th>
+                      <th>Children</th>
+                      <th>Parents</th>
+                      <th>Monthly Rate</th>
+                      <th>Login Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getFilteredFamilies().map((family) => {
+                      const primaryParent = family.primary_parent || (family.parents && family.parents[0]);
+                      const enrolledChildren = family.children.filter(c => {
+                        const status = c.status?.toUpperCase();
+                        return status === 'ACTIVE' || status === 'ENROLLED';
+                      });
+                      const waitlistChildren = family.children.filter(c => c.status?.toUpperCase() === 'WAITLIST');
+
+                      return (
+                        <tr key={family.family_id}>
+                          <td>
+                            <div>
+                              {primaryParent ? (
+                                `${primaryParent.parent_last_name} Family`
+                              ) : family.children && family.children.length > 0 ? (
+                                `${family.children[0].last_name} (Child-only record)`
+                              ) : (
+                                'Unlinked Family'
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            {primaryParent ? (
+                              <div>
+                                <div>
+                                  {primaryParent.parent_first_name} {primaryParent.parent_last_name}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                  {primaryParent.parent_email || '—'}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                  {primaryParent.parent_phone || '—'}
+                                </div>
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {family.children.map((child) => (
+                                <span
+                                  key={child.id}
+                                  className={`badge ${child.status?.toUpperCase() === 'WAITLIST' ? 'badge-pending' : 'badge-approved'}`}
+                                  style={{
+                                    fontSize: '0.95rem',
+                                    fontWeight: 'normal',
+                                    padding: '0.25rem 0.6rem',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {child.first_name} {child.last_name}
+                                  {child.status?.toUpperCase() === 'WAITLIST' && ' (Waitlist)'}
+                                </span>
+                              ))}
+                            </div>
+                            <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: '#666' }}>
+                              {enrolledChildren.length > 0 && `${enrolledChildren.length} enrolled`}
+                              {enrolledChildren.length > 0 && waitlistChildren.length > 0 && ', '}
+                              {waitlistChildren.length > 0 && `${waitlistChildren.length} waitlist`}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {family.parents && family.parents.map((parent, idx) => (
+                                <span
+                                  key={idx}
+                                  className="badge"
+                                  style={{
+                                    fontSize: '0.95rem',
+                                    fontWeight: 'normal',
+                                    padding: '0.25rem 0.6rem',
+                                    backgroundColor: '#fff',
+                                    border: '1px solid #dee2e6',
+                                    borderRadius: '3px',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {parent.parent_first_name} {parent.parent_last_name}
+                                  {parent.is_primary_contact && ' (Primary)'}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            {family.total_monthly_rate > 0 ? (
+                              <span className="badge badge-approved" style={{
+                                fontSize: '0.95rem',
+                                fontWeight: 'normal',
+                                padding: '0.25rem 0.6rem'
+                              }}>
+                                ${family.total_monthly_rate.toFixed(2)}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            <span className={`badge ${family.all_accounts_active ? 'badge-approved' : 'badge-draft'}`} style={{
+                              fontSize: '0.95rem',
+                              fontWeight: 'normal',
+                              padding: '0.25rem 0.6rem'
+                            }}>
+                              {family.all_accounts_active ? 'Active' : 'Disabled'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="flex" style={{ gap: '0.5rem' }}>
+                              <button
+                                onClick={() => handleOpenEditFamily(family)}
+                                style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className={family.all_accounts_active ? 'danger' : 'success'}
+                                onClick={() => handleToggleStatus(family.family_id, family.all_accounts_active)}
+                                style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
+                              >
+                                {family.all_accounts_active ? 'Disable' : 'Enable'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {generatedPasswords.length > 0 && (
+            <div className="alert alert-success" style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              backgroundColor: '#d4edda',
+              border: '1px solid #c3e6cb',
+              borderRadius: '4px'
+            }}>
+              <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Family Created Successfully</h3>
+              <p style={{ margin: '0 0 1rem 0', color: '#155724' }}>
+                Parent login accounts have been created. Please provide these credentials to the parents securely.
+              </p>
+              {generatedPasswords.map((pwd, idx) => (
+                <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '4px' }}>
+                  <p style={{ margin: '0.25rem 0' }}>
+                    <strong>Login Email:</strong> {pwd.email}
+                  </p>
+                  <p style={{ margin: '0.25rem 0' }}>
+                    <strong>Default Password:</strong>{' '}
+                    <code style={{
+                      backgroundColor: '#f8f9fa',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '3px',
+                      border: '1px solid #dee2e6'
+                    }}>
+                      {pwd.password}
+                    </code>
+                  </p>
+                </div>
+              ))}
+              <p style={{ margin: '0.5rem 0 1rem 0', fontSize: '0.875rem', color: '#155724' }}>
+                Parents can change their password after first login.
+              </p>
+              <button onClick={() => setGeneratedPasswords([])} className="btn-sm secondary">
+                Dismiss
+              </button>
+            </div>
+          )}
 
       {showForm && (
         <div style={{
@@ -1013,6 +1694,21 @@ function AdminFamilies() {
                   </select>
                   <small style={{ color: '#666', fontSize: '0.85rem' }}>
                     {formData.childStatus === 'WAITLIST' ? 'Child will be added to waitlist with automatic priority' : 'Child will be enrolled immediately'}
+                  </small>
+                </div>
+                <div className="form-group">
+                  <label>Monthly Rate</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={formData.childMonthlyRate}
+                    onChange={(e) => setFormData({ ...formData, childMonthlyRate: e.target.value })}
+                    onWheel={(e) => e.target.blur()}
+                  />
+                  <small style={{ color: '#666', fontSize: '0.85rem' }}>
+                    Monthly tuition amount for this child
                   </small>
                 </div>
               </div>
@@ -1211,17 +1907,405 @@ function AdminFamilies() {
     </div>
   )}
 
+      {/* Delete Family Confirmation Modal */}
+      {showDeleteModal && deletingFamily && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <h2 style={{ marginTop: 0, marginBottom: '1rem' }}>Delete Family</h2>
+            <p style={{ marginBottom: '1.5rem', color: '#666' }}>
+              Choose how to delete this family. This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button
+                onClick={() => handleDeleteFamily(deletingFamily.family_id, false)}
+                className="btn-sm secondary"
+                style={{ width: '100%', padding: '0.75rem', textAlign: 'left' }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Delete children only</div>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>Keep parent accounts and login access</div>
+              </button>
+              <button
+                onClick={() => handleDeleteFamily(deletingFamily.family_id, true)}
+                className="btn-sm danger"
+                style={{ width: '100%', padding: '0.75rem', textAlign: 'left' }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Delete children and parent accounts</div>
+                <div style={{ fontSize: '0.85rem', color: '#fff', opacity: 0.9 }}>Permanently remove all data and login access</div>
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletingFamily(null);
+                }}
+                className="btn-sm secondary"
+                style={{ width: '100%', marginTop: '0.5rem' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Family Modal */}
+      {showFamilyDetails && selectedFamily && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '900px',
+            width: '95%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0 }}>
+                Edit {editForm.childLastName ? `${editForm.childLastName} Family` : 'Family'}
+              </h2>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeletingFamily(selectedFamily);
+                    setShowDeleteModal(true);
+                    setShowFamilyDetails(false);
+                  }}
+                  className="danger"
+                  style={{
+                    fontSize: '0.875rem',
+                    padding: '0.5rem 0.75rem'
+                  }}
+                >
+                  Delete Family
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFamilyDetails(false);
+                    setSelectedFamily(null);
+                  }}
+                  style={{
+                    fontSize: '1.5rem',
+                    padding: 0,
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    lineHeight: 1
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <h3 style={{
+                marginTop: '1rem',
+                marginBottom: '1rem',
+                borderBottom: '2px solid #333',
+                paddingBottom: '0.5rem'
+              }}>
+                Parent 1
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.parent1FirstName}
+                    onChange={(e) => setEditForm({ ...editForm, parent1FirstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.parent1LastName}
+                    onChange={(e) => setEditForm({ ...editForm, parent1LastName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email (Login Username) *</label>
+                  <input
+                    type="email"
+                    value={editForm.parent1Email}
+                    onChange={(e) => setEditForm({ ...editForm, parent1Email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input
+                    type="tel"
+                    value={editForm.parent1Phone}
+                    onChange={(e) => setEditForm({ ...editForm, parent1Phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <h3 style={{
+                marginTop: '1.5rem',
+                marginBottom: '1rem',
+                borderBottom: '2px solid #333',
+                paddingBottom: '0.5rem'
+              }}>
+                Parent 2 (Optional)
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>First Name</label>
+                  <input
+                    type="text"
+                    value={editForm.parent2FirstName}
+                    onChange={(e) => setEditForm({ ...editForm, parent2FirstName: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name</label>
+                  <input
+                    type="text"
+                    value={editForm.parent2LastName}
+                    onChange={(e) => setEditForm({ ...editForm, parent2LastName: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email (Login Username)</label>
+                  <input
+                    type="email"
+                    value={editForm.parent2Email}
+                    onChange={(e) => setEditForm({ ...editForm, parent2Email: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input
+                    type="tel"
+                    value={editForm.parent2Phone}
+                    onChange={(e) => setEditForm({ ...editForm, parent2Phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <h3 style={{
+                marginTop: '1.5rem',
+                marginBottom: '1rem',
+                borderBottom: '2px solid #333',
+                paddingBottom: '0.5rem'
+              }}>
+                Child Information
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.childFirstName}
+                    onChange={(e) => setEditForm({ ...editForm, childFirstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.childLastName}
+                    onChange={(e) => setEditForm({ ...editForm, childLastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Date of Birth *</label>
+                  <input
+                    type="date"
+                    value={editForm.childDob}
+                    onChange={(e) => setEditForm({ ...editForm, childDob: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Enrollment Status *</label>
+                  <select
+                    value={editForm.childStatus}
+                    onChange={(e) => setEditForm({ ...editForm, childStatus: e.target.value })}
+                    required
+                    style={{ padding: '0.5rem', fontSize: '1rem' }}
+                  >
+                    <option value="ACTIVE">Active - Enrolled</option>
+                    <option value="ENROLLED">Enrolled</option>
+                    <option value="WAITLIST">Waitlist - Pending Enrollment</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Monthly Rate</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={editForm.childMonthlyRate}
+                    onChange={(e) => setEditForm({ ...editForm, childMonthlyRate: e.target.value })}
+                    onWheel={(e) => e.target.blur()}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Allergies</label>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '0.75rem',
+                  padding: '1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: '#f9f9f9'
+                }}>
+                  {COMMON_ALLERGIES.map(allergy => (
+                    <label key={allergy} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      minHeight: '24px'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={(editForm.allergies.common || []).includes(allergy)}
+                        onChange={() => handleEditAllergyToggle(allergy)}
+                        style={{
+                          marginRight: '0.5rem',
+                          flexShrink: 0,
+                          width: '16px',
+                          height: '16px'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.9rem', lineHeight: '1.2' }}>{allergy}</span>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'normal' }}>
+                    Other Allergies
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.allergies.other || ''}
+                    onChange={(e) => setEditForm({
+                      ...editForm,
+                      allergies: { ...editForm.allergies, other: e.target.value }
+                    })}
+                    placeholder="Any other allergies not listed above..."
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Medical Notes</label>
+                <textarea
+                  value={editForm.medical_notes}
+                  onChange={(e) => setEditForm({ ...editForm, medical_notes: e.target.value })}
+                  rows="2"
+                  placeholder="Medical conditions, medications, etc..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Additional Notes</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  rows="3"
+                  placeholder="Any additional information about the family..."
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button type="submit">Save Changes</button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setShowFamilyDetails(false);
+                    setSelectedFamily(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* CHILDREN TAB */}
+      {activeTab === 'children' && (
+        <>
   <div className="card">
     <div className="report-card-header">
       <div>
         <h2 className="report-card-title">Child Directory</h2>
-        <p className="report-card-subtitle">Professional roster of every enrolled child</p>
+        <p className="report-card-subtitle">
+          Complete roster with allergies, medical notes, and emergency contacts
+          {!childDirectoryLoading && childDirectory.length > 0 && (() => {
+            const counts = getChildCounts();
+            return (
+              <span style={{ color: '#666', fontSize: '0.9rem', marginLeft: '0.5rem' }}>
+                — Showing {getFilteredChildren().length} of {counts.total}
+              </span>
+            );
+          })()}
+        </p>
       </div>
-      {!childDirectoryLoading && childDirectory.length > 0 && (
-        <div className="report-card-actions">
-          <span className="badge open">Showing: {getFilteredChildren().length} of {childDirectory.length}</span>
-        </div>
-      )}
+      {!childDirectoryLoading && childDirectory.length > 0 && (() => {
+        const counts = getChildCounts();
+        return (
+          <div className="report-card-actions">
+            <span className="badge badge-approved" style={{ marginRight: '0.5rem' }}>
+              Enrolled: {counts.enrolled}
+            </span>
+            {counts.waitlist > 0 && (
+              <span className="badge badge-pending">
+                Waitlist: {counts.waitlist}
+              </span>
+            )}
+          </div>
+        );
+      })()}
     </div>
 
     {!childDirectoryLoading && childDirectory.length > 0 && (
@@ -1252,10 +2336,10 @@ function AdminFamilies() {
             onChange={(e) => setDirectoryFilters({ ...directoryFilters, status: e.target.value })}
             style={{ fontSize: '0.9rem' }}
           >
-            <option value="all">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="WAITLIST">Waitlist</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="all">All Children</option>
+            <option value="enrolled">Enrolled (Active)</option>
+            <option value="waitlist">Waitlist</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1270,9 +2354,23 @@ function AdminFamilies() {
             <option value="no">No Allergies</option>
           </select>
         </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Sort by</label>
+          <select
+            value={childSort}
+            onChange={(e) => setChildSort(e.target.value)}
+            style={{ fontSize: '0.9rem' }}
+          >
+            <option value="alpha">Alphabetical</option>
+            <option value="age">Age</option>
+          </select>
+        </div>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
           <button
-            onClick={() => setDirectoryFilters({ status: 'all', hasAllergies: 'all', search: '' })}
+            onClick={() => {
+              setDirectoryFilters({ status: 'all', hasAllergies: 'all', search: '' });
+              setChildSort('alpha');
+            }}
             className="secondary"
             style={{ fontSize: '0.875rem', padding: '0.75rem 1rem', width: '100%' }}
           >
@@ -1381,25 +2479,22 @@ function AdminFamilies() {
                         </span>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className="flex" style={{ gap: '0.5rem' }}>
                           <button
                             onClick={() => handleEditChild(child, true)}
                             style={{
-                              fontSize: '0.875rem',
-                              padding: '0.5rem 0.75rem',
-                              backgroundColor: '#007bff',
-                              color: 'white',
+                              padding: '0.75rem 1rem',
+                              fontSize: '0.875rem'
                             }}
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleViewFiles(child)}
+                            className="secondary"
                             style={{
-                              fontSize: '0.875rem',
-                              padding: '0.5rem 0.75rem',
-                              backgroundColor: '#6c757d',
-                              color: 'white',
+                              padding: '0.75rem 1rem',
+                              fontSize: '0.875rem'
                             }}
                           >
                             Files
@@ -1941,8 +3036,8 @@ function AdminFamilies() {
                         }}>
                           <input
                             type="checkbox"
-                            checked={(editForm.allergies?.common || []).includes(allergy)}
-                            onChange={() => handleEditAllergyToggle(allergy)}
+                            checked={(childEditForm.allergies?.common || []).includes(allergy)}
+                            onChange={() => handleChildAllergyToggle(allergy)}
                             style={{
                               marginRight: '0.4rem',
                               flexShrink: 0,
@@ -1956,10 +3051,10 @@ function AdminFamilies() {
                     </div>
                     <input
                       type="text"
-                      value={editForm.allergies?.other || ''}
-                      onChange={(e) => setEditForm({
-                        ...editForm,
-                        allergies: { ...editForm.allergies, other: e.target.value }
+                      value={childEditForm.allergies?.other || ''}
+                      onChange={(e) => setChildEditForm({
+                        ...childEditForm,
+                        allergies: { ...childEditForm.allergies, other: e.target.value }
                       })}
                       placeholder="Other allergies..."
                       style={{ fontSize: '0.875rem' }}
@@ -1974,7 +3069,7 @@ function AdminFamilies() {
                     fontSize: '0.875rem',
                     color: '#666'
                   }}>
-                    {formatAllergies(editForm.allergies) || 'None'}
+                    {formatAllergies(childEditForm.allergies) || 'None'}
                   </div>
                 )}
               </div>
@@ -1993,8 +3088,8 @@ function AdminFamilies() {
               <div className="form-group">
                 <label>Medical Notes</label>
                 <textarea
-                  value={editForm.medical_notes}
-                  onChange={(e) => setEditForm({ ...editForm, medical_notes: e.target.value })}
+                  value={childEditForm.medical_notes}
+                  onChange={(e) => setChildEditForm({ ...childEditForm, medical_notes: e.target.value })}
                   rows="2"
                   placeholder="Medical conditions, medications, etc..."
                 />
@@ -2002,8 +3097,8 @@ function AdminFamilies() {
               <div className="form-group">
                 <label>Additional Notes</label>
                 <textarea
-                  value={editForm.notes}
-                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  value={childEditForm.notes}
+                  onChange={(e) => setChildEditForm({ ...childEditForm, notes: e.target.value })}
                   rows="2"
                   placeholder="Any other important information"
                 />
@@ -2048,6 +3143,268 @@ function AdminFamilies() {
             </div>
           </div>
         </div>
+      )}
+        </>
+      )}
+
+      {/* PARENTS TAB */}
+      {activeTab === 'parents' && (
+        <>
+          <div className="card">
+            <div className="report-card-header">
+              <div>
+                <h2 className="report-card-title">Parent Directory</h2>
+                <p className="report-card-subtitle">
+                  Complete contact information for all parents
+                  {!parentDirectoryLoading && parentDirectory.length > 0 && (
+                    <span style={{ color: '#666', fontSize: '0.9rem', marginLeft: '0.5rem' }}>
+                      — Showing {getFilteredParents().length} of {parentDirectory.length}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Filters */}
+            {!parentDirectoryLoading && parentDirectory.length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Search</label>
+                  <input
+                    type="text"
+                    placeholder="Name, email, phone..."
+                    value={parentFilters.search}
+                    onChange={(e) => setParentFilters({ ...parentFilters, search: e.target.value })}
+                    style={{ fontSize: '0.9rem' }}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Account Status</label>
+                  <select
+                    value={parentFilters.status}
+                    onChange={(e) => setParentFilters({ ...parentFilters, status: e.target.value })}
+                    style={{ fontSize: '0.9rem' }}
+                  >
+                    <option value="all">All Accounts</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Has Children</label>
+                  <select
+                    value={parentFilters.hasChildren}
+                    onChange={(e) => setParentFilters({ ...parentFilters, hasChildren: e.target.value })}
+                    style={{ fontSize: '0.9rem' }}
+                  >
+                    <option value="all">All Parents</option>
+                    <option value="yes">Has Children</option>
+                    <option value="no">No Children</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Billing Status</label>
+                  <select
+                    value={parentFilters.billingStatus}
+                    onChange={(e) => setParentFilters({ ...parentFilters, billingStatus: e.target.value })}
+                    style={{ fontSize: '0.9rem' }}
+                  >
+                    <option value="all">All Billing Statuses</option>
+                    <option value="current">Current</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <button
+                    onClick={() => setParentFilters({ status: 'all', hasChildren: 'all', billingStatus: 'all', search: '' })}
+                    className="secondary"
+                    style={{ fontSize: '0.875rem', padding: '0.75rem 1rem', width: '100%' }}
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading/Error States */}
+            {parentDirectoryLoading ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', color: '#666' }}>
+                Loading parent directory...
+              </div>
+            ) : parentDirectoryError ? (
+              <div className="alert alert-error" style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#f8d7da',
+                color: '#721c24',
+                border: '1px solid #f5c6cb',
+                borderRadius: '4px',
+              }}>
+                {parentDirectoryError}
+              </div>
+            ) : parentDirectory.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>
+                No parents found. Once families are added, parents will appear here.
+              </p>
+            ) : getFilteredParents().length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>
+                No parents match your current filters. Try adjusting the filters above.
+              </p>
+            ) : (
+              <>
+                {/* Parent Table */}
+                <div className="child-table-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: '180px' }}>Name</th>
+                        <th style={{ minWidth: '180px' }}>Email</th>
+                        <th style={{ minWidth: '120px' }}>Phone</th>
+                        <th style={{ minWidth: '200px' }}>Children</th>
+                        <th style={{ minWidth: '120px' }}>Account Status</th>
+                        <th style={{ minWidth: '140px' }}>Billing Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getFilteredParents().map((parent) => {
+                        const isExpanded = expandedParentRows[parent.id];
+                        const hasDetails = parent.address_line1 || parent.notes;
+                        const billingBadge = getBillingStatusBadge(parent);
+                        const childrenArray = typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
+
+                        return (
+                          <React.Fragment key={parent.id}>
+                            <tr
+                              onClick={() => hasDetails && toggleParentRow(parent.id)}
+                              style={{
+                                cursor: hasDetails ? 'pointer' : 'default',
+                                backgroundColor: isExpanded ? '#f8f9fa' : 'transparent'
+                              }}
+                            >
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {hasDetails && (
+                                    <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                                      {isExpanded ? '▼' : '▶'}
+                                    </span>
+                                  )}
+                                  <span>{getParentFullName(parent)}</span>
+                                </div>
+                              </td>
+                              <td>{parent.email || '—'}</td>
+                              <td>{parent.phone || '—'}</td>
+                              <td>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                  {getParentChildrenWithStatus(parent).map((child, idx) => (
+                                    <span key={idx} className={`badge ${child.status === 'WAITLIST' ? 'badge-pending' : 'badge-approved'}`} style={{
+                                      fontSize: '0.95rem',
+                                      fontWeight: 'normal',
+                                      padding: '0.25rem 0.6rem',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {child.first_name} {child.last_name}
+                                      {child.status === 'WAITLIST' && ' (Waitlist)'}
+                                    </span>
+                                  ))}
+                                  {getParentChildrenWithStatus(parent).length === 0 && <span>—</span>}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`badge ${parent.is_active ? 'badge-approved' : 'badge-draft'}`} style={{
+                                  fontSize: '0.95rem',
+                                  fontWeight: 'normal',
+                                  padding: '0.25rem 0.6rem'
+                                }}>
+                                  {parent.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`badge ${billingBadge.class}`} style={{
+                                  fontSize: '0.95rem',
+                                  fontWeight: 'normal',
+                                  padding: '0.25rem 0.6rem'
+                                }}>
+                                  {billingBadge.label}
+                                </span>
+                              </td>
+                            </tr>
+                            {isExpanded && hasDetails && (
+                              <tr style={{ backgroundColor: '#f8f9fa' }}>
+                                <td colSpan="6" style={{ padding: '1rem' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                    {parent.address_line1 && (
+                                      <div>
+                                        <div style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem', color: '#495057' }}>
+                                          Address
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', color: '#666', backgroundColor: '#fff', padding: '0.75rem', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                                          {parent.address_line1}
+                                          {parent.address_line2 && <><br />{parent.address_line2}</>}
+                                          {(parent.city || parent.province || parent.postal_code) && (
+                                            <><br />{[parent.city, parent.province, parent.postal_code].filter(Boolean).join(', ')}</>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {parent.notes && (
+                                      <div>
+                                        <div style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem', color: '#495057' }}>
+                                          Notes
+                                        </div>
+                                        <div style={{ fontSize: '0.875rem', color: '#666', backgroundColor: '#fff', padding: '0.75rem', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                                          {parent.notes}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {childrenArray && childrenArray.length > 0 && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                      <div style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem', color: '#495057' }}>
+                                        Children Details
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {childrenArray.map((child, idx) => (
+                                          <span key={idx} style={{
+                                            fontSize: '0.85rem',
+                                            padding: '0.4rem 0.75rem',
+                                            backgroundColor: '#fff',
+                                            border: '1px solid #dee2e6',
+                                            borderRadius: '4px'
+                                          }}>
+                                            {child.first_name} {child.last_name}
+                                            {child.is_primary_contact && (
+                                              <span className="badge badge-approved" style={{ marginLeft: '0.5rem', fontSize: '0.7rem', padding: '0.125rem 0.375rem' }}>Primary</span>
+                                            )}
+                                            {child.has_billing_responsibility && (
+                                              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#666' }}>(Billing)</span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

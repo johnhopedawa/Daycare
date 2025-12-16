@@ -34,7 +34,21 @@
       "Bash(docker ps:*)",
       "Bash(timeout 3 curl:*)",
       "Bash(tasklist:*)",
-      "Bash(timeout 5 docker compose logs:*)"
+      "Bash(timeout 5 docker compose logs:*)",
+      "Bash(timeout 5 netstat:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(move \"backend\\viewDB.js\" \"TBD\\backend\"\" && move \"backendsetup-admin.js\" \"TBDbackend\"\")",
+      "Bash(move \"backend\\cleanup-database.js\" \"TBD\\backend\"\" && move \"backendverify-phase3.js\" \"TBDbackend\"\")",
+      "Bash(move \"backend\\test-parent-portal.js\" \"TBD\\backend\"\" && move \"test-scheduling.js\" \"TBD\"\")",
+      "Bash(move \"test-scheduling.sh\" \"TBD\"\")",
+      "Bash(move backendviewDB.js TBDbackend)",
+      "Bash(move backendsetup-admin.js TBDbackend)",
+      "Bash(move backendcleanup-database.js TBDbackend)",
+      "Bash(move backendverify-phase3.js TBDbackend)",
+      "Bash(move backendtest-parent-portal.js TBDbackend)"
     ],
     "deny": [],
     "ask": []

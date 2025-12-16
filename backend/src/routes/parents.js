@@ -149,6 +149,59 @@ router.post('/create-family', async (req, res) => {
   }
 });
 
+// Get parent directory with children and status
+router.get('/directory', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        p.id,
+        p.first_name,
+        p.last_name,
+        p.email,
+        p.phone,
+        p.address_line1,
+        p.address_line2,
+        p.city,
+        p.province,
+        p.postal_code,
+        p.notes,
+        p.is_active,
+        p.created_at,
+        u.id as user_id,
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id', c.id,
+              'first_name', c.first_name,
+              'last_name', c.last_name,
+              'status', c.status,
+              'is_primary_contact', pc.is_primary_contact,
+              'has_billing_responsibility', pc.has_billing_responsibility
+            )
+          ) FILTER (WHERE c.id IS NOT NULL),
+          '[]'
+        ) as children,
+        COUNT(DISTINCT CASE WHEN pi.status IN ('SENT', 'OVERDUE') THEN pi.id END) as unpaid_invoices,
+        COALESCE(SUM(CASE WHEN pi.status IN ('SENT', 'OVERDUE') THEN pi.balance_due ELSE 0 END), 0) as total_outstanding
+      FROM parents p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN parent_children pc ON p.id = pc.parent_id
+      LEFT JOIN children c ON pc.child_id = c.id
+      LEFT JOIN parent_invoices pi ON p.id = pi.parent_id AND pi.status IN ('SENT', 'OVERDUE')
+      GROUP BY p.id, u.id
+      ORDER BY p.last_name, p.first_name
+    `);
+
+    res.json({
+      parents: result.rows,
+      totalCount: result.rows.length
+    });
+  } catch (error) {
+    console.error('Get parent directory error:', error);
+    res.status(500).json({ error: 'Failed to fetch parent directory' });
+  }
+});
+
 // Get all parents
 router.get('/', async (req, res) => {
   try {

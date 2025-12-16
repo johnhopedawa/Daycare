@@ -63,7 +63,7 @@ function ParentMessages() {
     <div className="main-content">
       <h1>Messages</h1>
 
-      <button onClick={() => setShowCompose(!showCompose)} className="btn" style={{ marginBottom: '1rem' }}>
+      <button onClick={() => setShowCompose(!showCompose)} style={{ marginBottom: '1rem' }}>
         {showCompose ? 'Cancel' : 'Compose Message'}
       </button>
 
@@ -116,7 +116,7 @@ function ParentMessages() {
         ))
       )}
 
-      <button onClick={() => navigate('/parent/dashboard')} className="btn-secondary">
+      <button onClick={() => navigate('/parent/dashboard')} className="secondary">
         Back to Dashboard
       </button>
     </div>

@@ -104,9 +104,8 @@ function MyHours() {
                 <td>
                   {entry.status === 'PENDING' && (
                     <button
-                      className="danger"
+                      className="btn-sm danger"
                       onClick={() => handleDelete(entry.id)}
-                      style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
                     >
                       Delete
                     </button>
