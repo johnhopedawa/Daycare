@@ -39,3 +39,11 @@ docker-compose.yml
 # Uploads (if any)
 uploads/
 temp/
+
+# OTHER THINGS
+GETTING_STARTED.md
+BUTTON_REFACTOR_LOG.md
+CODEBASE_CONTEXT.md
+PRIVACY POLICY.HTML
+Privacy Policy.pdf
+SIMPLEFIN_FIREFLY_IMPLEMENTATION_PLAN.md
