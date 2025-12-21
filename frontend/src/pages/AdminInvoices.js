@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminInvoices() {
@@ -244,9 +244,11 @@ function AdminInvoices() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Invoices</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => {
           setShowForm(!showForm);
           if (!showForm) {
@@ -595,7 +597,7 @@ function AdminInvoices() {
           </table>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

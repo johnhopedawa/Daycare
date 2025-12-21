@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -96,8 +96,10 @@ function LogHours() {
   };
 
   return (
-    <div className="main-content">
-      <h1>Log Hours</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Log Hours</h1>
+      </div>
 
       <div className="card mb-2">
         <h2>Choose Logging Method</h2>
@@ -233,7 +235,7 @@ function LogHours() {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   );
 }
 

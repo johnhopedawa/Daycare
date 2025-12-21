@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 
 function EducatorDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({ totalHours: 0, recentEntries: [] });
   const [loading, setLoading] = useState(true);
 
@@ -33,23 +35,33 @@ function EducatorDashboard() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <div className="main"><div className="loading">Loading...</div></div>;
 
   return (
-    <div className="main-content">
-      <h1>Dashboard</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Dashboard</h1>
+        <div className="header-welcome">Welcome back, {user.first_name}</div>
+      </div>
 
       <div className="card-grid">
         <div className="card">
           <h3>Recent Hours (Last 14 Days)</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0' }}>
-            {stats.totalHours.toFixed(2)} hrs
-          </p>
+          <div className="metric">
+            {stats.totalHours.toFixed(2)} <span>hours logged</span>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Recent Entries</h3>
+          <div className="metric">
+            {stats.recentEntries.length} <span>entries</span>
+          </div>
         </div>
       </div>
 
       <div className="card">
-        <h2>Recent Entries</h2>
+        <h2>Recent Time Entries</h2>
         {stats.recentEntries.length === 0 ? (
           <p>No time entries yet</p>
         ) : (
@@ -77,7 +89,7 @@ function EducatorDashboard() {
           </table>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -253,9 +253,11 @@ function AdminParents() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Manage Parents</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => showForm ? handleCancel() : setShowForm(true)}>
           {showForm ? 'Cancel' : 'Add Parent'}
         </button>
@@ -627,7 +629,7 @@ function AdminParents() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

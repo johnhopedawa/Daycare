@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { formatTime12Hour } from '../utils/timeFormat';
 
@@ -267,11 +267,13 @@ function AdminAttendance() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
 
   return (
-    <div className="main-content">
-      <h1 style={{ marginBottom: '1.5rem' }}>Daily Attendance</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Daily Attendance</h1>
+      </div>
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', borderRadius: '4px' }}>
@@ -784,7 +786,7 @@ function AdminAttendance() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

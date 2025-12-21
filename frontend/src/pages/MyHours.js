@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -45,12 +45,14 @@ function MyHours() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>My Hours</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => navigate('/log-hours')}>Log New Hours</button>
       </div>
 
@@ -116,7 +118,7 @@ function MyHours() {
           </tbody>
         </table>
       )}
-    </div>
+    </main>
   );
 }
 

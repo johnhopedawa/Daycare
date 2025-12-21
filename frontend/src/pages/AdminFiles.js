@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminFiles() {
@@ -189,9 +189,11 @@ function AdminFiles() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Documents & Files</h1>
+      </div>
+      <div className="flex-between mb-2">
         <div className="flex" style={{ gap: '1rem' }}>
           <button onClick={() => {
             setShowUpload(!showUpload);
@@ -430,7 +432,7 @@ function AdminFiles() {
           </table>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

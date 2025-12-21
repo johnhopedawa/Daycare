@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminPayPeriods() {
@@ -88,9 +88,11 @@ function AdminPayPeriods() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Pay Periods</h1>
+      </div>
+      <div className="flex-between mb-2">
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button onClick={() => setShowGenerate(!showGenerate)}>
             {showGenerate ? 'Cancel' : 'Auto-Generate Periods'}
@@ -313,7 +315,7 @@ function AdminPayPeriods() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

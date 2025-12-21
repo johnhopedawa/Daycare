@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect, Fragment } from 'react';
 import api from '../utils/api';
 
 function AdminFamilies() {
@@ -1185,8 +1185,10 @@ function AdminFamilies() {
   };
 
   return (
-    <div className="main-content">
-      <h1>Family Management</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Family Management</h1>
+      </div>
 
       {/* Tab Navigation - Children first (educator workflow) */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
@@ -2436,7 +2438,7 @@ function AdminFamilies() {
                 const hasNotes = child.medical_notes || child.notes;
 
                 return (
-                  <React.Fragment key={child.id}>
+                  <Fragment key={child.id}>
                     <tr
                       onClick={() => hasNotes && toggleChildRow(child.id)}
                       style={{
@@ -2530,7 +2532,7 @@ function AdminFamilies() {
                         </td>
                       </tr>
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -3282,7 +3284,7 @@ function AdminFamilies() {
                         const childrenArray = typeof parent.children === 'string' ? JSON.parse(parent.children) : parent.children;
 
                         return (
-                          <React.Fragment key={parent.id}>
+                          <Fragment key={parent.id}>
                             <tr
                               onClick={() => hasDetails && toggleParentRow(parent.id)}
                               style={{
@@ -3395,7 +3397,7 @@ function AdminFamilies() {
                                 </td>
                               </tr>
                             )}
-                          </React.Fragment>
+                          </Fragment>
                         );
                       })}
                     </tbody>
@@ -3406,7 +3408,7 @@ function AdminFamilies() {
           </div>
         </>
       )}
-    </div>
+    </main>
   );
 }
 

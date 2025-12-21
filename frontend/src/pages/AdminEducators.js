@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import api from '../utils/api';
 
 function AdminEducators() {
@@ -136,9 +136,11 @@ function AdminEducators() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Manage Educators</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancel' : 'Add Educator'}
         </button>
@@ -362,7 +364,7 @@ function AdminEducators() {
         </thead>
         <tbody>
           {educators.map((educator) => (
-            <React.Fragment key={educator.id}>
+            <Fragment key={educator.id}>
               <tr>
                 <td>
                   {educator.first_name} {educator.last_name}
@@ -592,11 +594,11 @@ function AdminEducators() {
                   </td>
                 </tr>
               )}
-            </React.Fragment>
+            </Fragment>
           ))}
         </tbody>
       </table>
-    </div>
+    </main>
   );
 }
 

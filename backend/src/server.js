@@ -17,6 +17,7 @@ const attendanceRoutes = require('./routes/attendance');
 const billingRoutes = require('./routes/billing');
 const familiesRoutes = require('./routes/families');
 const emergencyContactsRoutes = require('./routes/emergencyContacts');
+const businessExpensesRoutes = require('./routes/businessExpenses');
 
 // Parent portal routes
 const parentDashboardRoutes = require('./routes/parentDashboard');
@@ -51,6 +52,7 @@ app.use('/api/invoices', invoicesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/business-expenses', businessExpensesRoutes);
 
 // Parent portal routes (unified auth via /api/auth/login)
 app.use('/api/parent', parentDashboardRoutes);
@@ -68,4 +70,12 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  // Initialize scheduler in production only
+  if (process.env.NODE_ENV === 'production') {
+    const { initScheduler } = require('./services/scheduler');
+    initScheduler();
+  } else {
+    console.log('[Scheduler] Skipped in development mode');
+  }
 });

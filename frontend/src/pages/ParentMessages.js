@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -57,11 +57,13 @@ function ParentMessages() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
 
   return (
-    <div className="main-content">
-      <h1>Messages</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Messages</h1>
+      </div>
 
       <button onClick={() => setShowCompose(!showCompose)} style={{ marginBottom: '1rem' }}>
         {showCompose ? 'Cancel' : 'Compose Message'}
@@ -119,7 +121,7 @@ function ParentMessages() {
       <button onClick={() => navigate('/parent/dashboard')} className="secondary">
         Back to Dashboard
       </button>
-    </div>
+    </main>
   );
 }
 

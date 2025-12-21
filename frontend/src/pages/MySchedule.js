@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { formatTime12Hour } from '../utils/timeFormat';
 
@@ -125,9 +125,11 @@ function MySchedule() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>My Schedule</h1>
+      </div>
+      <div className="flex-between mb-2">
         <div className="flex" style={{ gap: '2rem', alignItems: 'center' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.875rem', color: '#666' }}>Sick Days: <strong>{parseFloat(balances.sick_days_remaining || 0).toFixed(1)}</strong></div>
@@ -273,7 +275,7 @@ function MySchedule() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

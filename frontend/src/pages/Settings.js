@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import api from '../utils/api';
 
 function Settings() {
@@ -83,8 +83,10 @@ function Settings() {
   const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
-    <div className="main-content">
-      <h1>Settings</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Settings</h1>
+      </div>
 
       <div className="card">
         <h2>Attendance Settings</h2>
@@ -238,7 +240,7 @@ function Settings() {
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }
 

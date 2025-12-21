@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Daycare Dashboard</title>
+
+  <style>
+    :root {
+      /* Brand palette */
+      --blue:   #68B6D9;
+      --green:  #B0D989;
+      --yellow: #F3E5AD;
+      --pink:   #F899A4;
+      --nav:    #0f2a44;
+
+      /* Neutrals */
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* Layout */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--nav);
+      color: #ffffff;
+      padding: 24px;
+    }
+
+    .sidebar h2 {
+      font-size: 18px;
+      margin-bottom: 32px;
+    }
+
+    .nav-item {
+      font-size: 14px;
+      margin-bottom: 14px;
+      opacity: 0.9;
+      cursor: pointer;
+    }
+
+    .nav-item.active {
+      font-weight: 700;
+      opacity: 1;
+    }
+
+    /* Main */
+    .main {
+      padding: 32px;
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .date {
+      color: var(--blue);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* Status pills */
+    .pills {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #ffffff;
+      border: 1px solid var(--border);
+    }
+
+    /* Actions */
+    .actions-wrapper {
+      max-width: 920px; /* prevents over-expansion */
+      margin-bottom: 32px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 18px;
+    }
+
+    .action-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      min-height: 170px;
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+
+      cursor: pointer;
+    }
+
+    /* ICONS — FIXED SIZE */
+    .icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      font-size: 36px; /* emoji size */
+      flex-shrink: 0;
+    }
+
+    .icon.blue   { background: #eaf6fb; }
+    .icon.green  { background: #edf7e6; }
+    .icon.yellow { background: #fdf6dc; }
+    .icon.pink   { background: #fdecef; }
+
+    .action-label {
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* Messaging */
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      padding: 22px;
+      max-width: 520px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+
+    .message-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .message-row:last-child {
+      border-bottom: none;
+    }
+
+    .badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      background: var(--pink);
+      color: #1f2937;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>Little Sparrows</h2>
+      <div class="nav-item active">Dashboard</div>
+      <div class="nav-item">Attendance</div>
+      <div class="nav-item">Families</div>
+      <div class="nav-item">Staff</div>
+      <div class="nav-item">Billing</div>
+      <div class="nav-item">Settings</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="header">
+        <h1>Monday, July 22</h1>
+        <div class="date">Today</div>
+      </div>
+
+      <div class="pills">
+        <div class="pill">Scheduled Today</div>
+        <div class="pill">No Issues</div>
+      </div>
+
+      <div class="actions-wrapper">
+        <div class="actions">
+          <div class="action-card">
+            <div class="icon blue">⏱</div>
+            <div class="action-label">Check In / Out</div>
+          </div>
+
+          <div class="action-card">
+            <div class="icon green">📋</div>
+            <div class="action-label">Attendance</div>
+          </div>
+
+          <div class="action-card">
+            <div class="icon yellow">🖼</div>
+            <div class="action-label">Gallery</div>
+          </div>
+
+          <div class="action-card">
+            <div class="icon blue">📰</div>
+            <div class="action-label">Activity Feed</div>
+          </div>
+
+          <div class="action-card">
+            <div class="icon green">💳</div>
+            <div class="action-label">Billing</div>
+          </div>
+
+          <div class="action-card">
+            <div class="icon pink">🔓</div>
+            <div class="action-label">Unlock Door</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Messaging</h3>
+        <div class="message-row">
+          <div>Student</div>
+          <div class="badge">2</div>
+        </div>
+        <div class="message-row">
+          <div>Account</div>
+          <div class="badge">1</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

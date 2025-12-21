@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { formatTime12Hour } from '../utils/timeFormat';
 
@@ -408,8 +408,10 @@ function AdminReports() {
   };
 
   return (
-    <div className="main-content">
-      <h1>Reports & Analytics</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Reports & Analytics</h1>
+      </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
         <button
@@ -1063,7 +1065,7 @@ function AdminReports() {
           </div>
         </>
       )}
-    </div>
+    </main>
   );
 }
 

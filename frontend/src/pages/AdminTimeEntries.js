@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminTimeEntries() {
@@ -72,8 +72,10 @@ function AdminTimeEntries() {
   };
 
   return (
-    <div className="main-content">
-      <h1>Review Time Entries</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Review Time Entries</h1>
+      </div>
 
       <div className="filters">
         <div className="form-group">
@@ -168,7 +170,7 @@ function AdminTimeEntries() {
           </tbody>
         </table>
       )}
-    </div>
+    </main>
   );
 }
 

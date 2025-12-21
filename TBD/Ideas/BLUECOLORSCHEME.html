@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Daycare Dashboard – Blue System</title>
+
+  <style>
+    :root {
+      --blue-dark: #0f2a44;
+      --blue-mid: #3b82f6;
+      --blue-light: #eff6ff;
+
+      --text: #1f2937;
+      --muted: #173a5e;
+      --white: #ffffff;
+      --border: #dbeafe;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--blue-light);
+      color: var(--text);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--blue-dark);
+      color: #dbeafe;
+      padding: 24px;
+    }
+
+    .sidebar h2 {
+      color: #ffffff;
+      font-size: 18px;
+      margin-bottom: 32px;
+    }
+
+    .nav-item {
+      font-size: 14px;
+      margin-bottom: 14px;
+      opacity: 0.85;
+      cursor: pointer;
+    }
+
+    .nav-item.active {
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    /* Main */
+    .main {
+      padding: 32px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 26px;
+    }
+
+    .date {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--blue-dark);
+    }
+
+    .stat .label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+    }
+
+    .card h3 {
+      font-size: 16px;
+      margin: 0 0 14px 0;
+      color: var(--blue-dark);
+    }
+
+    /* Check In / Out */
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .primary-btn {
+      padding: 20px;
+      border-radius: 16px;
+      border: none;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--blue-mid);
+      color: #ffffff;
+    }
+
+    .primary-btn.secondary {
+      background: #bfdbfe;
+      color: var(--blue-dark);
+    }
+
+    .subtext {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Attention */
+    .attention {
+      background: #ffffff;
+      border-left: 6px solid var(--blue-mid);
+    }
+
+    .attention-item {
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .quick {
+      padding: 16px;
+      border-radius: 14px;
+      background: #f0f7ff;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      color: var(--blue-dark);
+    }
+
+    /* Calendar */
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .day {
+      padding: 10px;
+      border-radius: 12px;
+      text-align: center;
+      background: #f0f7ff;
+      color: var(--muted);
+    }
+
+    .day.today {
+      background: var(--blue-mid);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    /* Activity */
+    .activity-item {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: var(--muted);
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Little Sparrows</h2>
+      <div class="nav-item active">Dashboard</div>
+      <div class="nav-item">Attendance</div>
+      <div class="nav-item">Families</div>
+      <div class="nav-item">Staff</div>
+      <div class="nav-item">Billing</div>
+      <div class="nav-item">Reports</div>
+      <div class="nav-item">Settings</div>
+    </aside>
+
+    <main class="main">
+      <div class="header">
+        <h1>Today</h1>
+        <div class="date">Monday, March 18</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="value">24 / 26</div>
+          <div class="label">Children Checked In</div>
+        </div>
+        <div class="stat">
+          <div class="value">6</div>
+          <div class="label">Staff On Duty</div>
+        </div>
+        <div class="stat">
+          <div class="value">2</div>
+          <div class="label">Expected Arrivals</div>
+        </div>
+        <div class="stat">
+          <div class="value">0</div>
+          <div class="label">Issues</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <div class="card">
+            <h3>Check In / Out</h3>
+            <div class="actions">
+              <button class="primary-btn">Check In Children</button>
+              <button class="primary-btn secondary">Check Out Children</button>
+            </div>
+            <div class="subtext">Day in progress • Last update at 8:42 AM</div>
+          </div>
+
+          <div class="card attention" style="margin-top:24px;">
+            <h3>Needs Attention</h3>
+            <div class="attention-item">2 children not yet checked in</div>
+            <div class="attention-item">Pay period closes in 2 days</div>
+            <div class="attention-item">1 incomplete staff schedule</div>
+          </div>
+
+          <div class="card" style="margin-top:24px;">
+            <h3>Quick Actions</h3>
+            <div class="quick-actions">
+              <div class="quick">Message Families</div>
+              <div class="quick">Add Staff Note</div>
+              <div class="quick">Upload Document</div>
+              <div class="quick">Open Pay Period</div>
+              <div class="quick">Generate Report</div>
+              <div class="quick">View Attendance</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>Calendar</h3>
+            <div class="calendar">
+              <div class="day">S</div><div class="day">M</div><div class="day">T</div>
+              <div class="day">W</div><div class="day">T</div><div class="day">F</div><div class="day">S</div>
+              <div class="day">16</div>
+              <div class="day today">17</div>
+              <div class="day">18</div>
+              <div class="day">19</div>
+              <div class="day">20</div>
+              <div class="day">21</div>
+              <div class="day">22</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:24px;">
+            <h3>Recent Activity</h3>
+            <div class="activity-item">Attendance submitted for Room A</div>
+            <div class="activity-item">Pay period opened</div>
+            <div class="activity-item">New family added</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

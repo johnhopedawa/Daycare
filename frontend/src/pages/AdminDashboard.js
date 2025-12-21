@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 
 function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     pendingHours: 0,
     openPayPeriods: 0,
@@ -36,42 +38,45 @@ function AdminDashboard() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <div className="main"><div className="loading">Loading...</div></div>;
 
   return (
-    <div className="main-content">
-      <h1>Admin Dashboard</h1>
+    <main className="main">
+      <div className="header">
+        <h1>Dashboard</h1>
+        <div className="header-welcome">Welcome back, {user.first_name}</div>
+      </div>
 
       <div className="card-grid">
         <div className="card">
           <h3>Pending Hours</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0', color: '#e67e22' }}>
-            {stats.pendingHours}
-          </p>
+          <div className="metric" style={{ color: '#ef4444' }}>
+            {stats.pendingHours} <span>to review</span>
+          </div>
         </div>
 
         <div className="card">
           <h3>Open Pay Periods</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0', color: '#3498db' }}>
-            {stats.openPayPeriods}
-          </p>
+          <div className="metric" style={{ color: '#2563eb' }}>
+            {stats.openPayPeriods} <span>active</span>
+          </div>
         </div>
 
         <div className="card">
           <h3>Active Educators</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0', color: '#27ae60' }}>
-            {stats.educators}
-          </p>
+          <div className="metric" style={{ color: '#22c55e' }}>
+            {stats.educators} <span>staff</span>
+          </div>
         </div>
 
         <div className="card">
           <h3>Pending Payments</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0', color: '#9b59b6' }}>
-            {stats.pendingPayments}
-          </p>
+          <div className="metric" style={{ color: '#a855f7' }}>
+            {stats.pendingPayments} <span>outstanding</span>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

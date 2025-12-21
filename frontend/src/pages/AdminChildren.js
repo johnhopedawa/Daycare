@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminChildren() {
@@ -334,9 +334,11 @@ function AdminChildren() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Children Management</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => {
           setShowForm(!showForm);
           if (!showForm) {
@@ -836,7 +838,7 @@ function AdminChildren() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

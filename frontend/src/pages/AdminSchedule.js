@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { formatTime12Hour } from '../utils/timeFormat';
 
@@ -206,9 +206,11 @@ function AdminSchedule() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Manage Schedules</h1>
+      </div>
+      <div className="flex-between mb-2">
         <div className="flex" style={{ gap: '1rem' }}>
           <button onClick={() => {
             setShowForm(!showForm);
@@ -472,7 +474,7 @@ function AdminSchedule() {
           ))}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

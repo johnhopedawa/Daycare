@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminPayments() {
@@ -141,9 +141,11 @@ function AdminPayments() {
   };
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Parent Payments</h1>
+      </div>
+      <div className="flex-between mb-2">
         <button onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancel' : 'Add Payment'}
         </button>
@@ -347,7 +349,7 @@ function AdminPayments() {
         </tbody>
       </table>
       </div>
-    </div>
+    </main>
   );
 }
 

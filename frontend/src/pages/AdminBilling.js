@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function AdminBilling() {
@@ -266,9 +266,11 @@ function AdminBilling() {
   const totalPages = Math.ceil(payments.length / paymentsPerPage);
 
   return (
-    <div className="main-content">
-      <div className="flex-between mb-2">
+    <main className="main">
+      <div className="header">
         <h1>Billing</h1>
+      </div>
+      <div className="flex-between mb-2">
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button onClick={() => setShowInvoiceForm(!showInvoiceForm)}>
             {showInvoiceForm ? 'Cancel' : 'Create Invoice'}
@@ -722,7 +724,7 @@ function AdminBilling() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

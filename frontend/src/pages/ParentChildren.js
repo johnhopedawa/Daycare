@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
@@ -22,11 +22,13 @@ function ParentChildren() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
 
   return (
-    <div className="main-content">
-      <h1>My Children</h1>
+    <main className="main">
+      <div className="header">
+        <h1>My Children</h1>
+      </div>
 
       {children.length === 0 ? (
         <div className="card">
@@ -74,7 +76,7 @@ function ParentChildren() {
       <button onClick={() => navigate('/parent/dashboard')} className="secondary">
         Back to Dashboard
       </button>
-    </div>
+    </main>
   );
 }
 

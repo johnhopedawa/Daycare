@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 
 function ParentDashboard() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -22,41 +24,35 @@ function ParentDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <div className="main"><div className="loading">Loading...</div></div>;
 
   return (
-    <div className="main-content">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Parent Dashboard</h1>
-        <button onClick={handleLogout} className="secondary">Logout</button>
+    <main className="main">
+      <div className="header">
+        <h1>Dashboard</h1>
+        <div className="header-welcome">Welcome back, {user.first_name}</div>
       </div>
 
       <div className="card-grid">
         <div className="card">
           <h3>Children Enrolled</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0' }}>
-            {dashboard?.children_count || 0}
-          </p>
+          <div className="metric" style={{ color: '#2563eb' }}>
+            {dashboard?.children_count || 0} <span>children</span>
+          </div>
         </div>
 
         <div className="card">
           <h3>Outstanding Balance</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0', color: dashboard?.outstanding_balance > 0 ? '#d32f2f' : '#2e7d32' }}>
-            ${dashboard?.outstanding_balance?.toFixed(2) || '0.00'}
-          </p>
+          <div className="metric" style={{ color: dashboard?.outstanding_balance > 0 ? '#ef4444' : '#22c55e' }}>
+            ${dashboard?.outstanding_balance?.toFixed(2) || '0.00'} <span>balance</span>
+          </div>
         </div>
 
         <div className="card">
           <h3>Unread Messages</h3>
-          <p style={{ fontSize: '2rem', margin: '1rem 0' }}>
-            {dashboard?.unread_messages_count || 0}
-          </p>
+          <div className="metric" style={{ color: '#a855f7' }}>
+            {dashboard?.unread_messages_count || 0} <span>messages</span>
+          </div>
         </div>
       </div>
 
@@ -96,7 +92,7 @@ function ParentDashboard() {
           </table>
         </div>
       )}
-    </div>
+    </main>
   );
 }
 

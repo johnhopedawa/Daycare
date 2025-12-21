@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Data Retention and Deletion Policy</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --card: #f9fafb;
+      --link: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    h2 {
+      margin: 26px 0 8px 0;
+      font-size: 18px;
+    }
+    p, li { font-size: 15px; }
+    ul { margin: 10px 0 0 18px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 18px;
+    }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer {
+      margin-top: 36px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    code {
+      background: #eef2ff;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Data Retention and Deletion Policy</h1>
+      <div class="meta">
+        Last updated: <strong>December 16, 2025</strong><br />
+        Contact: <a href="mailto:johnhope.dawa@gmail.com">johnhope.dawa@gmail.com</a>
+      </div>
+    </header>
+
+```
+<section>
+  <h2>1. Purpose</h2>
+  <p>
+    This policy describes how we retain, protect, and delete customer data, including financial data accessed via
+    Plaid, in connection with our daycare management platform.
+  </p>
+</section>
+
+<section>
+  <h2>2. Scope</h2>
+  <p>
+    This policy applies to production systems and services that store or process customer data for our application,
+    including linked financial account data and imported transactions.
+  </p>
+</section>
+
+<section>
+  <h2>3. Data We Retain</h2>
+  <p>
+    Depending on features enabled by a customer, we may retain the following categories of data:
+  </p>
+  <ul>
+    <li><strong>Account linkage metadata</strong> (e.g., institution and account identifiers returned by Plaid).</li>
+    <li><strong>Imported transaction data</strong> used for bookkeeping, reconciliation, and reporting.</li>
+    <li><strong>Application data</strong> such as user accounts, roles, and organization (daycare) configuration.</li>
+    <li><strong>Operational logs</strong> necessary for reliability and security monitoring.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>4. Retention Principles</h2>
+  <ul>
+    <li><strong>Purpose limitation:</strong> We retain data only to provide the service (bookkeeping, reconciliation, reporting) and for legitimate operational needs.</li>
+    <li><strong>Data minimization:</strong> We avoid collecting or storing data not required for the service.</li>
+    <li><strong>Access controls:</strong> Access to customer data is restricted to authorized users within the customer’s organization and authorized administrators.</li>
+  </ul>
+
+  <div class="card">
+    <p style="margin:0;">
+      <strong>Read-only access:</strong> Our Plaid integration is used to import data for bookkeeping and reporting.
+      We do not initiate payments or transfers via Plaid.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>5. Deletion and Revocation</h2>
+  <p>
+    Customers may request deletion of their data or revoke access to linked financial accounts.
+  </p>
+  <ul>
+    <li>
+      <strong>Disconnecting a bank link:</strong> If a linked account is disconnected, we stop importing new financial data for that link. Where applicable, associated access tokens are revoked/removed.
+    </li>
+    <li>
+      <strong>Account termination:</strong> Upon termination of a customer account, we delete or anonymize associated customer data within a reasonable timeframe, subject to legitimate operational and accounting needs.
+    </li>
+    <li>
+      <strong>Deletion requests:</strong> Customers may request deletion by contacting <a href="mailto:johnhope.dawa@gmail.com">johnhope.dawa@gmail.com</a>. We will verify the requestor’s authorization and process the request within a reasonable timeframe.
+    </li>
+  </ul>
+  <p>
+    Note: Some limited data may be retained temporarily in backups and logs for security, fraud prevention, and system reliability, and will be removed as those backups/logs cycle out.
+  </p>
+</section>
+
+<section>
+  <h2>6. Security Controls</h2>
+  <ul>
+    <li><strong>Encryption in transit:</strong> Data is transmitted using TLS (HTTPS).</li>
+    <li><strong>Least privilege:</strong> Administrative access to production systems is limited to authorized personnel.</li>
+    <li><strong>Credential management:</strong> Sensitive credentials (including API keys and tokens) are stored securely and are not exposed in application UI.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. Policy Review</h2>
+  <p>
+    This policy is reviewed periodically and updated as the product, customer requirements, and applicable privacy
+    and security expectations evolve.
+  </p>
+</section>
+
+<section>
+  <h2>8. Contact</h2>
+  <p>
+    For questions about this policy or to request deletion, contact:
+    <br />
+    <a href="mailto:johnhope.dawa@gmail.com">johnhope.dawa@gmail.com</a>
+  </p>
+</section>
+
+<footer>
+  <div>
+    This document is provided for transparency regarding data retention and deletion practices for the application where Plaid Link may be deployed.
+  </div>
+  <div style="margin-top:8px;">
+    Document ID (internal): <code>RET-DEL-001</code>
+  </div>
+</footer>
+```
+
+  </main>
+</body>
+</html>

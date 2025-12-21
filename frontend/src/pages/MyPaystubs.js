@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 function MyPaystubs() {
@@ -38,11 +38,13 @@ function MyPaystubs() {
     }
   };
 
-  if (loading) return <div className="main-content">Loading...</div>;
+  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
 
   return (
-    <div className="main-content">
-      <h1>My Paystubs</h1>
+    <main className="main">
+      <div className="header">
+        <h1>My Paystubs</h1>
+      </div>
 
       {paystubs.length === 0 ? (
         <div className="card">
@@ -79,7 +81,7 @@ function MyPaystubs() {
           </tbody>
         </table>
       )}
-    </div>
+    </main>
   );
 }
 
