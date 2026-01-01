@@ -1,0 +1,225 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Clock,
+  Plus,
+  Calendar as CalendarIcon,
+  Mail,
+  Bell,
+} from 'lucide-react';
+
+// --- Metric Card Component ---
+export function MetricCard({ title, value, icon: Icon, color, delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ delay, duration: 0.5 }}
+      className={`p-6 rounded-3xl ${color} relative overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-default`}
+    >
+      {/* Decorative background circle */}
+      <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500" />
+
+      <div className="relative z-10 flex justify-between items-start">
+        <div>
+          <p className="text-stone-600 font-quicksand font-medium text-sm mb-1">
+            {title}
+          </p>
+          <h3 className="text-3xl font-bold text-stone-800 font-quicksand">
+            {value}
+          </h3>
+        </div>
+        <div className="p-3 bg-white/40 rounded-2xl text-stone-700 backdrop-blur-sm">
+          <Icon size={24} />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Attendance Widget ---
+export function AttendanceWidget({ children = [] }) {
+  const displayChildren = children || [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.2 }}
+      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
+          Today's Attendance
+        </h3>
+        <button className="text-[#FF9B85] text-sm font-medium hover:bg-[#FFF8F3] px-3 py-1 rounded-full transition-colors">
+          View All
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {displayChildren.length === 0 ? (
+          <p className="text-stone-500 text-center py-8">No attendance records for today</p>
+        ) : (
+          displayChildren.slice(0, 5).map((child, i) => (
+          <motion.div
+            key={child.id}
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.3 + i * 0.1 }}
+            className="flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                  child.status === 'present'
+                    ? 'bg-[#B8E6D5] text-[#2D6A4F]'
+                    : child.status === 'late'
+                    ? 'bg-[#FFF4CC] text-[#B45309]'
+                    : 'bg-[#FFE5D9] text-[#C4554D]'
+                }`}
+              >
+                {child.name.charAt(0)}
+              </div>
+              <div>
+                <p className="font-medium text-stone-800 text-sm">
+                  {child.name}
+                </p>
+                <p className="text-xs text-stone-500">
+                  {child.status === 'absent'
+                    ? 'Absent'
+                    : `Arrived at ${child.time}`}
+                </p>
+              </div>
+            </div>
+            <div
+              className={`w-2 h-2 rounded-full ${
+                child.status === 'present'
+                  ? 'bg-green-400'
+                  : child.status === 'late'
+                  ? 'bg-yellow-400'
+                  : 'bg-red-400'
+              }`}
+            />
+          </motion.div>
+          ))
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Timeline Widget ---
+export function TimelineWidget() {
+  const events = [
+    {
+      time: '10:00 AM',
+      title: 'Morning Snack',
+      type: 'food',
+    },
+    {
+      time: '11:00 AM',
+      title: 'Outdoor Play',
+      type: 'activity',
+    },
+    {
+      time: '12:30 PM',
+      title: 'Nap Time',
+      type: 'rest',
+    },
+    {
+      time: '02:30 PM',
+      title: 'Art Class',
+      type: 'activity',
+    },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.3 }}
+      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
+          Timeline
+        </h3>
+        <Clock size={18} className="text-[#FF9B85]" />
+      </div>
+
+      <div className="relative pl-4 border-l-2 border-[#FFF8F3] space-y-6">
+        {events.map((event, i) => (
+          <div key={i} className="relative">
+            <div
+              className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                event.type === 'food'
+                  ? 'bg-[#FFDCC8]'
+                  : event.type === 'rest'
+                  ? 'bg-[#E5D4ED]'
+                  : 'bg-[#B8E6D5]'
+              }`}
+            />
+            <div>
+              <p className="text-xs font-bold text-[#FF9B85] mb-1">
+                {event.time}
+              </p>
+              <p className="text-stone-700 font-medium text-sm">
+                {event.title}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Quick Actions ---
+export function QuickActions({ onAddChild, onSendMessage, onCreateEvent }) {
+  const actions = [
+    {
+      icon: Plus,
+      label: 'Add Child',
+      color: 'bg-[#FFE5D9] text-[#E07A5F]',
+      onClick: onAddChild,
+    },
+    {
+      icon: Mail,
+      label: 'Message',
+      color: 'bg-[#E5D4ED] text-[#8E55A5]',
+      onClick: onSendMessage,
+    },
+    {
+      icon: CalendarIcon,
+      label: 'Event',
+      color: 'bg-[#B8E6D5] text-[#2D6A4F]',
+      onClick: onCreateEvent,
+    },
+    {
+      icon: Bell,
+      label: 'Alert',
+      color: 'bg-[#FFF4CC] text-[#B45309]',
+      onClick: () => alert('Alert functionality coming soon'),
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {actions.map((action, i) => (
+        <motion.button
+          key={i}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={action.onClick}
+          className={`${action.color} p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50`}
+        >
+          <action.icon size={20} />
+          <span className="text-xs font-bold font-quicksand">
+            {action.label}
+          </span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}

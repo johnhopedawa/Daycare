@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose restart:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker run:*)",
+      "Bash(openssl rand:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(del tailwind.config.js)",
+      "Bash(curl:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm start)",
+      "Bash(node -e:*)",
+      "Bash(grep:*)",
+      "Bash(if [ -d \"c:\\\\Users\\\\John Work\\\\Websites\\\\Daycare\\\\backend\\\\src\\\\db\\\\migrations\" ])",
+      "Bash(then ls \"c:\\\\Users\\\\John Work\\\\Websites\\\\Daycare\\\\backend\\\\src\\\\db\\\\migrations\")",
+      "Bash(else echo \"No migrations directory\")",
+      "Bash(fi)",
+      "Bash(for page in AdminDashboard AdminAttendance AdminBilling AdminPayPeriods AdminSchedule AdminBusinessExpenses AdminFiles AdminReports)",
+      "Bash(do echo \"$page.js\")",
+      "Bash(done)",
+      "Bash(git checkout:*)",
+      "Bash(timeout 10 npm start)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)"
+    ]
+  }
+}

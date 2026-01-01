@@ -161,6 +161,52 @@ router.post('/admin/schedules/recurring', requireAuth, requireAdmin, async (req,
   }
 });
 
+// Update schedule
+router.patch('/admin/schedules/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shiftDate, startTime, endTime, hours, notes, status } = req.body;
+
+    // Verify ownership
+    const check = await pool.query(
+      'SELECT id FROM schedules WHERE id = $1 AND created_by = $2',
+      [id, req.user.id]
+    );
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    // Validate required fields
+    if (!shiftDate || !startTime || !endTime || !hours) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Build update query
+    let query = `
+      UPDATE schedules
+      SET shift_date = $1, start_time = $2, end_time = $3, hours = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+    `;
+    const params = [shiftDate, startTime, endTime, hours, notes || null];
+
+    // Add status if provided
+    if (status !== undefined) {
+      params.push(status);
+      query += `, status = $${params.length}`;
+    }
+
+    params.push(id);
+    query += ` WHERE id = $${params.length} RETURNING *`;
+
+    const result = await pool.query(query, params);
+
+    res.json({ schedule: result.rows[0] });
+  } catch (error) {
+    console.error('Update schedule error:', error);
+    res.status(500).json({ error: 'Failed to update schedule' });
+  }
+});
+
 // Delete schedule
 router.delete('/admin/schedules/:id', requireAuth, requireAdmin, async (req, res) => {
   try {

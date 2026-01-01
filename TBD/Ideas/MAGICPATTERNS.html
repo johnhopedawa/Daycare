@@ -1,0 +1,3472 @@
+```App.tsx
+import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { DashboardPage } from './pages/DashboardPage'
+import { AttendancePage } from './pages/AttendancePage'
+import { FamiliesPage } from './pages/FamiliesPage'
+import { BillingPage } from './pages/BillingPage'
+import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
+import { EducatorsPage } from './pages/EducatorsPage'
+import { PayPeriodsPage } from './pages/PayPeriodsPage'
+import { BankAccountsPage } from './pages/BankAccountsPage'
+import { PaperworkPage } from './pages/PaperworkPage'
+import { ReportingPage } from './pages/ReportingPage'
+import { SettingsPage } from './pages/SettingsPage'
+export function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/attendance" element={<AttendancePage />} />
+        <Route path="/families" element={<FamiliesPage />} />
+        <Route path="/billing" element={<BillingPage />} />
+        <Route path="/scheduling" element={<StaffSchedulingPage />} />
+        <Route path="/educators" element={<EducatorsPage />} />
+        <Route path="/pay" element={<PayPeriodsPage />} />
+        <Route path="/banking" element={<BankAccountsPage />} />
+        <Route path="/paperwork" element={<PaperworkPage />} />
+        <Route path="/reporting" element={<ReportingPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+```
+```components/DashboardWidgets.tsx
+import React, { Component } from 'react'
+import { motion } from 'framer-motion'
+import {
+  Users,
+  UserCheck,
+  Briefcase,
+  ClipboardList,
+  Clock,
+  ChevronRight,
+  MessageCircle,
+  Plus,
+  Calendar as CalendarIcon,
+  Mail,
+  Bell,
+} from 'lucide-react'
+// --- Types ---
+interface MetricCardProps {
+  title: string
+  value: string | number
+  icon: any
+  color: string
+  delay?: number
+}
+interface AttendanceUser {
+  id: string
+  name: string
+  image?: string
+  status: 'present' | 'absent' | 'late'
+  time?: string
+}
+// --- Metric Card Component ---
+export function MetricCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  delay = 0,
+}: MetricCardProps) {
+  return (
+    <motion.div
+      initial={{
+        y: 20,
+        opacity: 0,
+      }}
+      animate={{
+        y: 0,
+        opacity: 1,
+      }}
+      transition={{
+        delay,
+        duration: 0.5,
+      }}
+      className={`p-6 rounded-3xl ${color} relative overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-default`}
+    >
+      {/* Decorative background circle */}
+      <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500" />
+
+      <div className="relative z-10 flex justify-between items-start">
+        <div>
+          <p className="text-stone-600 font-quicksand font-medium text-sm mb-1">
+            {title}
+          </p>
+          <h3 className="text-3xl font-bold text-stone-800 font-quicksand">
+            {value}
+          </h3>
+        </div>
+        <div className="p-3 bg-white/40 rounded-2xl text-stone-700 backdrop-blur-sm">
+          <Icon size={24} />
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+// --- Attendance Widget ---
+export function AttendanceWidget() {
+  const children: AttendanceUser[] = [
+    {
+      id: '1',
+      name: 'Leo M.',
+      status: 'present',
+      time: '8:30 AM',
+    },
+    {
+      id: '2',
+      name: 'Sarah K.',
+      status: 'present',
+      time: '8:45 AM',
+    },
+    {
+      id: '3',
+      name: 'Noah B.',
+      status: 'late',
+      time: '9:15 AM',
+    },
+    {
+      id: '4',
+      name: 'Emma W.',
+      status: 'absent',
+    },
+    {
+      id: '5',
+      name: 'Oliver P.',
+      status: 'present',
+      time: '8:20 AM',
+    },
+  ]
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        scale: 0.95,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+      }}
+      transition={{
+        delay: 0.2,
+      }}
+      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
+          Today's Attendance
+        </h3>
+        <button className="text-[#FF9B85] text-sm font-medium hover:bg-[#FFF8F3] px-3 py-1 rounded-full transition-colors">
+          View All
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {children.map((child, i) => (
+          <motion.div
+            key={child.id}
+            initial={{
+              x: -10,
+              opacity: 0,
+            }}
+            animate={{
+              x: 0,
+              opacity: 1,
+            }}
+            transition={{
+              delay: 0.3 + i * 0.1,
+            }}
+            className="flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${child.status === 'present' ? 'bg-[#B8E6D5] text-[#2D6A4F]' : child.status === 'late' ? 'bg-[#FFF4CC] text-[#B45309]' : 'bg-[#FFE5D9] text-[#C4554D]'}`}
+              >
+                {child.name.charAt(0)}
+              </div>
+              <div>
+                <p className="font-medium text-stone-800 text-sm">
+                  {child.name}
+                </p>
+                <p className="text-xs text-stone-500">
+                  {child.status === 'absent'
+                    ? 'Absent'
+                    : `Arrived at ${child.time}`}
+                </p>
+              </div>
+            </div>
+            <div
+              className={`w-2 h-2 rounded-full ${child.status === 'present' ? 'bg-green-400' : child.status === 'late' ? 'bg-yellow-400' : 'bg-red-400'}`}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+// --- Timeline Widget ---
+export function TimelineWidget() {
+  const events = [
+    {
+      time: '10:00 AM',
+      title: 'Morning Snack',
+      type: 'food',
+    },
+    {
+      time: '11:00 AM',
+      title: 'Outdoor Play',
+      type: 'activity',
+    },
+    {
+      time: '12:30 PM',
+      title: 'Nap Time',
+      type: 'rest',
+    },
+    {
+      time: '02:30 PM',
+      title: 'Art Class',
+      type: 'activity',
+    },
+  ]
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        scale: 0.95,
+      }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+      }}
+      transition={{
+        delay: 0.3,
+      }}
+      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
+          Timeline
+        </h3>
+        <Clock size={18} className="text-[#FF9B85]" />
+      </div>
+
+      <div className="relative pl-4 border-l-2 border-[#FFF8F3] space-y-6">
+        {events.map((event, i) => (
+          <div key={i} className="relative">
+            <div
+              className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${event.type === 'food' ? 'bg-[#FFDCC8]' : event.type === 'rest' ? 'bg-[#E5D4ED]' : 'bg-[#B8E6D5]'}`}
+            />
+            <div>
+              <p className="text-xs font-bold text-[#FF9B85] mb-1">
+                {event.time}
+              </p>
+              <p className="text-stone-700 font-medium text-sm">
+                {event.title}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+// --- Quick Actions ---
+export function QuickActions() {
+  const actions = [
+    {
+      icon: Plus,
+      label: 'Add Child',
+      color: 'bg-[#FFE5D9] text-[#E07A5F]',
+    },
+    {
+      icon: Mail,
+      label: 'Message',
+      color: 'bg-[#E5D4ED] text-[#8E55A5]',
+    },
+    {
+      icon: CalendarIcon,
+      label: 'Event',
+      color: 'bg-[#B8E6D5] text-[#2D6A4F]',
+    },
+    {
+      icon: Bell,
+      label: 'Alert',
+      color: 'bg-[#FFF4CC] text-[#B45309]',
+    },
+  ]
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {actions.map((action, i) => (
+        <motion.button
+          key={i}
+          whileHover={{
+            scale: 1.02,
+          }}
+          whileTap={{
+            scale: 0.98,
+          }}
+          className={`${action.color} p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50`}
+        >
+          <action.icon size={20} />
+          <span className="text-xs font-bold font-quicksand">
+            {action.label}
+          </span>
+        </motion.button>
+      ))}
+    </div>
+  )
+}
+
+```
+```components/Layout.tsx
+import React from 'react'
+import { Sidebar } from './Sidebar'
+import { motion } from 'framer-motion'
+import { Search, Bell } from 'lucide-react'
+interface LayoutProps {
+  children: React.ReactNode
+  title: string
+  subtitle?: string
+}
+export function Layout({ children, title, subtitle }: LayoutProps) {
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  return (
+    <div className="min-h-screen bg-[#FFF8F3] font-sans text-stone-800 selection:bg-[#FF9B85] selection:text-white">
+      {/* Inject Fonts */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+        .font-quicksand { font-family: 'Quicksand', sans-serif; }
+        .font-sans { font-family: 'Inter', sans-serif; }
+      `}</style>
+
+      <Sidebar />
+
+      <main className="pl-64 min-h-screen">
+        <div className="max-w-7xl mx-auto p-8 lg:p-10">
+          {/* Header */}
+          <header className="flex justify-between items-center mb-10">
+            <div>
+              <motion.h2
+                initial={{
+                  opacity: 0,
+                  y: -10,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                className="text-3xl font-bold font-quicksand text-stone-800 mb-1"
+              >
+                {title}
+              </motion.h2>
+              <motion.p
+                initial={{
+                  opacity: 0,
+                }}
+                animate={{
+                  opacity: 1,
+                }}
+                transition={{
+                  delay: 0.1,
+                }}
+                className="text-stone-500 font-medium"
+              >
+                {subtitle || currentDate}
+              </motion.p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 text-sm w-64 shadow-sm placeholder:text-stone-400"
+                />
+              </div>
+              <button className="w-10 h-10 bg-white rounded-xl border border-[#FFE5D9] flex items-center justify-center text-stone-500 hover:text-[#FF9B85] hover:shadow-md transition-all relative">
+                <Bell size={20} />
+                <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-400 rounded-full border border-white"></span>
+              </button>
+              <div className="w-10 h-10 bg-[#FFDCC8] rounded-xl flex items-center justify-center text-[#E07A5F] font-bold border border-white shadow-sm">
+                S
+              </div>
+            </div>
+          </header>
+
+          <motion.div
+            initial={{
+              opacity: 0,
+              y: 20,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              delay: 0.2,
+            }}
+          >
+            {children}
+          </motion.div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+```
+```components/modals/AddChildModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { User, Calendar, Cake } from 'lucide-react'
+interface AddChildModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function AddChildModal({ isOpen, onClose }: AddChildModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Add New Child">
+      <form className="space-y-6">
+        {/* Child Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              First Name
+            </label>
+            <input
+              type="text"
+              placeholder="Emma"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Last Name
+            </label>
+            <input
+              type="text"
+              placeholder="Smith"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Date of Birth
+            </label>
+            <div className="relative">
+              <Cake
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="date"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Gender
+            </label>
+            <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+              <option value="">Select...</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Family Selection */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Assign to Family
+          </label>
+          <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+            <option value="">Select Family...</option>
+            <option value="1">The Miller Family</option>
+            <option value="2">The King Family</option>
+            <option value="3">The Brown Family</option>
+          </select>
+        </div>
+
+        {/* Classroom */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Classroom
+          </label>
+          <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+            <option value="">Select Classroom...</option>
+            <option value="turtles">Tiny Turtles (0-2)</option>
+            <option value="bees">Busy Bees (2-3)</option>
+            <option value="lions">Learning Lions (3-5)</option>
+          </select>
+        </div>
+
+        {/* Start Date */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Start Date
+          </label>
+          <div className="relative">
+            <Calendar
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="date"
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Add Child
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/AddEducatorModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { User, Mail, Phone, Award, Calendar } from 'lucide-react'
+interface AddEducatorModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function AddEducatorModal({ isOpen, onClose }: AddEducatorModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Add New Educator">
+      <form className="space-y-6">
+        {/* Personal Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              First Name
+            </label>
+            <input
+              type="text"
+              placeholder="Sarah"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Last Name
+            </label>
+            <input
+              type="text"
+              placeholder="Jenkins"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Email
+            </label>
+            <div className="relative">
+              <Mail
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="email"
+                placeholder="sarah@example.com"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Phone
+            </label>
+            <div className="relative">
+              <Phone
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="tel"
+                placeholder="(555) 123-4567"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Role & Room */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Role
+            </label>
+            <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+              <option value="">Select Role...</option>
+              <option value="lead">Lead Educator</option>
+              <option value="educator">Educator</option>
+              <option value="assistant">Assistant Educator</option>
+              <option value="floater">Floater / Sub</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Primary Room
+            </label>
+            <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+              <option value="">Select Room...</option>
+              <option value="turtles">Tiny Turtles</option>
+              <option value="bees">Busy Bees</option>
+              <option value="lions">Learning Lions</option>
+              <option value="various">Various</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Certification */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Certification
+          </label>
+          <div className="relative">
+            <Award
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="text"
+              placeholder="ECE Level 3, Montessori, etc."
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Experience & Start Date */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Years of Experience
+            </label>
+            <input
+              type="number"
+              placeholder="5"
+              min="0"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Start Date
+            </label>
+            <div className="relative">
+              <Calendar
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="date"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Add Educator
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/AddFamilyModal.tsx
+import React, { useState, Children } from 'react'
+import { BaseModal } from './BaseModal'
+import { User, Mail, Phone, MapPin, Plus, X } from 'lucide-react'
+interface AddFamilyModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function AddFamilyModal({ isOpen, onClose }: AddFamilyModalProps) {
+  const [children, setChildren] = useState<string[]>([''])
+  const [parents, setParents] = useState<string[]>(['', ''])
+  const addChild = () => setChildren([...children, ''])
+  const removeChild = (index: number) =>
+    setChildren(children.filter((_, i) => i !== index))
+  const updateChild = (index: number, value: string) => {
+    const updated = [...children]
+    updated[index] = value
+    setChildren(updated)
+  }
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Add New Family">
+      <form className="space-y-6">
+        {/* Family Name */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Family Name
+          </label>
+          <input
+            type="text"
+            placeholder="The Smith Family"
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-stone-800"
+          />
+        </div>
+
+        {/* Parents */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Parents / Guardians
+          </label>
+          <div className="space-y-3">
+            {parents.map((parent, i) => (
+              <div key={i} className="flex gap-2">
+                <div className="flex-1 relative">
+                  <User
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder={`Parent ${i + 1} Name`}
+                    value={parent}
+                    onChange={(e) => {
+                      const updated = [...parents]
+                      updated[i] = e.target.value
+                      setParents(updated)
+                    }}
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Children */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-bold text-stone-700 font-quicksand">
+              Children
+            </label>
+            <button
+              type="button"
+              onClick={addChild}
+              className="text-[#FF9B85] text-sm font-bold hover:underline flex items-center gap-1"
+            >
+              <Plus size={16} /> Add Child
+            </button>
+          </div>
+          <div className="space-y-3">
+            {children.map((child, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Child's Full Name"
+                  value={child}
+                  onChange={(e) => updateChild(i, e.target.value)}
+                  className="flex-1 px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                />
+                {children.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeChild(i)}
+                    className="w-10 h-10 rounded-xl bg-[#FFE5D9] flex items-center justify-center text-stone-500 hover:bg-red-100 hover:text-red-500 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="tel"
+                placeholder="(555) 123-4567"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="email"
+                placeholder="family@example.com"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Address */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Home Address
+          </label>
+          <div className="relative">
+            <MapPin
+              size={18}
+              className="absolute left-3 top-3 text-stone-400"
+            />
+            <textarea
+              placeholder="123 Main Street, City, State 12345"
+              rows={3}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Add Family
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/AddShiftModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { Calendar, Clock, User, MapPin } from 'lucide-react'
+interface AddShiftModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function AddShiftModal({ isOpen, onClose }: AddShiftModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Add New Shift">
+      <form className="space-y-6">
+        {/* Staff Selection */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Staff Member
+          </label>
+          <div className="relative">
+            <User
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <select className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none">
+              <option value="">Select Staff...</option>
+              <option value="1">Sarah Jenkins - Lead Educator</option>
+              <option value="2">Mike Ross - Assistant</option>
+              <option value="3">Emily Clark - Educator</option>
+              <option value="4">Jessica Day - Floater</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Date */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Date
+          </label>
+          <div className="relative">
+            <Calendar
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="date"
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Time Range */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Start Time
+            </label>
+            <div className="relative">
+              <Clock
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="time"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              End Time
+            </label>
+            <div className="relative">
+              <Clock
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="time"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Room Assignment */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Room Assignment
+          </label>
+          <div className="relative">
+            <MapPin
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <select className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none">
+              <option value="">Select Room...</option>
+              <option value="turtles">Tiny Turtles</option>
+              <option value="bees">Busy Bees</option>
+              <option value="lions">Learning Lions</option>
+              <option value="all">All Rooms (Floater)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Role */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Role
+          </label>
+          <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+            <option value="lead">Lead Educator</option>
+            <option value="assistant">Assistant</option>
+            <option value="floater">Floater</option>
+            <option value="substitute">Substitute</option>
+          </select>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Notes (Optional)
+          </label>
+          <textarea
+            placeholder="Any special instructions or notes..."
+            rows={3}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Add Shift
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/BaseModal.tsx
+import React from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
+interface BaseModalProps {
+  isOpen: boolean
+  onClose: () => void
+  title: string
+  children: React.ReactNode
+  maxWidth?: string
+}
+export function BaseModal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'max-w-2xl',
+}: BaseModalProps) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            onClick={onClose}
+            className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-40"
+          />
+
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{
+                opacity: 0,
+                scale: 0.95,
+                y: 20,
+              }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.95,
+                y: 20,
+              }}
+              transition={{
+                type: 'spring',
+                damping: 25,
+                stiffness: 300,
+              }}
+              className={`bg-white rounded-3xl shadow-2xl ${maxWidth} w-full pointer-events-auto overflow-hidden`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-[#FFE5D9]/30">
+                <h2 className="text-2xl font-bold font-quicksand text-stone-800">
+                  {title}
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-xl bg-[#FFF8F3] flex items-center justify-center text-stone-400 hover:text-[#FF9B85] hover:bg-[#FFE5D9] transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">{children}</div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
+
+```
+```components/modals/CreateEventModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { Calendar, Clock, MapPin, Users } from 'lucide-react'
+interface CreateEventModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Create Event">
+      <form className="space-y-6">
+        {/* Event Name */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Event Name
+          </label>
+          <input
+            type="text"
+            placeholder="Fall Festival"
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+          />
+        </div>
+
+        {/* Date & Time */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Date
+            </label>
+            <div className="relative">
+              <Calendar
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="date"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Time
+            </label>
+            <div className="relative">
+              <Clock
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="time"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Location */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Location
+          </label>
+          <div className="relative">
+            <MapPin
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="text"
+              placeholder="Main Playground"
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Attendees */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Who's Invited
+          </label>
+          <div className="relative">
+            <Users
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <select className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none">
+              <option value="all">All Families</option>
+              <option value="turtles">Tiny Turtles Only</option>
+              <option value="bees">Busy Bees Only</option>
+              <option value="lions">Learning Lions Only</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Description
+          </label>
+          <textarea
+            placeholder="Event details, what to bring, etc..."
+            rows={4}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+          />
+        </div>
+
+        {/* RSVP */}
+        <div className="flex items-center gap-3 p-4 bg-[#FFF8F3] rounded-2xl">
+          <input
+            type="checkbox"
+            id="require-rsvp"
+            className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]"
+          />
+          <label
+            htmlFor="require-rsvp"
+            className="text-sm text-stone-600 font-medium"
+          >
+            Require RSVP from families
+          </label>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Create Event
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/CreateInvoiceModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { DollarSign, Calendar, FileText } from 'lucide-react'
+interface CreateInvoiceModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function CreateInvoiceModal({
+  isOpen,
+  onClose,
+}: CreateInvoiceModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Create Invoice">
+      <form className="space-y-6">
+        {/* Family Selection */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Bill To
+          </label>
+          <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+            <option value="">Select Family...</option>
+            <option value="1">The Miller Family</option>
+            <option value="2">The King Family</option>
+            <option value="3">The Brown Family</option>
+            <option value="4">The Wilson Family</option>
+            <option value="5">The Parker Family</option>
+          </select>
+        </div>
+
+        {/* Invoice Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Invoice Date
+            </label>
+            <div className="relative">
+              <Calendar
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="date"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Due Date
+            </label>
+            <div className="relative">
+              <Calendar
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="date"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Line Items */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Line Items
+          </label>
+          <div className="space-y-3">
+            <div className="p-4 bg-[#FFF8F3] rounded-2xl border border-[#FFE5D9]">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Description"
+                  defaultValue="Monthly Tuition"
+                  className="px-3 py-2 rounded-xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-sm"
+                />
+                <div className="relative">
+                  <DollarSign
+                    size={16}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Amount"
+                    defaultValue="1200"
+                    className="w-full pl-7 pr-3 py-2 rounded-xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-[#FF9B85] text-sm font-bold hover:underline"
+            >
+              + Add Line Item
+            </button>
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="p-4 bg-[#FFE5D9] rounded-2xl">
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-stone-700 font-quicksand">
+              Total Amount
+            </span>
+            <span className="text-2xl font-bold text-[#E07A5F] font-quicksand">
+              $1,200.00
+            </span>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Notes (Optional)
+          </label>
+          <div className="relative">
+            <FileText
+              size={18}
+              className="absolute left-3 top-3 text-stone-400"
+            />
+            <textarea
+              placeholder="Payment terms, special instructions..."
+              rows={3}
+              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Create & Send
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/SendMessageModal.tsx
+import React from 'react'
+import { BaseModal } from './BaseModal'
+import { Users, Mail } from 'lucide-react'
+interface SendMessageModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function SendMessageModal({ isOpen, onClose }: SendMessageModalProps) {
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Send Message">
+      <form className="space-y-6">
+        {/* Recipients */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Send To
+          </label>
+          <div className="relative">
+            <Users
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <select className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none">
+              <option value="">Select Recipients...</option>
+              <option value="all">All Families</option>
+              <option value="room-turtles">Tiny Turtles Parents</option>
+              <option value="room-bees">Busy Bees Parents</option>
+              <option value="room-lions">Learning Lions Parents</option>
+              <option value="individual">Individual Family...</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Subject */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Subject
+          </label>
+          <input
+            type="text"
+            placeholder="Important Update"
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+          />
+        </div>
+
+        {/* Message */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Message
+          </label>
+          <textarea
+            placeholder="Type your message here..."
+            rows={6}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+          />
+        </div>
+
+        {/* Send Options */}
+        <div className="flex items-center gap-3 p-4 bg-[#FFF8F3] rounded-2xl">
+          <input
+            type="checkbox"
+            id="send-email"
+            defaultChecked
+            className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]"
+          />
+          <label
+            htmlFor="send-email"
+            className="text-sm text-stone-600 font-medium flex items-center gap-2"
+          >
+            <Mail size={16} className="text-[#FF9B85]" />
+            Also send via email
+          </label>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Send Message
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/modals/UploadDocumentModal.tsx
+import React, { useState } from 'react'
+import { BaseModal } from './BaseModal'
+import { Upload, FileText, X } from 'lucide-react'
+interface UploadDocumentModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+export function UploadDocumentModal({
+  isOpen,
+  onClose,
+}: UploadDocumentModalProps) {
+  const [dragActive, setDragActive] = useState(false)
+  return (
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Upload Document">
+      <form className="space-y-6">
+        {/* Document Name */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Document Name
+          </label>
+          <input
+            type="text"
+            placeholder="Enrollment Form 2024"
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+          />
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Category
+          </label>
+          <select className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white">
+            <option value="">Select Category...</option>
+            <option value="enrollment">Enrollment</option>
+            <option value="medical">Medical</option>
+            <option value="staff">Staff</option>
+            <option value="policies">Policies</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        {/* File Upload */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            File
+          </label>
+          <div
+            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors ${dragActive ? 'border-[#FF9B85] bg-[#FFF8F3]' : 'border-[#FFE5D9] hover:border-[#FF9B85] hover:bg-[#FFF8F3]'}`}
+            onDragEnter={() => setDragActive(true)}
+            onDragLeave={() => setDragActive(false)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragActive(false)
+            }}
+          >
+            <Upload size={48} className="mx-auto mb-4 text-[#FF9B85]" />
+            <p className="text-stone-600 font-medium mb-2">
+              Drag and drop your file here, or
+            </p>
+            <label className="inline-block px-6 py-2 bg-[#FFE5D9] text-[#E07A5F] rounded-xl font-bold cursor-pointer hover:bg-[#FF9B85] hover:text-white transition-colors">
+              Browse Files
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx" />
+            </label>
+            <p className="text-xs text-stone-400 mt-3">
+              Supported formats: PDF, DOC, DOCX (Max 10MB)
+            </p>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Description (Optional)
+          </label>
+          <textarea
+            placeholder="Brief description of the document..."
+            rows={3}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+          >
+            Upload Document
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+  )
+}
+
+```
+```components/Sidebar.tsx
+import React from 'react'
+import { motion } from 'framer-motion'
+import { Link, useLocation } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  ClipboardCheck,
+  Users,
+  CreditCard,
+  Calendar,
+  GraduationCap,
+  DollarSign,
+  Landmark,
+  FileText,
+  BarChart,
+  Settings,
+  LogOut,
+  Baby,
+} from 'lucide-react'
+const menuItems = [
+  {
+    icon: LayoutDashboard,
+    label: 'Dashboard',
+    path: '/dashboard',
+  },
+  {
+    icon: ClipboardCheck,
+    label: 'Attendance',
+    path: '/attendance',
+  },
+  {
+    icon: Users,
+    label: 'Families',
+    path: '/families',
+  },
+  {
+    icon: CreditCard,
+    label: 'Billing',
+    path: '/billing',
+  },
+  {
+    icon: Calendar,
+    label: 'Staff Scheduling',
+    path: '/scheduling',
+  },
+  {
+    icon: GraduationCap,
+    label: 'Educators',
+    path: '/educators',
+  },
+  {
+    icon: DollarSign,
+    label: 'Pay Periods',
+    path: '/pay',
+  },
+  {
+    icon: Landmark,
+    label: 'Bank Accounts',
+    path: '/banking',
+  },
+  {
+    icon: FileText,
+    label: 'Paperwork',
+    path: '/paperwork',
+  },
+  {
+    icon: BarChart,
+    label: 'Reporting',
+    path: '/reporting',
+  },
+  {
+    icon: Settings,
+    label: 'Settings',
+    path: '/settings',
+  },
+]
+export function Sidebar() {
+  const location = useLocation()
+  return (
+    <motion.aside
+      initial={{
+        x: -20,
+        opacity: 0,
+      }}
+      animate={{
+        x: 0,
+        opacity: 1,
+      }}
+      className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-[#FFE5D9] flex flex-col z-20 shadow-[4px_0_24px_rgba(255,229,217,0.4)]"
+    >
+      <div className="p-8 flex items-center gap-3">
+        <div className="w-10 h-10 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30">
+          <Baby size={24} />
+        </div>
+        <h1 className="font-quicksand font-bold text-2xl text-stone-800 tracking-tight">
+          Little<span className="text-[#FF9B85]">Steps</span>
+        </h1>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${isActive ? 'bg-[#FFE5D9] text-[#E07A5F] font-semibold shadow-sm' : 'text-stone-500 hover:bg-[#FFF8F3] hover:text-[#E07A5F]'}`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF9B85] rounded-full"
+                />
+              )}
+              <item.icon
+                size={20}
+                className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}
+                strokeWidth={isActive ? 2.5 : 2}
+              />
+              <span className="font-quicksand text-sm">{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className="p-4 border-t border-[#FFE5D9]">
+        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-stone-500 hover:bg-red-50 hover:text-red-500 transition-colors">
+          <LogOut size={20} />
+          <span className="font-quicksand text-sm font-medium">Logout</span>
+        </button>
+      </div>
+    </motion.aside>
+  )
+}
+
+```
+```index.css
+/* URL IMPORTS (SUCH AS FONT IMPORTS) SHOULD BE KEPT ABOVE TAILWIND IMPORTS - DO NOT DELETE THIS COMMENT */
+
+/* PLEASE NOTE: THESE TAILWIND IMPORTS SHOULD NEVER BE DELETED - DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+/* DO NOT DELETE THESE TAILWIND IMPORTS, OTHERWISE THE STYLING WILL NOT RENDER AT ALL - DO NOT DELETE THIS COMMENT */
+```
+```index.tsx
+import './index.css'
+import React from "react";
+import { render } from "react-dom";
+import { App } from "./App";
+
+render(<App />, document.getElementById("root"));
+
+```
+```pages/AttendancePage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { Check, X, Clock, AlertCircle } from 'lucide-react'
+export function AttendancePage() {
+  const classrooms = [
+    {
+      name: 'Tiny Turtles (0-2)',
+      count: 12,
+      present: 10,
+    },
+    {
+      name: 'Busy Bees (2-3)',
+      count: 15,
+      present: 14,
+    },
+    {
+      name: 'Learning Lions (3-5)',
+      count: 15,
+      present: 14,
+    },
+  ]
+  const students = [
+    {
+      name: 'Leo Miller',
+      room: 'Tiny Turtles',
+      status: 'present',
+      time: '8:30 AM',
+      parent: 'Julia Miller',
+    },
+    {
+      name: 'Sarah King',
+      room: 'Busy Bees',
+      status: 'present',
+      time: '8:45 AM',
+      parent: 'Alex King',
+    },
+    {
+      name: 'Noah Brown',
+      room: 'Learning Lions',
+      status: 'late',
+      time: '9:15 AM',
+      parent: 'David Brown',
+    },
+    {
+      name: 'Emma Wilson',
+      room: 'Tiny Turtles',
+      status: 'absent',
+      time: '-',
+      parent: 'Sarah Wilson',
+      reason: 'Sick',
+    },
+    {
+      name: 'Oliver Parker',
+      room: 'Busy Bees',
+      status: 'present',
+      time: '8:20 AM',
+      parent: 'Mike Parker',
+    },
+    {
+      name: 'Mia Davis',
+      room: 'Learning Lions',
+      status: 'present',
+      time: '8:55 AM',
+      parent: 'Lisa Davis',
+    },
+  ]
+  return (
+    <Layout title="Attendance" subtitle="Track daily check-ins and absences">
+      {/* Classroom Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {classrooms.map((room, i) => (
+          <motion.div
+            key={room.name}
+            initial={{
+              opacity: 0,
+              y: 20,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              delay: i * 0.1,
+            }}
+            className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30"
+          >
+            <h3 className="font-quicksand font-bold text-lg text-stone-800 mb-2">
+              {room.name}
+            </h3>
+            <div className="flex items-end gap-2">
+              <span className="text-4xl font-bold text-[#FF9B85]">
+                {room.present}
+              </span>
+              <span className="text-stone-400 font-medium mb-1">
+                / {room.count} Present
+              </span>
+            </div>
+            <div className="w-full bg-[#FFF8F3] h-2 rounded-full mt-4 overflow-hidden">
+              <div
+                className="h-full bg-[#FF9B85] rounded-full"
+                style={{
+                  width: `${(room.present / room.count) * 100}%`,
+                }}
+              />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Detailed List */}
+      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
+        <div className="p-6 border-b border-[#FFE5D9]/30 flex justify-between items-center">
+          <h3 className="font-quicksand font-bold text-xl text-stone-800">
+            Student List
+          </h3>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors">
+              Export Report
+            </button>
+            <button className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-medium text-sm hover:bg-[#E07A5F] transition-colors shadow-lg shadow-[#FF9B85]/30">
+              Bulk Check-in
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#FFF8F3]">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Student
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Classroom
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Check-in Time
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#FFE5D9]/30">
+              {students.map((student) => (
+                <tr
+                  key={student.name}
+                  className="hover:bg-[#FFF8F3]/50 transition-colors"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-[#E5D4ED] flex items-center justify-center text-[#8E55A5] font-bold mr-3">
+                        {student.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-stone-800">
+                          {student.name}
+                        </div>
+                        <div className="text-xs text-stone-500">
+                          {student.parent}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]">
+                      {student.room}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600 font-medium">
+                    {student.time}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {student.status === 'present' && (
+                      <span className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+                        <Check size={16} /> Present
+                      </span>
+                    )}
+                    {student.status === 'late' && (
+                      <span className="flex items-center gap-1.5 text-amber-600 text-sm font-medium">
+                        <Clock size={16} /> Late
+                      </span>
+                    )}
+                    {student.status === 'absent' && (
+                      <span className="flex items-center gap-1.5 text-red-500 text-sm font-medium">
+                        <AlertCircle size={16} /> Absent
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+                    <button className="text-[#FF9B85] hover:text-[#E07A5F] font-medium text-sm">
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/BankAccountsPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { Landmark, ArrowUpRight, ArrowDownLeft, Plus } from 'lucide-react'
+export function BankAccountsPage() {
+  return (
+    <Layout
+      title="Bank Accounts"
+      subtitle="Manage connected accounts and transactions"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Main Operating Account */}
+        <motion.div
+          initial={{
+            opacity: 0,
+            scale: 0.95,
+          }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+          }}
+          className="bg-gradient-to-br from-[#2D3142] to-[#4F5D75] rounded-3xl p-8 text-white shadow-xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10"></div>
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <p className="text-white/60 text-sm font-medium mb-1">
+                Operating Account
+              </p>
+              <h3 className="text-2xl font-bold tracking-wider">**** 4829</h3>
+            </div>
+            <Landmark className="text-white/80" />
+          </div>
+          <div className="mb-8">
+            <p className="text-3xl font-bold font-quicksand">$142,500.80</p>
+            <p className="text-green-400 text-sm flex items-center gap-1 mt-1">
+              <ArrowUpRight size={14} /> +2.4% this month
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button className="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-sm font-medium transition-colors backdrop-blur-sm">
+              Transfer
+            </button>
+            <button className="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-sm font-medium transition-colors backdrop-blur-sm">
+              Statements
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Payroll Account */}
+        <motion.div
+          initial={{
+            opacity: 0,
+            scale: 0.95,
+          }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+          }}
+          transition={{
+            delay: 0.1,
+          }}
+          className="bg-white rounded-3xl p-8 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 relative overflow-hidden"
+        >
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <p className="text-stone-500 text-sm font-medium mb-1">
+                Payroll Account
+              </p>
+              <h3 className="text-2xl font-bold tracking-wider text-stone-800">
+                **** 9921
+              </h3>
+            </div>
+            <div className="p-3 bg-[#E5D4ED] rounded-full text-[#8E55A5]">
+              <Landmark size={20} />
+            </div>
+          </div>
+          <div className="mb-8">
+            <p className="text-3xl font-bold font-quicksand text-stone-800">
+              $24,100.00
+            </p>
+            <p className="text-stone-400 text-sm mt-1">Available Balance</p>
+          </div>
+          <div className="flex gap-3">
+            <button className="flex-1 border border-[#FFE5D9] hover:bg-[#FFF8F3] py-2 rounded-xl text-sm font-medium text-stone-600 transition-colors">
+              Transfer
+            </button>
+            <button className="flex-1 border border-[#FFE5D9] hover:bg-[#FFF8F3] py-2 rounded-xl text-sm font-medium text-stone-600 transition-colors">
+              Statements
+            </button>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-quicksand font-bold text-xl text-stone-800">
+            Recent Transactions
+          </h3>
+          <button className="text-[#FF9B85] font-medium text-sm hover:underline">
+            View All
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between p-3 hover:bg-[#FFF8F3] rounded-2xl transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${i % 2 === 0 ? 'bg-[#B8E6D5] text-[#2D6A4F]' : 'bg-[#FFE5D9] text-[#C4554D]'}`}
+                >
+                  {i % 2 === 0 ? (
+                    <ArrowDownLeft size={20} />
+                  ) : (
+                    <ArrowUpRight size={20} />
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-stone-800 text-sm">
+                    {i % 2 === 0
+                      ? 'Tuition Payment - Miller Family'
+                      : 'Office Supplies - Amazon'}
+                  </p>
+                  <p className="text-xs text-stone-500">Oct {14 - i}, 2024</p>
+                </div>
+              </div>
+              <span
+                className={`font-bold ${i % 2 === 0 ? 'text-green-600' : 'text-stone-800'}`}
+              >
+                {i % 2 === 0 ? '+' : '-'}${i % 2 === 0 ? '1,200.00' : '145.50'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/BillingPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { MetricCard } from '../components/DashboardWidgets'
+import {
+  DollarSign,
+  CreditCard,
+  Clock,
+  AlertCircle,
+  Download,
+  Send,
+} from 'lucide-react'
+export function BillingPage() {
+  const invoices = [
+    {
+      id: 'INV-2024-001',
+      family: 'The Millers',
+      date: 'Oct 01, 2024',
+      amount: '$1,200.00',
+      status: 'paid',
+    },
+    {
+      id: 'INV-2024-002',
+      family: 'The Kings',
+      date: 'Oct 01, 2024',
+      amount: '$1,200.00',
+      status: 'pending',
+    },
+    {
+      id: 'INV-2024-003',
+      family: 'The Parkers',
+      date: 'Sep 01, 2024',
+      amount: '$1,200.00',
+      status: 'overdue',
+    },
+    {
+      id: 'INV-2024-004',
+      family: 'The Browns',
+      date: 'Oct 01, 2024',
+      amount: '$1,200.00',
+      status: 'paid',
+    },
+    {
+      id: 'INV-2024-005',
+      family: 'The Davis Family',
+      date: 'Oct 01, 2024',
+      amount: '$2,400.00',
+      status: 'pending',
+    },
+  ]
+  return (
+    <Layout
+      title="Billing & Invoices"
+      subtitle="Manage payments and financial records"
+    >
+      {/* Financial Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Total Revenue (Oct)"
+          value="$42,500"
+          icon={DollarSign}
+          color="bg-[#B8E6D5]"
+          delay={0.1}
+        />
+        <MetricCard
+          title="Pending Payments"
+          value="$3,600"
+          icon={Clock}
+          color="bg-[#FFF4CC]"
+          delay={0.2}
+        />
+        <MetricCard
+          title="Overdue"
+          value="$1,200"
+          icon={AlertCircle}
+          color="bg-[#FFE5D9]"
+          delay={0.3}
+        />
+        <MetricCard
+          title="Auto-Pay Active"
+          value="85%"
+          icon={CreditCard}
+          color="bg-[#E5D4ED]"
+          delay={0.4}
+        />
+      </div>
+
+      {/* Recent Invoices */}
+      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
+        <div className="p-6 border-b border-[#FFE5D9]/30 flex justify-between items-center">
+          <h3 className="font-quicksand font-bold text-xl text-stone-800">
+            Recent Invoices
+          </h3>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors flex items-center gap-2">
+              <Download size={16} /> Export
+            </button>
+            <button className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-medium text-sm hover:bg-[#E07A5F] transition-colors shadow-lg shadow-[#FF9B85]/30 flex items-center gap-2">
+              <Send size={16} /> Create Invoice
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#FFF8F3]">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Invoice ID
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Family
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Date Issued
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Amount
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#FFE5D9]/30">
+              {invoices.map((invoice) => (
+                <tr
+                  key={invoice.id}
+                  className="hover:bg-[#FFF8F3]/50 transition-colors"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-600">
+                    {invoice.id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
+                    {invoice.family}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+                    {invoice.date}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
+                    {invoice.amount}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {invoice.status === 'paid' && (
+                      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]">
+                        Paid
+                      </span>
+                    )}
+                    {invoice.status === 'pending' && (
+                      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]">
+                        Pending
+                      </span>
+                    )}
+                    {invoice.status === 'overdue' && (
+                      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFE5D9] text-[#C4554D]">
+                        Overdue
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button className="text-[#FF9B85] hover:text-[#E07A5F] mr-4">
+                      View
+                    </button>
+                    <button className="text-stone-400 hover:text-stone-600">
+                      Download
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/DashboardPage.tsx
+import React, { useState, Children } from 'react'
+import { Layout } from '../components/Layout'
+import {
+  MetricCard,
+  AttendanceWidget,
+  TimelineWidget,
+  QuickActions,
+} from '../components/DashboardWidgets'
+import { Users, UserCheck, Briefcase, ClipboardList } from 'lucide-react'
+import { AddChildModal } from '../components/modals/AddChildModal'
+import { SendMessageModal } from '../components/modals/SendMessageModal'
+import { CreateEventModal } from '../components/modals/CreateEventModal'
+export function DashboardPage() {
+  const [activeModal, setActiveModal] = useState<string | null>(null)
+  return (
+    <Layout title="Good Morning, Sarah! ☀️">
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Total Children"
+          value="42"
+          icon={Users}
+          color="bg-[#E5D4ED]"
+          delay={0.1}
+        />
+        <MetricCard
+          title="Present Today"
+          value="38"
+          icon={UserCheck}
+          color="bg-[#B8E6D5]"
+          delay={0.2}
+        />
+        <MetricCard
+          title="Staff on Duty"
+          value="8"
+          icon={Briefcase}
+          color="bg-[#FFF4CC]"
+          delay={0.3}
+        />
+        <MetricCard
+          title="Pending Tasks"
+          value="5"
+          icon={ClipboardList}
+          color="bg-[#FFDCC8]"
+          delay={0.4}
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column (Attendance & Messages) */}
+        <div className="lg:col-span-2 space-y-8">
+          <section className="h-[400px]">
+            <AttendanceWidget />
+          </section>
+
+          <section>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">
+                Recent Messages
+              </h3>
+              <button className="text-[#FF9B85] text-sm font-medium hover:underline">
+                View Inbox
+              </button>
+            </div>
+            <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 space-y-4">
+              {[1, 2].map((_, i) => (
+                <div
+                  key={i}
+                  className="flex gap-4 p-4 rounded-2xl hover:bg-[#FFF8F3] transition-colors cursor-pointer border border-transparent hover:border-[#FFE5D9]"
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#E5D4ED] flex-shrink-0 flex items-center justify-center text-[#8E55A5] font-bold">
+                    {i === 0 ? 'JM' : 'AK'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between mb-1">
+                      <h4 className="font-bold text-stone-800 font-quicksand">
+                        {i === 0 ? 'Julia Miller' : 'Alex King'}
+                      </h4>
+                      <span className="text-xs text-stone-400">10:30 AM</span>
+                    </div>
+                    <p className="text-sm text-stone-600 line-clamp-1">
+                      {i === 0
+                        ? 'Hi! Just wanted to let you know Leo might be a bit late today due to a dentist appointment.'
+                        : 'Could you please send over the updated lunch menu for next week? Thanks!'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column (Timeline & Actions) */}
+        <div className="space-y-8">
+          <section>
+            <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
+              Quick Actions
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setActiveModal('addChild')}
+                className="bg-[#FFE5D9] text-[#E07A5F] p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50"
+              >
+                <Users size={20} />
+                <span className="text-xs font-bold font-quicksand">
+                  Add Child
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveModal('message')}
+                className="bg-[#E5D4ED] text-[#8E55A5] p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50"
+              >
+                <Briefcase size={20} />
+                <span className="text-xs font-bold font-quicksand">
+                  Message
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveModal('event')}
+                className="bg-[#B8E6D5] text-[#2D6A4F] p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50"
+              >
+                <ClipboardList size={20} />
+                <span className="text-xs font-bold font-quicksand">Event</span>
+              </button>
+              <button className="bg-[#FFF4CC] text-[#B45309] p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50">
+                <UserCheck size={20} />
+                <span className="text-xs font-bold font-quicksand">Alert</span>
+              </button>
+            </div>
+          </section>
+
+          <section className="h-[400px]">
+            <TimelineWidget />
+          </section>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AddChildModal
+        isOpen={activeModal === 'addChild'}
+        onClose={() => setActiveModal(null)}
+      />
+      <SendMessageModal
+        isOpen={activeModal === 'message'}
+        onClose={() => setActiveModal(null)}
+      />
+      <CreateEventModal
+        isOpen={activeModal === 'event'}
+        onClose={() => setActiveModal(null)}
+      />
+    </Layout>
+  )
+}
+
+```
+```pages/EducatorsPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { Mail, Phone, Award, Calendar, Star } from 'lucide-react'
+export function EducatorsPage() {
+  const educators = [
+    {
+      name: 'Sarah Jenkins',
+      role: 'Lead Educator',
+      room: 'Tiny Turtles',
+      exp: '5 Years',
+      cert: 'ECE Level 3',
+      image: 'SJ',
+      color: 'bg-[#E5D4ED] text-[#8E55A5]',
+    },
+    {
+      name: 'Mike Ross',
+      role: 'Assistant Educator',
+      room: 'Busy Bees',
+      exp: '2 Years',
+      cert: 'ECE Level 1',
+      image: 'MR',
+      color: 'bg-[#B8E6D5] text-[#2D6A4F]',
+    },
+    {
+      name: 'Emily Clark',
+      role: 'Senior Educator',
+      room: 'Learning Lions',
+      exp: '8 Years',
+      cert: 'ECE Level 3 + Montessori',
+      image: 'EC',
+      color: 'bg-[#FFF4CC] text-[#B45309]',
+    },
+    {
+      name: 'Jessica Day',
+      role: 'Floater / Sub',
+      room: 'Various',
+      exp: '1 Year',
+      cert: 'In Progress',
+      image: 'JD',
+      color: 'bg-[#FFDCC8] text-[#E07A5F]',
+    },
+  ]
+  return (
+    <Layout title="Educators" subtitle="Staff profiles and qualifications">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {educators.map((staff, i) => (
+          <motion.div
+            key={staff.name}
+            initial={{
+              opacity: 0,
+              y: 20,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              delay: i * 0.1,
+            }}
+            className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 flex flex-col items-center text-center hover:translate-y-[-4px] transition-transform duration-300"
+          >
+            <div
+              className={`w-24 h-24 rounded-full ${staff.color} flex items-center justify-center text-2xl font-bold mb-4 shadow-inner`}
+            >
+              {staff.image}
+            </div>
+
+            <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-1">
+              {staff.name}
+            </h3>
+            <p className="text-[#FF9B85] font-medium text-sm mb-4">
+              {staff.role}
+            </p>
+
+            <div className="w-full space-y-3 mb-6">
+              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+                <div className="flex items-center gap-2 text-stone-500 text-sm">
+                  <Award size={16} />
+                  <span>Certification</span>
+                </div>
+                <span className="font-bold text-stone-700 text-sm">
+                  {staff.cert}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+                <div className="flex items-center gap-2 text-stone-500 text-sm">
+                  <Calendar size={16} />
+                  <span>Experience</span>
+                </div>
+                <span className="font-bold text-stone-700 text-sm">
+                  {staff.exp}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button className="flex-1 py-2 rounded-xl border border-[#FFE5D9] text-stone-500 hover:bg-[#FFE5D9] hover:text-[#E07A5F] transition-colors flex justify-center">
+                <Mail size={18} />
+              </button>
+              <button className="flex-1 py-2 rounded-xl border border-[#FFE5D9] text-stone-500 hover:bg-[#FFE5D9] hover:text-[#E07A5F] transition-colors flex justify-center">
+                <Phone size={18} />
+              </button>
+              <button className="flex-1 py-2 rounded-xl bg-[#FF9B85] text-white font-bold text-sm shadow-md hover:bg-[#E07A5F] transition-colors">
+                Profile
+              </button>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Add New Card */}
+        <motion.button
+          initial={{
+            opacity: 0,
+          }}
+          animate={{
+            opacity: 1,
+          }}
+          transition={{
+            delay: 0.4,
+          }}
+          className="border-2 border-dashed border-[#FFE5D9] rounded-3xl flex flex-col items-center justify-center p-6 text-[#FF9B85] hover:bg-[#FFF8F3] transition-colors min-h-[300px]"
+        >
+          <div className="w-16 h-16 rounded-full bg-[#FFE5D9] flex items-center justify-center mb-4">
+            <Star size={32} />
+          </div>
+          <span className="font-bold font-quicksand text-lg">
+            Add New Educator
+          </span>
+        </motion.button>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/FamiliesPage.tsx
+import React, { useState } from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { Phone, Mail, MapPin, MoreHorizontal, Plus, Users } from 'lucide-react'
+import { AddFamilyModal } from '../components/modals/AddFamilyModal'
+export function FamiliesPage() {
+  const [isAddFamilyOpen, setIsAddFamilyOpen] = useState(false)
+  const families = [
+    {
+      name: 'The Millers',
+      children: ['Leo'],
+      parents: ['Julia', 'Mark'],
+      phone: '(555) 123-4567',
+      email: 'julia.m@example.com',
+      status: 'Active',
+      balance: '$0.00',
+    },
+    {
+      name: 'The Kings',
+      children: ['Sarah', 'James'],
+      parents: ['Alex', 'Diana'],
+      phone: '(555) 987-6543',
+      email: 'alex.k@example.com',
+      status: 'Active',
+      balance: '$450.00',
+    },
+    {
+      name: 'The Browns',
+      children: ['Noah'],
+      parents: ['David', 'Lisa'],
+      phone: '(555) 456-7890',
+      email: 'david.b@example.com',
+      status: 'Active',
+      balance: '$0.00',
+    },
+    {
+      name: 'The Wilsons',
+      children: ['Emma'],
+      parents: ['Sarah'],
+      phone: '(555) 234-5678',
+      email: 'sarah.w@example.com',
+      status: 'On Leave',
+      balance: '$0.00',
+    },
+    {
+      name: 'The Parkers',
+      children: ['Oliver'],
+      parents: ['Mike', 'Jenny'],
+      phone: '(555) 876-5432',
+      email: 'mike.p@example.com',
+      status: 'Active',
+      balance: '$1,200.00',
+    },
+    {
+      name: 'The Davis Family',
+      children: ['Mia', 'Lucas'],
+      parents: ['Lisa', 'Tom'],
+      phone: '(555) 345-6789',
+      email: 'lisa.d@example.com',
+      status: 'Active',
+      balance: '$0.00',
+    },
+  ]
+  return (
+    <Layout title="Families" subtitle="Manage family profiles and contacts">
+      <div className="flex justify-end mb-6">
+        <button
+          onClick={() => setIsAddFamilyOpen(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#FF9B85] text-white rounded-2xl font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all hover:scale-105"
+        >
+          <Plus size={20} />
+          Add Family
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {families.map((family, i) => (
+          <motion.div
+            key={family.name}
+            initial={{
+              opacity: 0,
+              scale: 0.95,
+            }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+            }}
+            transition={{
+              delay: i * 0.05,
+            }}
+            className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 hover:border-[#FF9B85]/50 transition-all group"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 rounded-full bg-[#FFDCC8] flex items-center justify-center text-[#E07A5F] font-bold text-lg group-hover:bg-[#FF9B85] group-hover:text-white transition-colors">
+                {family.name.charAt(4)}
+              </div>
+              <button className="text-stone-400 hover:text-[#FF9B85]">
+                <MoreHorizontal size={20} />
+              </button>
+            </div>
+
+            <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-1">
+              {family.name}
+            </h3>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {family.children.map((child) => (
+                <span
+                  key={child}
+                  className="px-2 py-1 bg-[#FFF8F3] text-stone-600 text-xs font-medium rounded-lg border border-[#FFE5D9]"
+                >
+                  {child}
+                </span>
+              ))}
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-3 text-stone-500 text-sm">
+                <Users size={16} className="text-[#FF9B85]" />
+                <span>{family.parents.join(' & ')}</span>
+              </div>
+              <div className="flex items-center gap-3 text-stone-500 text-sm">
+                <Phone size={16} className="text-[#FF9B85]" />
+                <span>{family.phone}</span>
+              </div>
+              <div className="flex items-center gap-3 text-stone-500 text-sm">
+                <Mail size={16} className="text-[#FF9B85]" />
+                <span className="truncate">{family.email}</span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#FFE5D9]/30 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-stone-400 font-medium uppercase">
+                  Balance
+                </p>
+                <p
+                  className={`font-bold ${family.balance === '$0.00' ? 'text-stone-800' : 'text-red-500'}`}
+                >
+                  {family.balance}
+                </p>
+              </div>
+              <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-sm font-bold hover:bg-[#FFE5D9] transition-colors">
+                View Profile
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <AddFamilyModal
+        isOpen={isAddFamilyOpen}
+        onClose={() => setIsAddFamilyOpen(false)}
+      />
+    </Layout>
+  )
+}
+
+```
+```pages/PaperworkPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { FileText, Download, Upload, CheckCircle, Clock } from 'lucide-react'
+export function PaperworkPage() {
+  const documents = [
+    {
+      name: 'Enrollment Form 2024',
+      type: 'PDF',
+      size: '2.4 MB',
+      status: 'Active',
+      color: 'bg-[#E5D4ED] text-[#8E55A5]',
+    },
+    {
+      name: 'Medical Authorization',
+      type: 'PDF',
+      size: '1.1 MB',
+      status: 'Active',
+      color: 'bg-[#B8E6D5] text-[#2D6A4F]',
+    },
+    {
+      name: 'Photo Release',
+      type: 'DOCX',
+      size: '0.8 MB',
+      status: 'Review',
+      color: 'bg-[#FFF4CC] text-[#B45309]',
+    },
+    {
+      name: 'Parent Handbook',
+      type: 'PDF',
+      size: '5.2 MB',
+      status: 'Active',
+      color: 'bg-[#FFDCC8] text-[#E07A5F]',
+    },
+  ]
+  return (
+    <Layout title="Paperwork" subtitle="Manage forms and documents">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Document Library */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            <button className="px-5 py-2 rounded-xl bg-[#FF9B85] text-white font-bold shadow-md whitespace-nowrap">
+              All Documents
+            </button>
+            <button className="px-5 py-2 rounded-xl bg-white text-stone-500 font-medium border border-[#FFE5D9] hover:bg-[#FFF8F3] whitespace-nowrap">
+              Enrollment
+            </button>
+            <button className="px-5 py-2 rounded-xl bg-white text-stone-500 font-medium border border-[#FFE5D9] hover:bg-[#FFF8F3] whitespace-nowrap">
+              Medical
+            </button>
+            <button className="px-5 py-2 rounded-xl bg-white text-stone-500 font-medium border border-[#FFE5D9] hover:bg-[#FFF8F3] whitespace-nowrap">
+              Staff
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {documents.map((doc, i) => (
+              <motion.div
+                key={doc.name}
+                initial={{
+                  opacity: 0,
+                  scale: 0.95,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                }}
+                transition={{
+                  delay: i * 0.1,
+                }}
+                className="bg-white p-5 rounded-3xl shadow-sm border border-[#FFE5D9]/30 hover:shadow-md transition-shadow group cursor-pointer"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div
+                    className={`w-12 h-12 rounded-2xl ${doc.color} flex items-center justify-center`}
+                  >
+                    <FileText size={24} />
+                  </div>
+                  <button className="p-2 hover:bg-[#FFF8F3] rounded-full text-stone-400 hover:text-[#FF9B85] transition-colors">
+                    <Download size={20} />
+                  </button>
+                </div>
+                <h4 className="font-bold text-stone-800 font-quicksand mb-1 group-hover:text-[#FF9B85] transition-colors">
+                  {doc.name}
+                </h4>
+                <div className="flex items-center gap-3 text-xs text-stone-500">
+                  <span className="uppercase font-bold bg-stone-100 px-2 py-0.5 rounded-md">
+                    {doc.type}
+                  </span>
+                  <span>{doc.size}</span>
+                </div>
+              </motion.div>
+            ))}
+
+            <button className="border-2 border-dashed border-[#FFE5D9] rounded-3xl flex flex-col items-center justify-center p-6 text-stone-400 hover:bg-[#FFF8F3] hover:text-[#FF9B85] transition-all min-h-[160px]">
+              <Upload size={32} className="mb-2" />
+              <span className="font-bold">Upload New Document</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Pending Reviews */}
+        <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 p-6 h-fit">
+          <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-6">
+            Pending Signatures
+          </h3>
+          <div className="space-y-4">
+            {[1, 2, 3].map((_, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 pb-4 border-b border-[#FFE5D9]/30 last:border-0 last:pb-0"
+              >
+                <div className="w-2 h-2 rounded-full bg-amber-400 mt-2 flex-shrink-0"></div>
+                <div>
+                  <p className="font-bold text-stone-800 text-sm">
+                    Enrollment Agreement
+                  </p>
+                  <p className="text-xs text-stone-500 mb-2">
+                    Waiting for: The Wilson Family
+                  </p>
+                  <button className="text-xs font-bold text-[#FF9B85] hover:underline">
+                    Send Reminder
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/PayPeriodsPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import { DollarSign, Calendar, Download, ChevronRight } from 'lucide-react'
+export function PayPeriodsPage() {
+  const periods = [
+    {
+      range: 'Oct 01 - Oct 14, 2024',
+      payDate: 'Oct 15, 2024',
+      total: '$12,450.00',
+      status: 'Upcoming',
+      staff: 12,
+    },
+    {
+      range: 'Sep 16 - Sep 30, 2024',
+      payDate: 'Oct 01, 2024',
+      total: '$12,200.00',
+      status: 'Paid',
+      staff: 12,
+    },
+    {
+      range: 'Sep 01 - Sep 15, 2024',
+      payDate: 'Sep 15, 2024',
+      total: '$11,950.00',
+      status: 'Paid',
+      staff: 11,
+    },
+    {
+      range: 'Aug 16 - Aug 31, 2024',
+      payDate: 'Sep 01, 2024',
+      total: '$11,950.00',
+      status: 'Paid',
+      staff: 11,
+    },
+  ]
+  return (
+    <Layout
+      title="Pay Periods"
+      subtitle="Payroll history and upcoming payments"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Current Period Card */}
+        <div className="lg:col-span-2">
+          <motion.div
+            initial={{
+              opacity: 0,
+              y: 20,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            className="bg-[#FF9B85] rounded-3xl p-8 text-white shadow-xl shadow-[#FF9B85]/20 mb-8 relative overflow-hidden"
+          >
+            <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <p className="text-white/80 font-medium mb-1">
+                    Current Pay Period
+                  </p>
+                  <h3 className="text-3xl font-bold font-quicksand">
+                    Oct 01 - Oct 14
+                  </h3>
+                </div>
+                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
+                  <Calendar size={24} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6 mb-8">
+                <div>
+                  <p className="text-white/70 text-sm mb-1">Pay Date</p>
+                  <p className="font-bold text-xl">Oct 15</p>
+                </div>
+                <div>
+                  <p className="text-white/70 text-sm mb-1">Est. Total</p>
+                  <p className="font-bold text-xl">$12,450</p>
+                </div>
+                <div>
+                  <p className="text-white/70 text-sm mb-1">Staff Count</p>
+                  <p className="font-bold text-xl">12</p>
+                </div>
+              </div>
+
+              <button className="w-full bg-white text-[#E07A5F] py-3 rounded-xl font-bold hover:bg-stone-50 transition-colors shadow-sm">
+                Process Payroll
+              </button>
+            </div>
+          </motion.div>
+
+          <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
+            History
+          </h3>
+          <div className="bg-white rounded-3xl shadow-sm border border-[#FFE5D9]/30 overflow-hidden">
+            {periods.slice(1).map((period, i) => (
+              <div
+                key={period.range}
+                className="p-6 border-b border-[#FFE5D9]/30 flex items-center justify-between hover:bg-[#FFF8F3] transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#B8E6D5] flex items-center justify-center text-[#2D6A4F]">
+                    <DollarSign size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-stone-800">{period.range}</h4>
+                    <p className="text-sm text-stone-500">
+                      Paid on {period.payDate}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="font-bold text-stone-800">{period.total}</p>
+                    <p className="text-xs text-stone-400">
+                      {period.staff} Staff Members
+                    </p>
+                  </div>
+                  <ChevronRight
+                    size={20}
+                    className="text-stone-300 group-hover:text-[#FF9B85]"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30">
+            <h4 className="font-bold text-stone-800 mb-4 font-quicksand">
+              Tax Documents
+            </h4>
+            <div className="space-y-3">
+              <button className="w-full flex items-center justify-between p-3 rounded-xl bg-[#FFF8F3] text-stone-600 hover:bg-[#FFE5D9] transition-colors">
+                <span className="text-sm font-medium">Q3 2024 Summary</span>
+                <Download size={16} className="text-[#FF9B85]" />
+              </button>
+              <button className="w-full flex items-center justify-between p-3 rounded-xl bg-[#FFF8F3] text-stone-600 hover:bg-[#FFE5D9] transition-colors">
+                <span className="text-sm font-medium">YTD Payroll Report</span>
+                <Download size={16} className="text-[#FF9B85]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/ReportingPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { MetricCard } from '../components/DashboardWidgets'
+import { BarChart, PieChart, TrendingUp, Users } from 'lucide-react'
+export function ReportingPage() {
+  return (
+    <Layout
+      title="Reporting & Analytics"
+      subtitle="Insights and performance metrics"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title="Avg. Attendance"
+          value="94%"
+          icon={Users}
+          color="bg-[#E5D4ED]"
+          delay={0.1}
+        />
+        <MetricCard
+          title="Revenue Growth"
+          value="+12%"
+          icon={TrendingUp}
+          color="bg-[#B8E6D5]"
+          delay={0.2}
+        />
+        <MetricCard
+          title="New Enrollments"
+          value="5"
+          icon={PieChart}
+          color="bg-[#FFF4CC]"
+          delay={0.3}
+        />
+        <MetricCard
+          title="Staff Turnover"
+          value="0%"
+          icon={BarChart}
+          color="bg-[#FFDCC8]"
+          delay={0.4}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Attendance Chart Placeholder */}
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-[#FFE5D9]/30 min-h-[400px] flex flex-col">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="font-quicksand font-bold text-xl text-stone-800">
+              Attendance Trends
+            </h3>
+            <select className="bg-[#FFF8F3] border-none rounded-xl text-sm font-medium text-stone-600 px-4 py-2 focus:ring-2 focus:ring-[#FF9B85]">
+              <option>Last 30 Days</option>
+              <option>Last 3 Months</option>
+              <option>Year to Date</option>
+            </select>
+          </div>
+          <div className="flex-1 flex items-end justify-between gap-4 px-4">
+            {[60, 75, 82, 78, 85, 90, 88, 92, 94, 91, 95, 94].map((h, i) => (
+              <div
+                key={i}
+                className="w-full bg-[#FFE5D9] rounded-t-xl relative group hover:bg-[#FF9B85] transition-colors"
+                style={{
+                  height: `${h}%`,
+                }}
+              >
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  {h}%
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-4 text-xs text-stone-400 font-medium">
+            <span>Jan</span>
+            <span>Dec</span>
+          </div>
+        </div>
+
+        {/* Revenue Breakdown */}
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-[#FFE5D9]/30 min-h-[400px]">
+          <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-8">
+            Revenue Sources
+          </h3>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between text-sm font-bold text-stone-700 mb-2">
+                <span>Tuition Fees</span>
+                <span>85%</span>
+              </div>
+              <div className="w-full bg-[#FFF8F3] h-3 rounded-full overflow-hidden">
+                <div className="bg-[#FF9B85] h-full rounded-full w-[85%]"></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm font-bold text-stone-700 mb-2">
+                <span>Registration Fees</span>
+                <span>10%</span>
+              </div>
+              <div className="w-full bg-[#FFF8F3] h-3 rounded-full overflow-hidden">
+                <div className="bg-[#E5D4ED] h-full rounded-full w-[10%]"></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm font-bold text-stone-700 mb-2">
+                <span>Late Pickup Fees</span>
+                <span>3%</span>
+              </div>
+              <div className="w-full bg-[#FFF8F3] h-3 rounded-full overflow-hidden">
+                <div className="bg-[#B8E6D5] h-full rounded-full w-[3%]"></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm font-bold text-stone-700 mb-2">
+                <span>Events & Activities</span>
+                <span>2%</span>
+              </div>
+              <div className="w-full bg-[#FFF8F3] h-3 rounded-full overflow-hidden">
+                <div className="bg-[#FFF4CC] h-full rounded-full w-[2%]"></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 p-4 bg-[#FFF8F3] rounded-2xl flex items-center justify-between">
+            <div>
+              <p className="text-xs text-stone-500 font-bold uppercase mb-1">
+                Total Revenue (YTD)
+              </p>
+              <p className="text-2xl font-bold text-stone-800 font-quicksand">
+                $482,500.00
+              </p>
+            </div>
+            <button className="text-[#FF9B85] font-bold text-sm hover:underline">
+              View Details
+            </button>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/SettingsPage.tsx
+import React from 'react'
+import { Layout } from '../components/Layout'
+import { User, Bell, Lock, Globe, Palette, HelpCircle } from 'lucide-react'
+export function SettingsPage() {
+  const settingsSections = [
+    {
+      title: 'Account',
+      items: [
+        {
+          icon: User,
+          label: 'Profile Information',
+          desc: 'Update your name, email, and photo',
+        },
+        {
+          icon: Lock,
+          label: 'Security',
+          desc: 'Change password and 2FA settings',
+        },
+      ],
+    },
+    {
+      title: 'Preferences',
+      items: [
+        {
+          icon: Bell,
+          label: 'Notifications',
+          desc: 'Manage email and push alerts',
+        },
+        {
+          icon: Globe,
+          label: 'Language & Region',
+          desc: 'Set your timezone and language',
+        },
+        {
+          icon: Palette,
+          label: 'Appearance',
+          desc: 'Customize theme and display',
+        },
+      ],
+    },
+    {
+      title: 'Support',
+      items: [
+        {
+          icon: HelpCircle,
+          label: 'Help Center',
+          desc: 'Guides and FAQs',
+        },
+      ],
+    },
+  ]
+  return (
+    <Layout title="Settings" subtitle="Manage your account and preferences">
+      <div className="max-w-3xl">
+        {settingsSections.map((section) => (
+          <div key={section.title} className="mb-10">
+            <h3 className="font-quicksand font-bold text-lg text-stone-400 uppercase tracking-wider mb-4 px-2">
+              {section.title}
+            </h3>
+            <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
+              {section.items.map((item, i) => (
+                <div
+                  key={item.label}
+                  className="flex items-center gap-4 p-6 hover:bg-[#FFF8F3] transition-colors cursor-pointer border-b border-[#FFE5D9]/30 last:border-0"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#FFF8F3] flex items-center justify-center text-[#FF9B85]">
+                    <item.icon size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-stone-800 font-quicksand">
+                      {item.label}
+                    </h4>
+                    <p className="text-sm text-stone-500">{item.desc}</p>
+                  </div>
+                  <button className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm font-medium text-stone-600 hover:bg-white hover:border-[#FF9B85] transition-all">
+                    Edit
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="flex justify-end gap-4 mt-8">
+          <button className="px-6 py-3 rounded-2xl text-stone-500 font-bold hover:bg-[#FFF8F3] transition-colors">
+            Cancel
+          </button>
+          <button className="px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all">
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+```
+```pages/StaffSchedulingPage.tsx
+import React, { useState } from 'react'
+import { Layout } from '../components/Layout'
+import { motion } from 'framer-motion'
+import {
+  Calendar,
+  Clock,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+} from 'lucide-react'
+import { AddShiftModal } from '../components/modals/AddShiftModal'
+export function StaffSchedulingPage() {
+  const [isAddShiftOpen, setIsAddShiftOpen] = useState(false)
+  const shifts = [
+    {
+      name: 'Sarah Jenkins',
+      role: 'Lead Educator',
+      time: '07:30 AM - 03:30 PM',
+      room: 'Tiny Turtles',
+      color: 'bg-[#E5D4ED] border-[#8E55A5]',
+    },
+    {
+      name: 'Mike Ross',
+      role: 'Assistant',
+      time: '08:00 AM - 04:00 PM',
+      room: 'Busy Bees',
+      color: 'bg-[#B8E6D5] border-[#2D6A4F]',
+    },
+    {
+      name: 'Emily Clark',
+      role: 'Educator',
+      time: '09:00 AM - 05:00 PM',
+      room: 'Learning Lions',
+      color: 'bg-[#FFF4CC] border-[#B45309]',
+    },
+    {
+      name: 'Jessica Day',
+      role: 'Floater',
+      time: '10:00 AM - 06:00 PM',
+      room: 'All Rooms',
+      color: 'bg-[#FFDCC8] border-[#E07A5F]',
+    },
+  ]
+  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const dates = [14, 15, 16, 17, 18, 19, 20]
+  return (
+    <Layout title="Staff Scheduling" subtitle="Manage team shifts and coverage">
+      {/* Calendar Header */}
+      <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-[#FFE5D9]/30">
+        <div className="flex items-center gap-4">
+          <button className="p-2 hover:bg-[#FFF8F3] rounded-xl text-stone-500 transition-colors">
+            <ChevronLeft size={20} />
+          </button>
+          <h3 className="font-quicksand font-bold text-lg text-stone-800">
+            October 2024
+          </h3>
+          <button className="p-2 hover:bg-[#FFF8F3] rounded-xl text-stone-500 transition-colors">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-stone-600 font-medium text-sm hover:bg-[#FFE5D9] transition-colors">
+            Day
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-medium text-sm shadow-md">
+            Week
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-stone-600 font-medium text-sm hover:bg-[#FFE5D9] transition-colors">
+            Month
+          </button>
+        </div>
+        <button
+          onClick={() => setIsAddShiftOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-[#FF9B85] text-white rounded-xl font-bold text-sm shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+        >
+          <Plus size={16} /> Add Shift
+        </button>
+      </div>
+
+      {/* Week Grid Header */}
+      <div className="grid grid-cols-7 gap-4 mb-4">
+        {weekDays.map((day, i) => (
+          <div
+            key={day}
+            className={`text-center p-3 rounded-2xl ${i === 2 ? 'bg-[#FF9B85] text-white shadow-md' : 'bg-white text-stone-500'}`}
+          >
+            <p className="text-xs font-bold uppercase mb-1 opacity-80">{day}</p>
+            <p className="text-lg font-bold font-quicksand">{dates[i]}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Schedule Content */}
+      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 p-6 min-h-[500px]">
+        <h4 className="font-quicksand font-bold text-lg text-stone-800 mb-6 flex items-center gap-2">
+          <span className="w-2 h-6 bg-[#FF9B85] rounded-full"></span>
+          Wednesday, Oct 16
+        </h4>
+
+        <div className="space-y-4">
+          {shifts.map((shift, i) => (
+            <motion.div
+              key={shift.name}
+              initial={{
+                opacity: 0,
+                x: -20,
+              }}
+              animate={{
+                opacity: 1,
+                x: 0,
+              }}
+              transition={{
+                delay: i * 0.1,
+              }}
+              className={`flex items-center p-4 rounded-2xl border-l-4 ${shift.color} bg-opacity-30 hover:shadow-md transition-all cursor-pointer bg-white`}
+            >
+              <div className="w-16 text-xs font-bold text-stone-500 flex flex-col gap-1">
+                <span>{shift.time.split(' - ')[0]}</span>
+                <span className="text-stone-300">|</span>
+                <span>{shift.time.split(' - ')[1]}</span>
+              </div>
+
+              <div className="h-10 w-[1px] bg-stone-200 mx-4"></div>
+
+              <div className="flex-1">
+                <h5 className="font-bold text-stone-800 font-quicksand text-lg">
+                  {shift.name}
+                </h5>
+                <p className="text-sm text-stone-500">{shift.role}</p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className="px-3 py-1 bg-white rounded-lg text-xs font-bold text-stone-600 border border-stone-100 shadow-sm">
+                  {shift.room}
+                </span>
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-stone-400 hover:text-[#FF9B85] cursor-pointer">
+                  <User size={16} />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <AddShiftModal
+        isOpen={isAddShiftOpen}
+        onClose={() => setIsAddShiftOpen(false)}
+      />
+    </Layout>
+  )
+}
+
+```
+```tailwind.config.js
+export default {}
+```

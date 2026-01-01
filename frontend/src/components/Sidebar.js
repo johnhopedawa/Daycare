@@ -1,137 +1,150 @@
-import { Fragment } from 'react';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import {
+  LayoutDashboard,
+  ClipboardCheck,
+  Users,
+  CreditCard,
+  Calendar,
+  GraduationCap,
+  Clock,
+  DollarSign,
+  Wallet,
+  Landmark,
+  FileText,
+  BarChart,
+  Settings,
+  LogOut,
+  Baby,
+} from 'lucide-react';
 
-function Sidebar() {
-  const { user, logout, isAdmin } = useAuth();
+const menuItems = [
+  {
+    icon: LayoutDashboard,
+    label: 'Dashboard',
+    path: '/dashboard',
+  },
+  {
+    icon: ClipboardCheck,
+    label: 'Attendance',
+    path: '/attendance',
+  },
+  {
+    icon: Users,
+    label: 'Families',
+    path: '/families',
+  },
+  {
+    icon: CreditCard,
+    label: 'Billing',
+    path: '/billing',
+  },
+  {
+    icon: Wallet,
+    label: 'Payments',
+    path: '/payments',
+  },
+  {
+    icon: Calendar,
+    label: 'Staff Scheduling',
+    path: '/scheduling',
+  },
+  {
+    icon: GraduationCap,
+    label: 'Educators',
+    path: '/educators',
+  },
+  {
+    icon: DollarSign,
+    label: 'Pay Periods',
+    path: '/pay',
+  },
+  {
+    icon: Clock,
+    label: 'Time Entries',
+    path: '/time-entries',
+  },
+  {
+    icon: Landmark,
+    label: 'Bank Accounts',
+    path: '/banking',
+  },
+  {
+    icon: FileText,
+    label: 'Paperwork',
+    path: '/paperwork',
+  },
+  {
+    icon: BarChart,
+    label: 'Reporting',
+    path: '/reporting',
+  },
+  {
+    icon: Settings,
+    label: 'Settings',
+    path: '/settings',
+  },
+];
+
+export function Sidebar() {
   const location = useLocation();
 
-  // Don't show sidebar if not logged in
-  if (!user) return null;
-
-  const isActive = (path) => {
-    return location.pathname === path ? 'active' : '';
-  };
-
-  // Admin Navigation
-  if (isAdmin) {
-    return (
-      <aside className="sidebar">
-        <div className="brand">MyKidReports</div>
-
-        <Fragment>
-          <div className="nav-group">
-            <Link to="/" className={`nav-item ${isActive('/')}`}>
-              Dashboard
-            </Link>
-            <Link to="/admin/attendance" className={`nav-item ${isActive('/admin/attendance')}`}>
-              Attendance
-            </Link>
-            <Link to="/admin/families" className={`nav-item ${isActive('/admin/families')}`}>
-              Families
-            </Link>
-            <Link to="/admin/billing" className={`nav-item ${isActive('/admin/billing')}`}>
-              Billing
-            </Link>
-          </div>
-
-          <div className="nav-label">OPERATIONS</div>
-          <div className="nav-group">
-            <Link to="/admin/schedule" className={`nav-item ${isActive('/admin/schedule')}`}>
-              Staff Scheduling
-            </Link>
-            <Link to="/admin/educators" className={`nav-item ${isActive('/admin/educators')}`}>
-              Educators
-            </Link>
-            <Link to="/admin/pay-periods" className={`nav-item ${isActive('/admin/pay-periods')}`}>
-              Pay Periods
-            </Link>
-          </div>
-
-          <div className="nav-label">ADMIN</div>
-          <div className="nav-group">
-            <Link to="/admin/business-expenses" className={`nav-item ${isActive('/admin/business-expenses')}`}>
-              Bank Accounts
-            </Link>
-            <Link to="/admin/files" className={`nav-item ${isActive('/admin/files')}`}>
-              Paperwork
-            </Link>
-            <Link to="/admin/reports" className={`nav-item ${isActive('/admin/reports')}`}>
-              Reporting
-            </Link>
-            <Link to="/admin/settings" className={`nav-item ${isActive('/admin/settings')}`}>
-              Settings
-            </Link>
-          </div>
-        </Fragment>
-
-        <div className="profile">
-          <strong>{user.first_name} {user.last_name}</strong>
-          <div className="profile-email">{user.email}</div>
-          <button className="logout-button" onClick={logout}>Logout</button>
+  return (
+    <motion.aside
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-[#FFE5D9] flex flex-col z-20 shadow-[4px_0_24px_rgba(255,229,217,0.4)]"
+    >
+      <div className="p-8 flex items-center gap-3">
+        <div className="min-w-10 min-h-10 w-10 h-10 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30 flex-shrink-0">
+          <Baby size={24} />
         </div>
-      </aside>
-    );
-  }
+        <h1 className="font-quicksand font-bold text-2xl text-stone-800 tracking-tight leading-tight">
+          Little<span className="text-[#FF9B85]">Sparrows</span>
+          <br />
+          Academy
+        </h1>
+      </div>
 
-  // Educator Navigation (Staff)
-  if (user.role === 'EDUCATOR') {
-    return (
-      <aside className="sidebar">
-        <div className="brand">MyKidReports</div>
+      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+                isActive
+                  ? 'bg-[#FFE5D9] text-[#E07A5F] font-semibold shadow-sm'
+                  : 'text-stone-500 hover:bg-[#FFF8F3] hover:text-[#E07A5F]'
+              }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF9B85] rounded-full"
+                />
+              )}
+              <item.icon
+                size={20}
+                className={`transition-transform duration-300 ${
+                  isActive ? 'scale-110' : 'group-hover:scale-110'
+                }`}
+                strokeWidth={isActive ? 2.5 : 2}
+              />
+              <span className="font-quicksand text-sm">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
-        <div className="nav-group">
-          <Link to="/" className={`nav-item ${isActive('/')}`}>
-            Dashboard
-          </Link>
-          <Link to="/my-schedule" className={`nav-item ${isActive('/my-schedule')}`}>
-            My Schedule
-          </Link>
-          <Link to="/my-paystubs" className={`nav-item ${isActive('/my-paystubs')}`}>
-            My Paystubs
-          </Link>
-        </div>
-
-        <div className="profile">
-          <strong>{user.first_name} {user.last_name}</strong>
-          <div className="profile-email">{user.email}</div>
-          <button className="logout-button" onClick={logout}>Logout</button>
-        </div>
-      </aside>
-    );
-  }
-
-  // Parent Navigation
-  if (user.role === 'PARENT') {
-    return (
-      <aside className="sidebar">
-        <div className="brand">MyKidReports</div>
-
-        <div className="nav-group">
-          <Link to="/parent/dashboard" className={`nav-item ${isActive('/parent/dashboard')}`}>
-            Dashboard
-          </Link>
-          <Link to="/parent/children" className={`nav-item ${isActive('/parent/children')}`}>
-            My Children
-          </Link>
-          <Link to="/parent/invoices" className={`nav-item ${isActive('/parent/invoices')}`}>
-            Invoices
-          </Link>
-          <Link to="/parent/messages" className={`nav-item ${isActive('/parent/messages')}`}>
-            Messages
-          </Link>
-        </div>
-
-        <div className="profile">
-          <strong>{user.first_name} {user.last_name}</strong>
-          <div className="profile-email">{user.email}</div>
-          <button className="logout-button" onClick={logout}>Logout</button>
-        </div>
-      </aside>
-    );
-  }
-
-  return null;
+      <div className="p-4 border-t border-[#FFE5D9]">
+        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-stone-500 hover:bg-red-50 hover:text-red-500 transition-colors">
+          <LogOut size={20} />
+          <span className="font-quicksand text-sm font-medium">Logout</span>
+        </button>
+      </div>
+    </motion.aside>
+  );
 }
-
-export default Sidebar;
