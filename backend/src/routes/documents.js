@@ -281,7 +281,7 @@ router.get('/parent-payments/:id/receipt-pdf', requireAuth, requireAdmin, async 
     const pdfBuffer = await generateReceipt(payment, parent);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=receipt-${payment.receipt_number || payment.id}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=receipt-${payment.receipt_number || payment.id}.pdf`);
     res.send(pdfBuffer);
   } catch (error) {
     console.error('Get receipt PDF error:', error);

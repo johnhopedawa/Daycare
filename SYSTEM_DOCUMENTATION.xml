@@ -10,8 +10,8 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2025-12-27</last-updated>
-    <documentation-status>Synchronized with current codebase</documentation-status>
+    <last-updated>2026-01-01</last-updated>
+    <documentation-status>Synchronized with current codebase - Responsive layout improvements completed</documentation-status>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
@@ -530,7 +530,13 @@
           <call endpoint="/admin/time-entries?status=PENDING"/>
         </api-calls>
         <components-used>Layout, DashboardWidgets (MetricCard, AttendanceWidget, TimelineWidget, QuickActions)</components-used>
-        <status>COMPLETE</status>
+        <responsive-features>
+          <feature>Metric cards grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-4</feature>
+          <feature>Main content grid: grid-cols-1 lg:grid-cols-3</feature>
+          <feature>Widget heights: h-[300px] sm:h-[350px] md:h-[400px]</feature>
+          <feature>Responsive spacing: gap-6 md:gap-8</feature>
+        </responsive-features>
+        <status>COMPLETE - Fully responsive</status>
       </page>
 
       <page file="AttendancePage.js">
@@ -996,19 +1002,39 @@
         </props>
         <features>
           <feature>Formatted current date display</feature>
-          <feature>Search bar (visual only)</feature>
+          <feature>Search bar (visual only, hidden on mobile, shown md+)</feature>
           <feature>Notifications bell (visual only)</feature>
           <feature>User avatar (visual only)</feature>
+          <feature>Hamburger menu button for mobile sidebar toggle</feature>
+          <feature>Responsive header layout (column on mobile, row on desktop)</feature>
+          <feature>Responsive padding: p-4 sm:p-6 md:p-8 lg:p-10</feature>
+          <feature>Dynamic main padding: no left padding on mobile, lg:pl-64 on desktop</feature>
         </features>
+        <responsive-behavior>
+          <mobile>Hamburger menu visible, search hidden, header stacked vertically</mobile>
+          <tablet>Search appears, header horizontal</tablet>
+          <desktop>Full sidebar visible, no hamburger menu</desktop>
+        </responsive-behavior>
       </component>
 
       <component file="Sidebar.js">
-        <description>Fixed left navigation sidebar</description>
+        <description>Collapsible left navigation sidebar with mobile drawer</description>
+        <props>
+          <prop name="isOpen" type="boolean" description="Controls sidebar visibility on mobile"/>
+          <prop name="onClose" type="function" description="Callback to close mobile sidebar"/>
+        </props>
         <features>
           <feature>Active route highlighting with animated indicator</feature>
           <feature>Lucide icons for each menu item</feature>
-          <feature>11 navigation links</feature>
+          <feature>13 navigation links</feature>
+          <feature>Mobile drawer with overlay backdrop</feature>
+          <feature>Close button visible on mobile only</feature>
+          <feature>Smooth slide-in/out animation using CSS transforms</feature>
         </features>
+        <responsive-behavior>
+          <mobile>Hidden by default, slides in from left when opened, overlay backdrop</mobile>
+          <desktop>Always visible, fixed position, no overlay</desktop>
+        </responsive-behavior>
         <menu-items>
           <item path="/dashboard" icon="LayoutDashboard">Dashboard</item>
           <item path="/attendance" icon="ClipboardCheck">Attendance</item>
@@ -1038,6 +1064,26 @@
     <modals-directory path="components/modals/">
       <modal file="BaseModal.js">
         <description>Reusable modal wrapper component with capped height and scrollable body</description>
+        <props>
+          <prop name="isOpen" type="boolean" description="Controls modal visibility"/>
+          <prop name="onClose" type="function" description="Callback to close modal"/>
+          <prop name="title" type="string" description="Modal header title"/>
+          <prop name="children" type="ReactNode" description="Modal body content"/>
+          <prop name="maxWidth" type="string" optional="true" default="max-w-2xl" description="Tailwind max-width class"/>
+        </props>
+        <features>
+          <feature>Backdrop with blur effect</feature>
+          <feature>Framer Motion animations (scale, fade, slide)</feature>
+          <feature>Close button in header</feature>
+          <feature>Scrollable content area with max-h-[90vh]</feature>
+          <feature>Responsive padding: p-4 sm:p-6</feature>
+          <feature>Responsive border radius: rounded-2xl sm:rounded-3xl</feature>
+          <feature>Responsive title size: text-xl sm:text-2xl</feature>
+        </features>
+        <responsive-behavior>
+          <mobile>Smaller padding, smaller border radius, full width with margin</mobile>
+          <desktop>Larger padding, larger border radius, constrained by maxWidth</desktop>
+        </responsive-behavior>
         <status>Base component for all modals</status>
       </modal>
 
@@ -1143,6 +1189,39 @@
         <yellow>#FFF4CC</yellow>
         <peach>#FFDCC8</peach>
       </color-palette>
+      <responsive-design>
+        <breakpoints>
+          <sm>640px - Small devices</sm>
+          <md>768px - Medium devices</md>
+          <lg>1024px - Large devices (sidebar appears)</lg>
+          <xl>1280px - Extra large devices</xl>
+        </breakpoints>
+        <patterns>
+          <pattern name="Sidebar Collapse">
+            Sidebar hidden on mobile (<lg), accessible via hamburger menu.
+            Uses translate-x animation with overlay backdrop on mobile.
+          </pattern>
+          <pattern name="Responsive Padding">
+            Main content: p-4 sm:p-6 md:p-8 lg:p-10
+            Modals: p-4 sm:p-6
+            Adjusts based on available screen space
+          </pattern>
+          <pattern name="Header Layout">
+            Flexbox switches from column (mobile) to row (desktop).
+            Search bar hidden on mobile (<md), shows on medium+ screens.
+            Title font size: text-2xl sm:text-3xl
+          </pattern>
+          <pattern name="Widget Heights">
+            Dashboard widgets: h-[300px] sm:h-[350px] md:h-[400px]
+            Scales down on smaller screens to prevent excessive scrolling
+          </pattern>
+          <pattern name="Grid Responsiveness">
+            Metric cards: grid-cols-1 md:grid-cols-2 lg:grid-cols-4
+            Content sections: grid-cols-1 lg:grid-cols-3
+            Ensures single column on mobile, expands on larger screens
+          </pattern>
+        </patterns>
+      </responsive-design>
     </styling>
 
     <animation>

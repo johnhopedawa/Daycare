@@ -51,23 +51,23 @@ export function BaseModal({
                 damping: 25,
                 stiffness: 300,
               }}
-              className={`bg-white rounded-3xl shadow-2xl ${maxWidth} w-full pointer-events-auto overflow-hidden flex flex-col max-h-[90vh]`}
+              className={`bg-white rounded-2xl sm:rounded-3xl shadow-2xl ${maxWidth} w-full pointer-events-auto overflow-hidden flex flex-col max-h-[90vh]`}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-[#FFE5D9]/30">
-                <h2 className="text-2xl font-bold font-quicksand text-stone-800">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#FFE5D9]/30">
+                <h2 className="text-xl sm:text-2xl font-bold font-quicksand text-stone-800">
                   {title}
                 </h2>
                 <button
                   onClick={onClose}
-                  className="w-10 h-10 rounded-xl bg-[#FFF8F3] flex items-center justify-center text-stone-400 hover:text-[#FF9B85] hover:bg-[#FFE5D9] transition-colors"
+                  className="w-10 h-10 rounded-xl bg-[#FFF8F3] flex items-center justify-center text-stone-400 hover:text-[#FF9B85] hover:bg-[#FFE5D9] transition-colors flex-shrink-0"
                 >
                   <X size={20} />
                 </button>
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto">{children}</div>
+              <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
             </motion.div>
           </div>
         </>

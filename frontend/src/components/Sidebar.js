@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   ClipboardCheck,
@@ -17,7 +17,9 @@ import {
   Settings,
   LogOut,
   Baby,
+  X,
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const menuItems = [
   {
@@ -87,24 +89,73 @@ const menuItems = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    if (window.innerWidth < 1024) {
+      onClose();
+    }
+    navigate('/login', { replace: true });
+  };
 
   return (
-    <motion.aside
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-[#FFE5D9] flex flex-col z-20 shadow-[4px_0_24px_rgba(255,229,217,0.4)]"
-    >
-      <div className="p-8 flex items-center gap-3">
-        <div className="min-w-10 min-h-10 w-10 h-10 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30 flex-shrink-0">
-          <Baby size={24} />
+    <>
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/20 z-30 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`
+          w-64 bg-white h-screen fixed left-0 top-0 border-r border-[#FFE5D9]
+          flex flex-col shadow-[4px_0_24px_rgba(255,229,217,0.4)]
+          transition-transform duration-300 ease-in-out
+          lg:translate-x-0
+          ${isOpen ? 'translate-x-0 z-40' : '-translate-x-full z-20'}
+        `}
+      >
+      <div className="px-4 pt-4 pb-2 sm:px-6 lg:hidden border-b border-[#FFE5D9]">
+        <div className="flex items-center justify-between">
+          <span className="font-quicksand text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">
+            Menu
+          </span>
+          {/* Mobile Close Button */}
+          <button
+            onClick={onClose}
+            className="lg:hidden w-9 h-9 flex items-center justify-center text-stone-400 hover:text-[#FF9B85] rounded-xl hover:bg-[#FFF8F3] transition-colors border border-[#FFE5D9]"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
-        <h1 className="font-quicksand font-bold text-2xl text-stone-800 tracking-tight leading-tight">
-          Little<span className="text-[#FF9B85]">Sparrows</span>
-          <br />
-          Academy
-        </h1>
+      </div>
+
+      <div className="py-6 px-4 border-b border-[#FFE5D9]">
+        <div className="flex items-center justify-center gap-3">
+          <div className="min-w-10 min-h-10 w-10 h-10 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30 flex-shrink-0">
+            <Baby size={24} />
+          </div>
+          <h1 className="font-quicksand font-bold text-xl sm:text-2xl text-stone-800 tracking-tight leading-tight">
+            Little<span className="text-[#FF9B85]">Sparrows</span>
+            <br />
+            Academy
+          </h1>
+        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
@@ -114,6 +165,12 @@ export function Sidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={() => {
+                // Close sidebar on mobile when navigation item is clicked
+                if (window.innerWidth < 1024) {
+                  onClose();
+                }
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
                 isActive
                   ? 'bg-[#FFE5D9] text-[#E07A5F] font-semibold shadow-sm'
@@ -140,11 +197,15 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-[#FFE5D9]">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-stone-500 hover:bg-red-50 hover:text-red-500 transition-colors">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-stone-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+        >
           <LogOut size={20} />
           <span className="font-quicksand text-sm font-medium">Logout</span>
         </button>
       </div>
     </motion.aside>
+    </>
   );
 }

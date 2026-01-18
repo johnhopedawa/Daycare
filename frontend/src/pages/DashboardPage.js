@@ -15,7 +15,7 @@ import { CreateEventModal } from '../components/modals/CreateEventModal';
 export function DashboardPage() {
   const [stats, setStats] = useState({
     totalChildren: 0,
-    presentToday: 0,
+    presentToday: '0/0',
     staffOnDuty: 0,
     pendingTasks: 0,
   });
@@ -31,32 +31,46 @@ export function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [childrenRes, attendanceRes, usersRes, timeEntriesRes] = await Promise.all([
+      const today = new Date();
+      const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const [childrenRes, attendanceRes, schedulesRes, timeEntriesRes] = await Promise.all([
         api.get('/children?status=ACTIVE'),
-        api.get('/attendance/today'),
-        api.get('/admin/users?role=EDUCATOR'),
+        api.get(`/attendance?start_date=${todayDate}&end_date=${todayDate}`),
+        api.get(`/schedules/admin/schedules?from=${todayDate}&to=${todayDate}&status=ACCEPTED`),
         api.get('/admin/time-entries?status=PENDING'),
       ]);
 
       // Calculate stats
-      const presentCount = attendanceRes.data.attendance.filter(
-        a => a.status === 'PRESENT' || a.status === 'LATE'
-      ).length;
+      // Present Today: anyone who attended at all today (exclude ABSENT/SICK/VACATION)
+      const attendanceData = attendanceRes.data.attendance || [];
+      const presentCount = attendanceData.filter((record) => {
+        const status = (record.status || '').toUpperCase();
+        if (['ABSENT', 'SICK', 'VACATION'].includes(status)) {
+          return false;
+        }
+        return Boolean(record.check_in_time || record.check_out_time || status === 'PRESENT' || status === 'LATE');
+      }).length;
+      const totalChildrenCount = childrenRes.data.children.length;
+
+      // Staff on Duty: unique educators from accepted schedules today
+      const uniqueEducatorIds = new Set(schedulesRes.data.schedules.map(s => s.user_id));
+      const staffOnDuty = uniqueEducatorIds.size;
 
       setStats({
-        totalChildren: childrenRes.data.children.length,
-        presentToday: presentCount,
-        staffOnDuty: usersRes.data.users.filter(u => u.is_active).length,
+        totalChildren: totalChildrenCount,
+        presentToday: `${presentCount}/${totalChildrenCount}`,
+        staffOnDuty: staffOnDuty,
         pendingTasks: timeEntriesRes.data.timeEntries.length,
       });
 
       // Format attendance for widget
-      const formattedAttendance = attendanceRes.data.attendance
+      const formattedAttendance = attendanceData
         .slice(0, 5)
         .map(a => ({
           id: a.child_id.toString(),
           name: a.child_name,
-          status: a.status.toLowerCase(), // 'PRESENT' -> 'present'
+          status: (a.status || 'ABSENT').toLowerCase(), // 'PRESENT' -> 'present'
           time: a.check_in_time ? formatTime(a.check_in_time) : undefined,
         }));
 
@@ -122,10 +136,10 @@ export function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Left Column (Attendance & Messages) */}
-        <div className="lg:col-span-2 space-y-8">
-          <section className="h-[400px]">
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
+          <section className="h-[300px] sm:h-[350px] md:h-[400px]">
             <AttendanceWidget children={attendance} />
           </section>
 
@@ -147,7 +161,7 @@ export function DashboardPage() {
         </div>
 
         {/* Right Column (Timeline & Actions) */}
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           <section>
             <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
               Quick Actions
@@ -159,7 +173,7 @@ export function DashboardPage() {
             />
           </section>
 
-          <section className="h-[400px]">
+          <section className="h-[300px] sm:h-[350px] md:h-[400px]">
             <TimelineWidget />
           </section>
         </div>

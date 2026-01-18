@@ -102,14 +102,16 @@ export function PaymentsPage() {
       const response = await api.get(`/documents/parent-payments/${paymentId}/receipt-pdf`, {
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `receipt-${paymentId}.pdf`);
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Failed to download receipt:', error);
       alert(error.response?.data?.error || 'Failed to download receipt');
