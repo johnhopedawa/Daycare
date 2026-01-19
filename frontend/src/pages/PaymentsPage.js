@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { motion } from 'framer-motion';
-import { DollarSign, Download, CheckCircle } from 'lucide-react';
+import { DollarSign, Download } from 'lucide-react';
 import api from '../utils/api';
 import { BaseModal } from '../components/modals/BaseModal';
 
@@ -17,7 +17,7 @@ export function PaymentsPage() {
     invoiceId: '',
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
-    status: 'PENDING',
+    status: 'PAID',
     paymentMethod: '',
     notes: '',
   });
@@ -72,7 +72,7 @@ export function PaymentsPage() {
         invoiceId: '',
         amount: '',
         paymentDate: new Date().toISOString().split('T')[0],
-        status: 'PENDING',
+        status: 'PAID',
         paymentMethod: '',
         notes: '',
       });
@@ -96,36 +96,14 @@ export function PaymentsPage() {
     }
   };
 
-  const handleDownloadReceipt = async (paymentId) => {
+  const handleDownloadReceipt = async (payment) => {
     try {
-      await api.post(`/documents/parent-payments/${paymentId}/generate-receipt`);
-      const response = await api.get(`/documents/parent-payments/${paymentId}/receipt-pdf`, {
-        responseType: 'blob',
-      });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `receipt-${paymentId}.pdf`);
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      await api.post(`/documents/parent-payments/${payment.id}/generate-receipt`);
+      const response = await api.post(`/documents/parent-payments/${payment.id}/receipt-link`);
+      window.open(response.data.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Failed to download receipt:', error);
       alert(error.response?.data?.error || 'Failed to download receipt');
-    }
-  };
-
-  const handleMarkInvoicePaid = async (invoiceId) => {
-    if (!window.confirm('Mark this invoice as paid?')) return;
-    try {
-      await api.patch(`/invoices/${invoiceId}`, { status: 'PAID' });
-      loadData();
-    } catch (error) {
-      console.error('Failed to mark invoice paid:', error);
-      alert(error.response?.data?.error || 'Failed to update invoice');
     }
   };
 
@@ -138,7 +116,6 @@ export function PaymentsPage() {
     const styles = {
       PENDING: 'bg-amber-100 text-amber-700',
       PAID: 'bg-emerald-100 text-emerald-700',
-      COMPLETED: 'bg-emerald-100 text-emerald-700',
     };
     return styles[status] || 'bg-stone-100 text-stone-600';
   };
@@ -237,7 +214,7 @@ export function PaymentsPage() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleDownloadReceipt(payment.id)}
+                              onClick={() => handleDownloadReceipt(payment)}
                               className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-[#FFE5D9] text-stone-600 text-xs font-bold hover:bg-[#FFF8F3] transition-colors"
                             >
                               <Download size={14} />
@@ -301,17 +278,7 @@ export function PaymentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 ? (
-                            <button
-                              onClick={() => handleMarkInvoicePaid(invoice.id)}
-                              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-[#FFE5D9] text-stone-600 text-xs font-bold hover:bg-[#FFF8F3] transition-colors"
-                            >
-                              <CheckCircle size={14} />
-                              Mark Paid
-                            </button>
-                          ) : (
-                            <span className="text-xs text-stone-400">-</span>
-                          )}
+                          <span className="text-xs text-stone-400">-</span>
                         </td>
                       </tr>
                     ))}
@@ -415,13 +382,18 @@ export function PaymentsPage() {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Payment Method
             </label>
-            <input
-              type="text"
+            <select
               value={paymentForm.paymentMethod}
               onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-              placeholder="Cash, e-transfer, card..."
               className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
-            />
+            >
+              <option value="">Select method</option>
+              <option value="E-Transfer">E-Transfer</option>
+              <option value="Credit">Credit</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Cash">Cash</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           <div>

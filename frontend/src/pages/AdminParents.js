@@ -44,6 +44,7 @@ function AdminParents() {
   });
 
   const [generatedPasswords, setGeneratedPasswords] = useState([]);
+  const [resettingId, setResettingId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -156,6 +157,32 @@ function AdminParents() {
       loadParentDocuments(selectedParent.id);
     } catch (error) {
       alert('Failed to delete file');
+    }
+  };
+
+  const handleSendReset = async (parent) => {
+    if (!parent.email || !parent.user_id) {
+      alert('Parent does not have login access');
+      return;
+    }
+
+    try {
+      setResettingId(parent.id);
+      const response = await api.post(`/parents/${parent.id}/password-reset`);
+      const resetUrl = response.data.reset_url;
+
+      if (resetUrl && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(resetUrl);
+        alert('Password reset link copied to clipboard');
+      } else if (resetUrl) {
+        window.prompt('Copy this reset link:', resetUrl);
+      } else {
+        alert('Password reset link generated');
+      }
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to send reset link');
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -464,6 +491,14 @@ function AdminParents() {
                     style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                   >
                     View Files
+                  </button>
+                  <button
+                    onClick={() => handleSendReset(parent)}
+                    className="secondary"
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                    disabled={resettingId === parent.id || !parent.user_id}
+                  >
+                    {resettingId === parent.id ? 'Sending...' : 'Send Reset Link'}
                   </button>
                   <button
                     onClick={() => handleEdit(parent)}

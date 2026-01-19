@@ -20,6 +20,7 @@ import ParentDashboard from './pages/ParentDashboard';
 import ParentInvoices from './pages/ParentInvoices';
 import ParentMessages from './pages/ParentMessages';
 import ParentChildren from './pages/ParentChildren';
+import ParentResetPassword from './pages/ParentResetPassword';
 import EducatorDashboard from './pages/EducatorDashboard';
 import MySchedule from './pages/MySchedule';
 import MyHours from './pages/MyHours';
@@ -55,6 +56,7 @@ export function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/parent/login" element={<ParentLogin />} />
+        <Route path="/parent/reset-password" element={<ParentResetPassword />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/dashboard"

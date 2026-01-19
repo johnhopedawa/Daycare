@@ -10,16 +10,15 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-01-01</last-updated>
-    <documentation-status>Synchronized with current codebase - Responsive layout improvements completed</documentation-status>
+    <last-updated>2026-01-17</last-updated>
+    <documentation-status>Updated to reflect current routing, auth gating, and document PDF flows</documentation-status>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
-    <schema-file>backend/src/db/schema.sql</schema-file>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>11</total-migrations>
-    <migration-pattern>Sequential numbered migrations (001_*.sql through 011_*.sql)</migration-pattern>
+    <total-migrations>14</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 013_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -503,6 +502,8 @@
     <router-library>react-router-dom v6</router-library>
     <current-routes>
       <route path="/" redirect-to="/dashboard"/>
+      <route path="/login" component="Login"/>
+      <route path="/parent/login" component="ParentLogin"/>
       <route path="/dashboard" component="DashboardPage"/>
       <route path="/attendance" component="AttendancePage"/>
       <route path="/families" component="FamiliesPage"/>
@@ -516,8 +517,17 @@
       <route path="/paperwork" component="PaperworkPage"/>
       <route path="/reporting" component="ReportingPage"/>
       <route path="/settings" component="SettingsPage"/>
+      <route path="/educator/dashboard" component="EducatorDashboard"/>
+      <route path="/educator/my-schedule" component="MySchedule"/>
+      <route path="/educator/my-hours" component="MyHours"/>
+      <route path="/educator/log-hours" component="LogHours"/>
+      <route path="/educator/my-paystubs" component="MyPaystubs"/>
+      <route path="/parent/dashboard" component="ParentDashboard"/>
+      <route path="/parent/invoices" component="ParentInvoices"/>
+      <route path="/parent/messages" component="ParentMessages"/>
+      <route path="/parent/children" component="ParentChildren"/>
     </current-routes>
-    <note>NO AUTHENTICATION ROUTES - Authentication not implemented in App.js yet</note>
+    <note>Role-gated routing enforced via RequireRole in App.js</note>
 
     <pages-directory path="pages/">
       <!-- Admin Dashboard & Core Pages -->
@@ -925,59 +935,59 @@
       <!-- Educator Portal Pages -->
       <page file="EducatorDashboard.js">
         <description>Educator dashboard</description>
-        <status>EXISTS - Educator portal not routed</status>
+        <status>ROUTED - Educator portal entry</status>
       </page>
 
       <page file="MySchedule.js">
         <description>Educator's personal schedule view</description>
-        <status>EXISTS - Educator portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="LogHours.js">
         <description>Educator time entry logging</description>
-        <status>EXISTS - Educator portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="MyHours.js">
         <description>Educator's time entries view</description>
-        <status>EXISTS - Educator portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="MyPaystubs.js">
         <description>Educator paystubs view</description>
-        <status>EXISTS - Educator portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <!-- Parent Portal Pages -->
       <page file="ParentDashboard.js">
         <description>Parent portal dashboard</description>
-        <status>EXISTS - Parent portal not routed</status>
+        <status>ROUTED - Parent portal entry</status>
       </page>
 
       <page file="ParentChildren.js">
         <description>Parent's children view</description>
-        <status>EXISTS - Parent portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="ParentInvoices.js">
         <description>Parent invoice view</description>
-        <status>EXISTS - Parent portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="ParentMessages.js">
         <description>Parent messaging interface</description>
-        <status>EXISTS - Parent portal not routed</status>
+        <status>ROUTED</status>
       </page>
 
       <!-- Authentication Pages -->
       <page file="Login.js">
         <description>Staff login page</description>
-        <status>EXISTS - Not routed in App.js</status>
+        <status>ROUTED</status>
       </page>
 
       <page file="ParentLogin.js">
         <description>Parent portal login page</description>
-        <status>EXISTS - Not routed in App.js</status>
+        <status>ROUTED</status>
       </page>
 
       <!-- Utility Pages -->
@@ -1167,7 +1177,7 @@
     <contexts-directory path="contexts/">
       <context file="AuthContext.js">
         <description>Authentication context provider</description>
-        <status>EXISTS - May not be integrated in App.js</status>
+        <status>INTEGRATED - Used by App.js and index.js</status>
       </context>
     </contexts-directory>
 
@@ -1364,7 +1374,14 @@
         <document type="Invoice">Parent invoices with line items and tax</document>
         <document type="Receipt">Payment receipts</document>
       </generated-documents>
-      <status>BACKEND COMPLETE - No frontend UI for generation</status>
+      <status>BACKEND COMPLETE - Frontend buttons open PDFs (Billing/Payments/MyPaystubs)</status>
+      <delivery>
+        <method>Signed URL for direct browser open</method>
+        <admin-receipts>POST /documents/parent-payments/:id/receipt-link → /documents/receipt-open?token=...</admin-receipts>
+        <admin-invoices>POST /invoices/:id/pdf-link → /invoices/pdf-open?token=...</admin-invoices>
+        <parent-invoices>POST /parent/invoices/:id/pdf-link → /invoices/pdf-open?token=...</parent-invoices>
+        <note>Signed tokens are short-lived and allow correct filename in PDF viewer</note>
+      </delivery>
     </integration>
 
     <integration name="Excel Export">
@@ -1374,7 +1391,7 @@
       <exports>
         <export>Payroll summaries by pay period</export>
       </exports>
-      <status>BACKEND COMPLETE - No frontend download button</status>
+      <status>BACKEND COMPLETE - Export button in PayPeriodsPage</status>
     </integration>
 
     <integration name="Email Notifications">
@@ -1418,10 +1435,9 @@
 
     <database-setup>
       <migration-command>node backend/src/db/migrate.js</migration-command>
-      <schema-file>backend/src/db/schema.sql</schema-file>
       <migrations-directory>backend/migrations/</migrations-directory>
-      <naming-pattern>001_*.sql, 002_*.sql, etc. (sequential)</naming-pattern>
-      <total-migrations>11</total-migrations>
+      <naming-pattern>000_*.sql, 001_*.sql, etc. (sequential)</naming-pattern>
+      <total-migrations>14</total-migrations>
     </database-setup>
 
     <backend-server>
@@ -1458,8 +1474,7 @@
 
     <weaknesses>
       <weakness>Multiple duplicate pages (Admin* vs regular pages) - unclear which is canonical</weakness>
-      <weakness>Many pages exist but not routed in App.js (educator portal, parent portal, auth pages)</weakness>
-      <weakness>No authentication routes or protected routes implemented</weakness>
+      <weakness>Legacy Admin* pages exist but are not routed and may drift from canonical pages</weakness>
       <weakness>Many modals exist but unclear which are wired to pages</weakness>
       <weakness>Billing templates feature has no frontend</weakness>
       <weakness>Many reports available in backend but not shown in UI</weakness>
@@ -1471,9 +1486,9 @@
 
     <immediate-priorities>
       <priority rank="1">Consolidate duplicate pages (Admin* vs regular) - decide canonical version</priority>
-      <priority rank="2">Implement authentication routing and protected routes in App.js</priority>
-      <priority rank="3">Wire up existing modals to pages (AddChild, CreateInvoice, UploadDocument, etc.)</priority>
-      <priority rank="4">Add routing for educator and parent portals</priority>
+      <priority rank="2">Wire up existing modals to pages (AddChild, CreateInvoice, UploadDocument, etc.)</priority>
+      <priority rank="3">Clarify which Admin* pages remain as reference vs remove/redirect</priority>
+      <priority rank="4">Harden notification workflows (email/SMS) and delivery status tracking</priority>
       <priority rank="5">Add edit/delete functionality to existing pages</priority>
       <priority rank="6">Implement email notifications</priority>
     </immediate-priorities>
@@ -1487,10 +1502,10 @@
       </issue>
 
       <issue category="Routing">
-        <title>Unrouted Pages and Missing Authentication</title>
-        <description>Many pages exist but aren't routed in App.js. No authentication or protected route logic.</description>
-        <impact>Features built but inaccessible to users</impact>
-        <recommendation>Implement react-router protected routes, add auth routes, route all functional pages</recommendation>
+        <title>Legacy Admin Pages Not Routed</title>
+        <description>Admin* pages exist but are not routed; canonical pages are routed via App.js with RequireRole gating.</description>
+        <impact>Potential confusion and drift between legacy and canonical implementations</impact>
+        <recommendation>Decide canonical pages, remove or redirect legacy Admin* pages</recommendation>
       </issue>
 
       <issue category="Database Schema">
@@ -1535,7 +1550,7 @@
   <summary>
 
     <overview>
-      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 11 migrations), and the backend API is robust (100+ endpoints). The frontend has a beautiful MagicPattern design but suffers from duplicate pages, unrouted components, and missing authentication. Many modals exist for CRUD operations but integration status is unclear. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, and business expense tracking via SimpleFIN/Firefly III.
+      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 11 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, and business expense tracking via SimpleFIN/Firefly III.
     </overview>
 
     <key-architectural-decisions>

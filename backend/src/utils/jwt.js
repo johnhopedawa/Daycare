@@ -32,4 +32,8 @@ function verifyToken(token) {
   }
 }
 
-module.exports = { generateToken, verifyToken };
+function generatePdfToken(payload, expiresIn = '5m') {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+}
+
+module.exports = { generateToken, verifyToken, generatePdfToken };

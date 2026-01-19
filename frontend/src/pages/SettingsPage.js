@@ -1,20 +1,48 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { motion } from 'framer-motion';
-import { User, Lock, Bell, Globe, Palette, Shield } from 'lucide-react';
+import { User, Lock, Bell, Globe, Percent } from 'lucide-react';
 import api from '../utils/api';
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [taxSettings, setTaxSettings] = useState({
+    taxEnabled: true,
+    taxRatePercent: '5.00',
+  });
+  const [taxMessage, setTaxMessage] = useState(null);
+  const [taxSaving, setTaxSaving] = useState(false);
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'security', label: 'Security', icon: Lock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'preferences', label: 'Preferences', icon: Globe },
+    { id: 'billing', label: 'Billing', icon: Percent },
   ];
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await api.get('/settings');
+        const rate = parseFloat(response.data.settings?.tax_rate ?? 0.05);
+        const enabled = response.data.settings?.tax_enabled ?? true;
+        setTaxSettings({
+          taxEnabled: enabled,
+          taxRatePercent: (rate * 100).toFixed(2),
+        });
+      } catch (error) {
+        setTaxMessage({
+          type: 'error',
+          text: error.response?.data?.error || 'Failed to load billing settings',
+        });
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -46,6 +74,33 @@ export function SettingsPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTaxSave = async (e) => {
+    e.preventDefault();
+    setTaxMessage(null);
+
+    const parsedRate = parseFloat(taxSettings.taxRatePercent);
+    if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100) {
+      setTaxMessage({ type: 'error', text: 'Tax rate must be between 0 and 100.' });
+      return;
+    }
+
+    try {
+      setTaxSaving(true);
+      await api.patch('/settings', {
+        tax_rate: parsedRate / 100,
+        tax_enabled: taxSettings.taxEnabled,
+      });
+      setTaxMessage({ type: 'success', text: 'Billing settings updated.' });
+    } catch (error) {
+      setTaxMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to update billing settings',
+      });
+    } finally {
+      setTaxSaving(false);
     }
   };
 
@@ -208,6 +263,82 @@ export function SettingsPage() {
                     Enable 2FA
                   </button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'billing' && (
+              <div>
+                <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-6">
+                  Billing Settings
+                </h3>
+
+                {taxMessage && (
+                  <div
+                    className={`mb-6 p-4 rounded-xl ${
+                      taxMessage.type === 'success'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}
+                  >
+                    {taxMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleTaxSave} className="space-y-6">
+                  <div className="flex items-center justify-between p-4 border border-stone-200 rounded-2xl">
+                    <div>
+                      <p className="font-semibold text-stone-800">Enable Tax</p>
+                      <p className="text-sm text-stone-500">Apply daycare tax to invoices</p>
+                    </div>
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={taxSettings.taxEnabled}
+                        onChange={(e) => setTaxSettings({ ...taxSettings, taxEnabled: e.target.checked })}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors ${
+                          taxSettings.taxEnabled ? 'bg-[#FF9B85]' : 'bg-stone-300'
+                        }`}
+                      >
+                        <span
+                          className={`bg-white w-5 h-5 rounded-full shadow transform transition-transform ${
+                            taxSettings.taxEnabled ? 'translate-x-5' : ''
+                          }`}
+                        />
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">
+                      Tax Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={taxSettings.taxRatePercent}
+                      onChange={(e) => setTaxSettings({ ...taxSettings, taxRatePercent: e.target.value })}
+                      className="w-full px-4 py-3 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF9B85] focus:border-transparent"
+                    />
+                    <p className="text-xs text-stone-500 mt-2">
+                      This rate is applied to all new invoices and billing templates.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={taxSaving}
+                      className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {taxSaving ? 'Saving...' : 'Save Billing Settings'}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
 

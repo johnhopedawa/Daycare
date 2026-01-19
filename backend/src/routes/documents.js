@@ -3,8 +3,63 @@ const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { generatePaystub, generateReceipt } = require('../services/pdfGenerator');
 const { generatePayrollSummary } = require('../services/excelGenerator');
+const { generatePdfToken, verifyToken } = require('../utils/jwt');
+const { getReceiptData, ensureReceipt } = require('../services/receiptService');
 
 const router = express.Router();
+
+const sanitizeFileNamePart = (value) => {
+  if (!value) return 'Unknown';
+  const cleaned = String(value)
+    .replace(/[^A-Za-z0-9_-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return cleaned || 'Unknown';
+};
+
+const formatYearMonth = (dateValue) => {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 'UnknownDate';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const buildReceiptContext = async (id, options = {}) => {
+  const { generatedBy, parentId } = options;
+
+  if (generatedBy) {
+    await ensureReceipt(id, generatedBy);
+  }
+
+  const data = await getReceiptData(id, { parentId });
+
+  if (!data) {
+    return null;
+  }
+
+  const payment = {
+    id: data.id,
+    receipt_number: data.receipt_number,
+    amount: data.amount,
+    payment_date: data.payment_date,
+    payment_method: data.payment_method,
+    notes: data.notes
+  };
+
+  const parent = {
+    first_name: data.first_name,
+    last_name: data.last_name,
+    email: data.email,
+    phone: data.phone,
+    child_names: data.child_names
+  };
+
+  const childName = data.child_names || `${data.first_name} ${data.last_name}`.trim();
+  const filename = `Receipt_${formatYearMonth(data.payment_date)}_${sanitizeFileNamePart(childName)}.pdf`;
+
+  return { payment, parent, filename };
+};
 
 // === PAYSTUBS ===
 
@@ -207,34 +262,36 @@ router.get('/pay-periods/:id/export-excel', requireAuth, requireAdmin, async (re
 
 // === PARENT RECEIPTS ===
 
+// Get signed receipt link (admin)
+router.post('/parent-payments/:id/receipt-link', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = generatePdfToken({
+      type: 'receipt',
+      paymentId: id,
+      role: req.user.role,
+      userId: req.user.id
+    });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({ url: `${baseUrl}/api/documents/receipt-open?token=${token}` });
+  } catch (error) {
+    console.error('Generate receipt link error:', error);
+    res.status(500).json({ error: 'Failed to generate receipt link' });
+  }
+});
+
 // Generate receipt for a payment
 router.post('/parent-payments/:id/generate-receipt', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get payment
-    const result = await pool.query(
-      'SELECT * FROM parent_payments WHERE id = $1',
-      [id]
-    );
+    const receipt = await ensureReceipt(id, req.user.id);
 
-    if (result.rows.length === 0) {
+    if (!receipt) {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    const payment = result.rows[0];
-
-    // Generate receipt number if not exists
-    if (!payment.receipt_number) {
-      const receiptNumber = `RCP-${Date.now()}-${id}`;
-      await pool.query(
-        'UPDATE parent_payments SET receipt_number = $1 WHERE id = $2',
-        [receiptNumber, id]
-      );
-      payment.receipt_number = receiptNumber;
-    }
-
-    res.json({ message: 'Receipt generated', receiptNumber: payment.receipt_number });
+    res.json({ message: 'Receipt generated', receiptNumber: receipt.receipt_number });
   } catch (error) {
     console.error('Generate receipt error:', error);
     res.status(500).json({ error: 'Failed to generate receipt' });
@@ -246,45 +303,47 @@ router.get('/parent-payments/:id/receipt-pdf', requireAuth, requireAdmin, async 
   try {
     const { id } = req.params;
 
-    // Get payment with parent info
-    const result = await pool.query(
-      `SELECT pp.*, p.first_name, p.last_name, p.email, p.phone, p.child_names
-       FROM parent_payments pp
-       JOIN parents p ON pp.parent_id = p.id
-       WHERE pp.id = $1`,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
+    const context = await buildReceiptContext(id, { generatedBy: req.user.id });
+    if (!context) {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    const data = result.rows[0];
-
-    const payment = {
-      id: data.id,
-      receipt_number: data.receipt_number,
-      amount: data.amount,
-      payment_date: data.payment_date,
-      payment_method: data.payment_method,
-      notes: data.notes
-    };
-
-    const parent = {
-      first_name: data.first_name,
-      last_name: data.last_name,
-      email: data.email,
-      phone: data.phone,
-      child_names: data.child_names
-    };
-
-    const pdfBuffer = await generateReceipt(payment, parent);
+    const pdfBuffer = await generateReceipt(context.payment, context.parent);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=receipt-${payment.receipt_number || payment.id}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename="${context.filename}"`);
     res.send(pdfBuffer);
   } catch (error) {
     console.error('Get receipt PDF error:', error);
+    res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+// Open receipt PDF using signed token
+router.get('/receipt-open', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(401).json({ error: 'Missing token' });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload || payload.type !== 'receipt' || payload.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+
+    const context = await buildReceiptContext(payload.paymentId, { generatedBy: payload.userId });
+    if (!context) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    const pdfBuffer = await generateReceipt(context.payment, context.parent);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${context.filename}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Open receipt PDF error:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
   }
 });

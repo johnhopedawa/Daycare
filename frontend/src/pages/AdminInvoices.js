@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { buildPdfFileName } from '../utils/fileName';
 
 function AdminInvoices() {
   const [invoices, setInvoices] = useState([]);
@@ -10,6 +11,7 @@ function AdminInvoices() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterParent, setFilterParent] = useState('');
+  const [taxSettings, setTaxSettings] = useState({ tax_rate: 0.05, tax_enabled: true });
 
   const [invoiceForm, setInvoiceForm] = useState({
     parent_id: '',
@@ -29,6 +31,10 @@ function AdminInvoices() {
     loadParents();
     loadChildren();
   }, [searchTerm, filterStatus, filterParent]);
+
+  useEffect(() => {
+    loadTaxSettings();
+  }, []);
 
   const loadInvoices = async () => {
     try {
@@ -59,6 +65,22 @@ function AdminInvoices() {
       setChildren(response.data.children);
     } catch (error) {
       console.error('Load children error:', error);
+    }
+  };
+
+  const loadTaxSettings = async () => {
+    try {
+      const response = await api.get('/settings');
+      const taxRate = response.data.settings?.tax_rate ?? 0.05;
+      const taxEnabled = response.data.settings?.tax_enabled ?? true;
+      setTaxSettings({ tax_rate: taxRate, tax_enabled: taxEnabled });
+      setInvoiceForm((prev) => ({
+        ...prev,
+        tax_rate: taxRate,
+        tax_enabled: taxEnabled,
+      }));
+    } catch (error) {
+      console.error('Load tax settings error:', error);
     }
   };
 
@@ -112,16 +134,19 @@ function AdminInvoices() {
     }
   };
 
-  const handleDownloadPDF = async (id, invoiceNumber) => {
+  const handleDownloadPDF = async (invoice) => {
     try {
-      const response = await api.get(`/invoices/${id}/pdf`, {
+      const response = await api.get(`/invoices/${invoice.id}/pdf`, {
         responseType: 'blob'
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const childName = [invoice.child_first_name, invoice.child_last_name].filter(Boolean).join(' ').trim();
+      const parentName = `${invoice.parent_first_name || ''} ${invoice.parent_last_name || ''}`.trim();
+      const filename = buildPdfFileName('Invoice', invoice.invoice_date || invoice.due_date, childName || parentName);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoice-${invoiceNumber}.pdf`);
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -131,6 +156,11 @@ function AdminInvoices() {
   };
 
   const handleStatusChange = async (id, newStatus) => {
+    if (newStatus === 'PAID' || newStatus === 'PARTIAL') {
+      alert('Record a payment to mark an invoice as paid or partial.');
+      return;
+    }
+
     try {
       await api.patch(`/invoices/${id}`, { status: newStatus });
       loadInvoices();
@@ -145,8 +175,8 @@ function AdminInvoices() {
       child_id: '',
       invoice_date: new Date().toISOString().split('T')[0],
       due_date: '',
-      tax_enabled: true,
-      tax_rate: 0.05,
+      tax_enabled: taxSettings.tax_enabled,
+      tax_rate: taxSettings.tax_rate,
       pricing_mode: 'BASE_PLUS_TAX',
       notes: '',
       payment_terms: 'Due upon receipt',
@@ -372,17 +402,20 @@ function AdminInvoices() {
                   <input
                     type="checkbox"
                     checked={invoiceForm.tax_enabled}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax_enabled: e.target.checked })}
+                    disabled
                     style={{ marginRight: '0.5rem' }}
                   />
                   Enable Tax (GST)
                 </label>
+                <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                  Managed in Settings
+                </small>
                 {invoiceForm.tax_enabled && (
                   <input
                     type="number"
                     step="0.0001"
                     value={invoiceForm.tax_rate}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax_rate: e.target.value })}
+                    disabled
                     placeholder="0.05"
                     style={{ marginTop: '0.5rem' }}
                   />
@@ -494,7 +527,6 @@ function AdminInvoices() {
               <option value="">All Status</option>
               <option value="DRAFT">Draft</option>
               <option value="SENT">Sent</option>
-              <option value="UNPAID">Unpaid</option>
               <option value="PARTIAL">Partial</option>
               <option value="PAID">Paid</option>
               <option value="OVERDUE">Overdue</option>
@@ -561,16 +593,15 @@ function AdminInvoices() {
                     >
                       <option value="DRAFT">Draft</option>
                       <option value="SENT">Sent</option>
-                      <option value="UNPAID">Unpaid</option>
-                      <option value="PARTIAL">Partial</option>
-                      <option value="PAID">Paid</option>
+                      <option value="PARTIAL" disabled>Partial</option>
+                      <option value="PAID" disabled>Paid</option>
                       <option value="OVERDUE">Overdue</option>
                     </select>
                   </td>
                   <td>
                     <div className="flex" style={{ gap: '0.5rem', flexDirection: 'column' }}>
                       <button
-                        onClick={() => handleDownloadPDF(invoice.id, invoice.invoice_number)}
+                        onClick={() => handleDownloadPDF(invoice)}
                         style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
                       >
                         Download PDF

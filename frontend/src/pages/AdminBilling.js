@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { buildPdfFileName } from '../utils/fileName';
 
 function AdminBilling() {
   const [invoices, setInvoices] = useState([]);
@@ -11,10 +12,11 @@ function AdminBilling() {
   const [showClosedInvoices, setShowClosedInvoices] = useState(false);
   const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [taxSettings, setTaxSettings] = useState({ tax_rate: 0.05, tax_enabled: true });
   const [markPaidForm, setMarkPaidForm] = useState({
     paymentDate: new Date().toISOString().split('T')[0],
     amount: '',
-    paymentMethod: 'E-transfer'
+    paymentMethod: 'E-Transfer'
   });
 
   // Pagination for payment history
@@ -51,6 +53,7 @@ function AdminBilling() {
     loadParents();
     loadChildren();
     loadPayments();
+    loadTaxSettings();
   }, []);
 
   const loadInvoices = async () => {
@@ -80,6 +83,22 @@ function AdminBilling() {
     }
   };
 
+  const loadTaxSettings = async () => {
+    try {
+      const response = await api.get('/settings');
+      setTaxSettings({
+        tax_rate: response.data.settings?.tax_rate ?? 0.05,
+        tax_enabled: response.data.settings?.tax_enabled ?? true,
+      });
+      setInvoiceForm((prev) => ({
+        ...prev,
+        tax_rate: response.data.settings?.tax_rate ?? 0.05,
+        tax_enabled: response.data.settings?.tax_enabled ?? true,
+      }));
+    } catch (error) {
+      console.error('Load tax settings error:', error);
+    }
+  };
   const loadPayments = async () => {
     try {
       const response = await api.get('/parents/payments');
@@ -108,8 +127,8 @@ function AdminBilling() {
       child_id: '',
       invoice_date: new Date().toISOString().split('T')[0],
       due_date: '',
-      tax_enabled: true,
-      tax_rate: 0.05,
+      tax_enabled: taxSettings.tax_enabled,
+      tax_rate: taxSettings.tax_rate,
       pricing_mode: 'BASE_PLUS_TAX',
       notes: '',
       payment_terms: 'Due upon receipt',
@@ -210,7 +229,7 @@ function AdminBilling() {
     setMarkPaidForm({
       paymentDate: new Date().toISOString().split('T')[0],
       amount: invoice.balance_due || '',
-      paymentMethod: 'E-transfer'
+      paymentMethod: 'E-Transfer'
     });
     setShowMarkPaidModal(true);
   };
@@ -233,18 +252,35 @@ function AdminBilling() {
         notes: 'Manual payment entry'
       });
 
-      // Check if invoice is fully paid and update status if needed
-      const remainingBalance = parseFloat(selectedInvoice.balance_due) - parseFloat(markPaidForm.amount);
-      if (remainingBalance <= 0.01) {
-        await api.patch(`/invoices/${selectedInvoice.id}`, { status: 'PAID' });
-      }
-
       setShowMarkPaidModal(false);
       setSelectedInvoice(null);
       loadInvoices();
       loadPayments();
     } catch (error) {
       alert('Failed to record payment');
+    }
+  };
+
+  const downloadInvoice = async (invoice) => {
+    try {
+      const response = await api.get(`/invoices/${invoice.id}/pdf`, {
+        responseType: 'blob',
+      });
+
+      const childName = [invoice.child_first_name, invoice.child_last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      const parentName = `${invoice.parent_first_name || ''} ${invoice.parent_last_name || ''}`.trim();
+      const namePart = childName || parentName || 'Unknown';
+      const filename = buildPdfFileName('Invoice', invoice.invoice_date, namePart);
+
+      const file = new File([response.data], filename, { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(file);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      alert('Failed to download invoice');
     }
   };
 
@@ -394,17 +430,20 @@ function AdminBilling() {
                   <input
                     type="checkbox"
                     checked={invoiceForm.tax_enabled}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax_enabled: e.target.checked })}
+                    disabled
                     style={{ marginRight: '0.5rem' }}
                   />
                   Enable Tax (GST)
                 </label>
+                <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+                  Managed in Settings
+                </small>
                 {invoiceForm.tax_enabled && (
                   <input
                     type="number"
                     step="0.0001"
                     value={invoiceForm.tax_rate}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax_rate: e.target.value })}
+                    disabled
                     placeholder="0.05"
                     style={{ marginTop: '0.5rem' }}
                   />
@@ -512,12 +551,17 @@ function AdminBilling() {
             </div>
             <div className="form-group">
               <label>Payment Method</label>
-              <input
-                type="text"
+              <select
                 value={paymentForm.paymentMethod}
                 onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-                placeholder="e.g., E-transfer, Cash, Check"
-              />
+              >
+                <option value="">Select method</option>
+                <option value="E-Transfer">E-Transfer</option>
+                <option value="Credit">Credit</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Cash">Cash</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Notes</label>
@@ -571,14 +615,23 @@ function AdminBilling() {
                 <td>${parseFloat(invoice.balance_due || 0).toFixed(2)}</td>
                 <td>{getStatusBadge(invoice.status)}</td>
                 <td>
-                  {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 && (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => openMarkPaidModal(invoice)}
+                      onClick={() => downloadInvoice(invoice)}
                       style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      className="secondary"
                     >
-                      Mark as Paid
+                      Invoice PDF
                     </button>
-                  )}
+                    {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 && (
+                      <button
+                        onClick={() => openMarkPaidModal(invoice)}
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      >
+                        Mark as Paid
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -699,11 +752,11 @@ function AdminBilling() {
                 value={markPaidForm.paymentMethod}
                 onChange={(e) => setMarkPaidForm({ ...markPaidForm, paymentMethod: e.target.value })}
               >
-                <option value="E-transfer">E-transfer</option>
-                <option value="Cash">Cash</option>
-                <option value="Check">Check</option>
-                <option value="Debit">Debit</option>
+                <option value="E-Transfer">E-Transfer</option>
                 <option value="Credit">Credit</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Cash">Cash</option>
+                <option value="Other">Other</option>
               </select>
             </div>
 

@@ -10,10 +10,6 @@ async function migrate() {
 
     await client.query('BEGIN');
 
-    // First, create all tables using the schema file
-    const schema = fs.readFileSync('./src/db/schema.sql', 'utf-8');
-    await client.query(schema);
-
     // Run migration scripts in order
     const migrationsDir = path.join(__dirname, 'migrations');
     if (fs.existsSync(migrationsDir)) {

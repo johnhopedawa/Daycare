@@ -202,4 +202,65 @@ router.post('/admin/reset-password', requireAuth, async (req, res) => {
   }
 });
 
+// Parent password reset via token
+router.post('/parent-reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const resetResult = await pool.query(
+      `SELECT id, parent_id, expires_at, used
+       FROM parent_password_resets
+       WHERE reset_token = $1`,
+      [token]
+    );
+
+    if (resetResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid reset token' });
+    }
+
+    const reset = resetResult.rows[0];
+    if (reset.used) {
+      return res.status(400).json({ error: 'Reset token has already been used' });
+    }
+
+    if (new Date(reset.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Reset token has expired' });
+    }
+
+    const parentResult = await pool.query(
+      'SELECT id, user_id FROM parents WHERE id = $1',
+      [reset.parent_id]
+    );
+
+    if (parentResult.rows.length === 0 || !parentResult.rows[0].user_id) {
+      return res.status(400).json({ error: 'Parent account not found' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [passwordHash, parentResult.rows[0].user_id]
+    );
+
+    await pool.query(
+      'UPDATE parent_password_resets SET used = true WHERE id = $1',
+      [reset.id]
+    );
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Parent reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 module.exports = router;

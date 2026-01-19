@@ -730,7 +730,7 @@ Edit resource limits in deployment YAMLs, then apply.
 - **Source Code**:
   - Backend routes: [backend/src/routes/](backend/src/routes/)
   - Frontend pages: [frontend/src/pages/](frontend/src/pages/)
-  - Database schema: [backend/src/db/schema.sql](backend/src/db/schema.sql)
+  - Database migrations: [backend/migrations/](backend/migrations/)
 
 ---
 

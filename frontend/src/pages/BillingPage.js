@@ -4,6 +4,7 @@ import { MetricCard } from '../components/DashboardWidgets';
 import { BaseModal } from '../components/modals/BaseModal';
 import { DollarSign, Clock, AlertCircle, Download, Send, Wallet } from 'lucide-react';
 import api from '../utils/api';
+import { buildPdfFileName } from '../utils/fileName';
 import { CreateInvoiceModal } from '../components/modals/CreateInvoiceModal';
 
 export function BillingPage() {
@@ -110,7 +111,7 @@ export function BillingPage() {
         invoiceId: invoice.id ? String(invoice.id) : '',
         amount: invoice.balance_due ? String(invoice.balance_due) : '',
         paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethod: 'E-transfer',
+        paymentMethod: 'E-Transfer',
         notes: 'Manual payment entry',
       });
     } else {
@@ -142,16 +143,6 @@ export function BillingPage() {
       };
       await api.post('/parents/payments', payload);
 
-      if (paymentForm.invoiceId) {
-        const invoice = invoices.find((inv) => inv.id === parseInt(paymentForm.invoiceId, 10));
-        if (invoice) {
-          const remaining = parseFloat(invoice.balance_due || 0) - parseFloat(paymentForm.amount || 0);
-          if (remaining <= 0.01) {
-            await api.patch(`/invoices/${invoice.id}`, { status: 'PAID' });
-          }
-        }
-      }
-
       setIsPaymentModalOpen(false);
       setSelectedInvoice(null);
       resetPaymentForm();
@@ -176,6 +167,11 @@ export function BillingPage() {
   const handleEditInvoiceSubmit = async (e) => {
     e.preventDefault();
     if (!selectedInvoiceForEdit) return;
+
+    if (['PAID', 'PARTIAL'].includes(invoiceEditForm.status)) {
+      alert('Record a payment to mark an invoice as paid or partial.');
+      return;
+    }
 
     try {
       await api.patch(`/invoices/${selectedInvoiceForEdit.id}`, invoiceEditForm);
@@ -212,10 +208,13 @@ export function BillingPage() {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const childName = [invoice.child_first_name, invoice.child_last_name].filter(Boolean).join(' ').trim();
+      const nameFallback = invoice.parent_name || childName || 'Unknown';
+      const filename = buildPdfFileName('Invoice', invoice.invoice_date || invoice.due_date, childName || nameFallback);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoice-${invoice.invoice_number}.pdf`);
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -236,23 +235,11 @@ export function BillingPage() {
     }
   };
 
-  const downloadReceipt = async (paymentId) => {
+  const downloadReceipt = async (payment) => {
     try {
-      await api.post(`/documents/parent-payments/${paymentId}/generate-receipt`);
-      const response = await api.get(`/documents/parent-payments/${paymentId}/receipt-pdf`, {
-        responseType: 'blob',
-      });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `receipt-${paymentId}.pdf`);
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      await api.post(`/documents/parent-payments/${payment.id}/generate-receipt`);
+      const response = await api.post(`/documents/parent-payments/${payment.id}/receipt-link`);
+      window.open(response.data.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Failed to download receipt:', error);
       alert(error.response?.data?.error || 'Failed to download receipt');
@@ -262,7 +249,6 @@ export function BillingPage() {
   const getPaymentStatusBadge = (status) => {
     const badges = {
       PAID: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]',
-      COMPLETED: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]',
       PENDING: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]',
     };
     return <span className={badges[status] || badges.PENDING}>{status}</span>;
@@ -278,7 +264,6 @@ export function BillingPage() {
       PAID: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]',
       SENT: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]',
       PARTIAL: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#E5D4ED] text-[#8E55A5]',
-      PARTIALLY_PAID: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#E5D4ED] text-[#8E55A5]',
       OVERDUE: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFE5D9] text-[#C4554D]',
       DRAFT: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-stone-200 text-stone-600',
     };
@@ -519,7 +504,7 @@ export function BillingPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => downloadReceipt(payment.id)}
+                            onClick={() => downloadReceipt(payment)}
                             className="text-[#FF9B85] hover:text-[#E07A5F]"
                           >
                             Receipt
@@ -641,13 +626,18 @@ export function BillingPage() {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Payment Method
             </label>
-            <input
-              type="text"
+            <select
               value={paymentForm.paymentMethod}
               onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-              placeholder="e.g., E-transfer, Cash, Check"
               className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
-            />
+            >
+              <option value="">Select method</option>
+              <option value="E-Transfer">E-Transfer</option>
+              <option value="Credit">Credit</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Cash">Cash</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           <div>
@@ -715,8 +705,8 @@ export function BillingPage() {
             >
               <option value="DRAFT">Draft</option>
               <option value="SENT">Sent</option>
-              <option value="PARTIAL">Partial</option>
-              <option value="PAID">Paid</option>
+              <option value="PARTIAL" disabled>Partial</option>
+              <option value="PAID" disabled>Paid</option>
               <option value="OVERDUE">Overdue</option>
             </select>
           </div>

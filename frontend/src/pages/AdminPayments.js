@@ -11,7 +11,7 @@ function AdminPayments() {
     invoiceId: '',
     amount: '',
     paymentDate: new Date().toISOString().split('T')[0],
-    status: 'COMPLETED',
+    status: 'PAID',
     paymentMethod: '',
     notes: '',
   });
@@ -59,7 +59,7 @@ function AdminPayments() {
         invoiceId: '',
         amount: '',
         paymentDate: new Date().toISOString().split('T')[0],
-        status: 'COMPLETED',
+        status: 'PAID',
         paymentMethod: '',
         notes: '',
       });
@@ -98,37 +98,13 @@ function AdminPayments() {
     }
   };
 
-  const downloadReceipt = async (id) => {
+  const downloadReceipt = async (payment) => {
     try {
-      const response = await api.get(`/documents/parent-payments/${id}/receipt-pdf`, {
-        responseType: 'blob',
-      });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `receipt-${id}.pdf`);
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      await api.post(`/documents/parent-payments/${payment.id}/generate-receipt`);
+      const response = await api.post(`/documents/parent-payments/${payment.id}/receipt-link`);
+      window.open(response.data.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       alert('Failed to download receipt');
-    }
-  };
-
-  const markInvoiceAsPaid = async (invoiceId) => {
-    if (!window.confirm('Mark this invoice as paid? This will update the invoice status to PAID.')) {
-      return;
-    }
-
-    try {
-      await api.patch(`/invoices/${invoiceId}`, { status: 'PAID' });
-      loadInvoices();
-    } catch (error) {
-      alert('Failed to mark invoice as paid');
     }
   };
 
@@ -182,14 +158,7 @@ function AdminPayments() {
                 <td>${parseFloat(invoice.balance_due || 0).toFixed(2)}</td>
                 <td>{getStatusBadge(invoice.status)}</td>
                 <td>
-                  {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 && (
-                    <button
-                      onClick={() => markInvoiceAsPaid(invoice.id)}
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-                    >
-                      Mark as Paid
-                    </button>
-                  )}
+                  -
                 </td>
               </tr>
             ))}
@@ -270,17 +239,22 @@ function AdminPayments() {
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
                 <option value="PENDING">Pending</option>
-                <option value="COMPLETED">Completed</option>
+                <option value="PAID">Paid</option>
               </select>
             </div>
             <div className="form-group">
               <label>Payment Method</label>
-              <input
-                type="text"
+              <select
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                placeholder="e.g., Cash, Check, Card"
-              />
+              >
+                <option value="">Select method</option>
+                <option value="E-Transfer">E-Transfer</option>
+                <option value="Credit">Credit</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Cash">Cash</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Notes</label>
@@ -339,7 +313,7 @@ function AdminPayments() {
                     </button>
                   ) : (
                     <button
-                      onClick={() => downloadReceipt(payment.id)}
+                      onClick={() => downloadReceipt(payment)}
                       style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                     >
                       Receipt

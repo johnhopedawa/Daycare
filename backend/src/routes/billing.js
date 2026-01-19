@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { getDaycareSettings } = require('../services/settingsService');
 
 // GET /api/billing/templates
 // Get all billing templates
@@ -36,16 +37,30 @@ router.post('/templates', requireAuth, requireAdmin, async (req, res) => {
       frequency,
       line_items,
       subtotal,
-      tax_rate,
       next_invoice_date
     } = req.body;
 
+    const settings = await getDaycareSettings(pool);
+
     const result = await pool.query(
       `INSERT INTO billing_templates
-       (parent_id, child_id, template_name, frequency, line_items, subtotal, tax_rate, next_invoice_date, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (parent_id, child_id, template_name, frequency, line_items, subtotal,
+        tax_rate, tax_enabled, pricing_mode, next_invoice_date, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [parent_id, child_id, template_name, frequency, JSON.stringify(line_items), subtotal, tax_rate || 0.13, next_invoice_date, req.user.id]
+      [
+        parent_id,
+        child_id,
+        template_name,
+        frequency,
+        JSON.stringify(line_items),
+        subtotal,
+        settings.tax_rate,
+        settings.tax_enabled,
+        'BASE_PLUS_TAX',
+        next_invoice_date,
+        req.user.id
+      ]
     );
 
     res.json({ template: result.rows[0] });
@@ -65,10 +80,11 @@ router.patch('/templates/:id', requireAuth, requireAdmin, async (req, res) => {
       frequency,
       line_items,
       subtotal,
-      tax_rate,
       is_active,
       next_invoice_date
     } = req.body;
+
+    const settings = await getDaycareSettings(pool);
 
     const result = await pool.query(
       `UPDATE billing_templates
@@ -76,13 +92,24 @@ router.patch('/templates/:id', requireAuth, requireAdmin, async (req, res) => {
            frequency = COALESCE($2, frequency),
            line_items = COALESCE($3, line_items),
            subtotal = COALESCE($4, subtotal),
-           tax_rate = COALESCE($5, tax_rate),
-           is_active = COALESCE($6, is_active),
-           next_invoice_date = COALESCE($7, next_invoice_date),
+           tax_rate = $5,
+           tax_enabled = $6,
+           is_active = COALESCE($7, is_active),
+           next_invoice_date = COALESCE($8, next_invoice_date),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
-      [template_name, frequency, line_items ? JSON.stringify(line_items) : null, subtotal, tax_rate, is_active, next_invoice_date, id]
+      [
+        template_name,
+        frequency,
+        line_items ? JSON.stringify(line_items) : null,
+        subtotal,
+        settings.tax_rate,
+        settings.tax_enabled,
+        is_active,
+        next_invoice_date,
+        id
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -103,6 +130,8 @@ router.post('/generate-invoices', requireAuth, requireAdmin, async (req, res) =>
   try {
     await client.query('BEGIN');
 
+    const settings = await getDaycareSettings(client);
+
     // Get templates due for invoice generation
     const templates = await client.query(
       `SELECT * FROM billing_templates
@@ -114,9 +143,11 @@ router.post('/generate-invoices', requireAuth, requireAdmin, async (req, res) =>
     const generated = [];
 
     for (const template of templates.rows) {
-      // Calculate amounts
-      const tax_amount = (parseFloat(template.subtotal) * parseFloat(template.tax_rate)).toFixed(2);
-      const total_amount = (parseFloat(template.subtotal) + parseFloat(tax_amount)).toFixed(2);
+      const taxRate = parseFloat(settings.tax_rate);
+      const taxEnabled = settings.tax_enabled;
+      const subtotal = parseFloat(template.subtotal);
+      const tax_amount = taxEnabled ? (subtotal * taxRate).toFixed(2) : '0.00';
+      const total_amount = (subtotal + parseFloat(tax_amount)).toFixed(2);
 
       // Generate invoice number
       const invoiceNumberResult = await client.query(
@@ -129,19 +160,22 @@ router.post('/generate-invoices', requireAuth, requireAdmin, async (req, res) =>
       const invoice = await client.query(
         `INSERT INTO parent_invoices
          (parent_id, child_id, invoice_number, invoice_date, due_date, line_items,
-          subtotal, tax_rate, tax_amount, total_amount, balance_due, status, created_by)
-         VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 15, $4, $5, $6, $7, $8, $9, 'SENT', $10)
+          subtotal, tax_rate, tax_amount, total_amount, balance_due, status,
+          tax_enabled, pricing_mode, created_by)
+         VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE + 15, $4, $5, $6, $7, $8, $9, 'SENT', $10, $11, $12)
          RETURNING *`,
         [
           template.parent_id,
           template.child_id,
           invoiceNumber,
           template.line_items,
-          template.subtotal,
-          template.tax_rate,
+          subtotal,
+          taxRate,
           tax_amount,
           total_amount,
           total_amount,
+          taxEnabled,
+          'BASE_PLUS_TAX',
           req.user.id
         ]
       );
