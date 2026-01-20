@@ -48,15 +48,19 @@ async function syncConnection(connectionId) {
       throw new Error('Failed to decrypt connection credentials');
     }
 
-    // Determine start date (last sync or 30 days ago)
+    // Determine start date (last sync or 30 days ago), as UNIX timestamp seconds
     let startDate;
+    let startDateUnix;
     if (connection.last_sync_at) {
-      startDate = new Date(connection.last_sync_at).toISOString().split('T')[0];
+      const lastSync = new Date(connection.last_sync_at);
+      startDate = lastSync.toISOString().split('T')[0];
+      startDateUnix = Math.floor(lastSync.getTime() / 1000);
     } else {
       // First sync: get last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       startDate = thirtyDaysAgo.toISOString().split('T')[0];
+      startDateUnix = Math.floor(thirtyDaysAgo.getTime() / 1000);
     }
 
     console.log(`[Sync] Fetching transactions since ${startDate} for "${connection.account_name}"`);
@@ -67,7 +71,7 @@ async function syncConnection(connectionId) {
       transactions = await simplefinService.fetchTransactions(
         accessUrl,
         connection.simplefin_account_id,
-        startDate
+        startDateUnix
       );
     } catch (error) {
       console.error(`[Sync] SimpleFIN fetch failed for connection ${connectionId}:`, error.message);

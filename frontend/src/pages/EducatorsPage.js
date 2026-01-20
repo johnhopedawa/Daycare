@@ -33,11 +33,11 @@ export function EducatorsPage() {
   });
   const [editForm, setEditForm] = useState({});
 
-  const avatarColors = [
-    'bg-[#E5D4ED] text-[#8E55A5]',
-    'bg-[#B8E6D5] text-[#2D6A4F]',
-    'bg-[#FFF4CC] text-[#B45309]',
-    'bg-[#FFDCC8] text-[#E07A5F]',
+  const avatarStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
   ];
 
   useEffect(() => {
@@ -57,8 +57,8 @@ export function EducatorsPage() {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   };
 
-  const getAvatarColor = (index) => {
-    return avatarColors[index % avatarColors.length];
+  const getAvatarStyle = (index) => {
+    return avatarStyles[index % avatarStyles.length];
   };
 
   const handleAddEducator = async (e) => {
@@ -172,14 +172,15 @@ export function EducatorsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 flex flex-col items-center text-center hover:translate-y-[-4px] transition-transform duration-300"
+            className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border flex flex-col items-center text-center hover:translate-y-[-4px] transition-transform duration-300"
           >
             {/* Avatar */}
-            <div
-              className={`w-24 h-24 rounded-full ${getAvatarColor(i)} flex items-center justify-center text-2xl font-bold mb-4 shadow-inner`}
-            >
-              {getInitials(educator.first_name, educator.last_name)}
-            </div>
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold mb-4 shadow-inner"
+                style={getAvatarStyle(i)}
+              >
+                {getInitials(educator.first_name, educator.last_name)}
+              </div>
 
             {/* Name */}
             <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-1">
@@ -187,14 +188,14 @@ export function EducatorsPage() {
             </h3>
 
             {/* Role Badge */}
-            <p className="text-[#FF9B85] font-medium text-sm mb-4">
+            <p className="text-[var(--primary)] font-medium text-sm mb-4">
               {educator.role === 'ADMIN' ? 'Administrator' : 'Educator'}
             </p>
 
             {/* Info Boxes */}
             <div className="w-full space-y-3 mb-6">
               {/* Hourly Rate / Salary */}
-              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
                   <DollarSign size={16} />
                   <span>Rate</span>
@@ -207,7 +208,7 @@ export function EducatorsPage() {
               </div>
 
               {/* Sick Days */}
-              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
                   <Briefcase size={16} />
                   <span>Sick Days</span>
@@ -218,7 +219,7 @@ export function EducatorsPage() {
               </div>
 
               {/* Vacation Days */}
-              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
                   <Calendar size={16} />
                   <span>Vacation Days</span>
@@ -229,7 +230,7 @@ export function EducatorsPage() {
               </div>
 
               {/* Active Status */}
-              <div className="flex justify-between items-center p-3 bg-[#FFF8F3] rounded-xl">
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <span className="text-stone-500 text-sm">Status</span>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -247,20 +248,20 @@ export function EducatorsPage() {
             <div className="flex gap-2 w-full">
               <a
                 href={`mailto:${educator.email}`}
-                className="flex-1 py-2 rounded-xl border border-[#FFE5D9] text-stone-500 hover:bg-[#FFE5D9] hover:text-[#E07A5F] transition-colors flex justify-center"
+                className="flex-1 py-2 rounded-xl border themed-border text-stone-500 themed-hover hover:text-[var(--primary-dark)] transition-colors flex justify-center"
               >
                 <Mail size={18} />
               </a>
               <button
                 onClick={() => toggleActive(educator.id, educator.is_active)}
-                className="flex-1 py-2 rounded-xl border border-[#FFE5D9] text-stone-500 hover:bg-[#FFE5D9] hover:text-[#E07A5F] transition-colors flex justify-center"
+                className="flex-1 py-2 rounded-xl border themed-border text-stone-500 themed-hover hover:text-[var(--primary-dark)] transition-colors flex justify-center"
                 title={educator.is_active ? 'Deactivate' : 'Activate'}
               >
                 <Phone size={18} />
               </button>
               <button
                 onClick={() => handleEditClick(educator)}
-                className="flex-1 py-2 rounded-xl bg-[#FF9B85] text-white font-bold text-sm shadow-md hover:bg-[#E07A5F] transition-colors"
+                className="flex-1 py-2 rounded-xl bg-[var(--primary)] text-white font-bold text-sm shadow-md hover:opacity-90 transition-colors"
               >
                 Profile
               </button>
@@ -274,9 +275,12 @@ export function EducatorsPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: educators.length * 0.1 }}
           onClick={() => setShowAddModal(true)}
-          className="border-2 border-dashed border-[#FFE5D9] rounded-3xl flex flex-col items-center justify-center p-6 text-[#FF9B85] hover:bg-[#FFF8F3] transition-colors min-h-[300px]"
+          className="border-2 border-dashed themed-border rounded-3xl flex flex-col items-center justify-center p-6 text-[var(--primary)] hover:bg-[var(--background)] transition-colors min-h-[300px]"
         >
-          <div className="w-16 h-16 rounded-full bg-[#FFE5D9] flex items-center justify-center mb-4">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{ backgroundColor: 'var(--accent)' }}
+          >
             <UserPlus size={32} />
           </div>
           <span className="font-bold font-quicksand text-lg">Add New Educator</span>
@@ -301,7 +305,7 @@ export function EducatorsPage() {
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -313,7 +317,7 @@ export function EducatorsPage() {
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -329,7 +333,7 @@ export function EducatorsPage() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -341,7 +345,7 @@ export function EducatorsPage() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -356,7 +360,7 @@ export function EducatorsPage() {
               <select
                 value={formData.paymentType}
                 onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               >
                 <option value="HOURLY">Hourly</option>
@@ -370,7 +374,7 @@ export function EducatorsPage() {
               <select
                 value={formData.payFrequency}
                 onChange={(e) => setFormData({ ...formData, payFrequency: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               >
                 <option value="BI_WEEKLY">Bi-Weekly (Every 2 weeks)</option>
@@ -391,7 +395,7 @@ export function EducatorsPage() {
                 step="0.01"
                 value={formData.hourlyRate}
                 onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 placeholder="0.00"
               />
             </div>
@@ -405,7 +409,7 @@ export function EducatorsPage() {
                 step="0.01"
                 value={formData.salaryAmount}
                 onChange={(e) => setFormData({ ...formData, salaryAmount: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 placeholder="0.00"
               />
             </div>
@@ -421,7 +425,7 @@ export function EducatorsPage() {
                 type="number"
                 value={formData.annualSickDays}
                 onChange={(e) => setFormData({ ...formData, annualSickDays: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
             <div>
@@ -432,7 +436,7 @@ export function EducatorsPage() {
                 type="number"
                 value={formData.annualVacationDays}
                 onChange={(e) => setFormData({ ...formData, annualVacationDays: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
           </div>
@@ -445,7 +449,7 @@ export function EducatorsPage() {
                   type="checkbox"
                   checked={formData.carryoverEnabled}
                   onChange={(e) => setFormData({ ...formData, carryoverEnabled: e.target.checked })}
-                  className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]/50"
+                  className="w-5 h-5 rounded themed-border text-[var(--primary)] themed-ring"
                 />
                 <span className="ml-2 text-sm font-bold text-stone-700 font-quicksand">
                   Allow carryover to next year
@@ -460,7 +464,7 @@ export function EducatorsPage() {
                 type="date"
                 value={formData.dateEmployed}
                 onChange={(e) => setFormData({ ...formData, dateEmployed: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
           </div>
@@ -476,12 +480,12 @@ export function EducatorsPage() {
               maxLength="11"
               placeholder="123-456-789"
               onChange={(e) => setFormData({ ...formData, sin: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
 
           {/* YTD Section */}
-          <div className="border-t border-[#FFE5D9] pt-6">
+          <div className="border-t themed-border pt-6">
             <h3 className="font-quicksand font-bold text-lg text-stone-800 mb-4">
               Starting YTD Values (for employees transitioning from QuickBooks)
             </h3>
@@ -495,7 +499,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={formData.ytdGross}
                   onChange={(e) => setFormData({ ...formData, ytdGross: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -507,7 +511,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={formData.ytdCpp}
                   onChange={(e) => setFormData({ ...formData, ytdCpp: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -519,7 +523,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={formData.ytdEi}
                   onChange={(e) => setFormData({ ...formData, ytdEi: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -531,7 +535,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={formData.ytdTax}
                   onChange={(e) => setFormData({ ...formData, ytdTax: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -543,7 +547,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={formData.ytdHours}
                   onChange={(e) => setFormData({ ...formData, ytdHours: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
             </div>
@@ -555,14 +559,14 @@ export function EducatorsPage() {
               type="button"
               onClick={() => setShowAddModal(false)}
               disabled={loading}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-50"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all disabled:opacity-50"
+              className="flex-1 px-6 py-3 rounded-2xl bg-[var(--primary)] text-white font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all disabled:opacity-50"
             >
               {loading ? 'Adding...' : 'Add Educator'}
             </button>
@@ -592,7 +596,7 @@ export function EducatorsPage() {
                 <select
                   value={editForm.paymentType}
                   onChange={(e) => setEditForm({ ...editForm, paymentType: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 >
                   <option value="HOURLY">Hourly</option>
                   <option value="SALARY">Salary</option>
@@ -605,7 +609,7 @@ export function EducatorsPage() {
                 <select
                   value={editForm.payFrequency}
                   onChange={(e) => setEditForm({ ...editForm, payFrequency: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 >
                   <option value="BI_WEEKLY">Bi-Weekly</option>
                   <option value="MONTHLY">Monthly</option>
@@ -622,7 +626,7 @@ export function EducatorsPage() {
                     step="0.01"
                     value={editForm.hourlyRate}
                     onChange={(e) => setEditForm({ ...editForm, hourlyRate: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                    className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                   />
                 </div>
               ) : (
@@ -635,7 +639,7 @@ export function EducatorsPage() {
                     step="0.01"
                     value={editForm.salaryAmount}
                     onChange={(e) => setEditForm({ ...editForm, salaryAmount: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                    className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                   />
                 </div>
               )}
@@ -654,7 +658,7 @@ export function EducatorsPage() {
                   type="number"
                   value={editForm.annualSickDays}
                   onChange={(e) => setEditForm({ ...editForm, annualSickDays: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -665,7 +669,7 @@ export function EducatorsPage() {
                   type="number"
                   value={editForm.annualVacationDays}
                   onChange={(e) => setEditForm({ ...editForm, annualVacationDays: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div className="flex items-center">
@@ -674,7 +678,7 @@ export function EducatorsPage() {
                     type="checkbox"
                     checked={editForm.carryoverEnabled}
                     onChange={(e) => setEditForm({ ...editForm, carryoverEnabled: e.target.checked })}
-                    className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]/50"
+                    className="w-5 h-5 rounded themed-border text-[var(--primary)] themed-ring"
                   />
                   <span className="ml-2 text-sm font-bold text-stone-700 font-quicksand">
                     Carryover Enabled
@@ -690,7 +694,7 @@ export function EducatorsPage() {
                   step="0.5"
                   value={editForm.sickDaysRemaining}
                   onChange={(e) => setEditForm({ ...editForm, sickDaysRemaining: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -702,7 +706,7 @@ export function EducatorsPage() {
                   step="0.5"
                   value={editForm.vacationDaysRemaining}
                   onChange={(e) => setEditForm({ ...editForm, vacationDaysRemaining: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -713,7 +717,7 @@ export function EducatorsPage() {
                   type="date"
                   value={editForm.dateEmployed}
                   onChange={(e) => setEditForm({ ...editForm, dateEmployed: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -725,7 +729,7 @@ export function EducatorsPage() {
                   maxLength="11"
                   value={editForm.sin}
                   onChange={(e) => setEditForm({ ...editForm, sin: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
             </div>
@@ -744,7 +748,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={editForm.ytdGross}
                   onChange={(e) => setEditForm({ ...editForm, ytdGross: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -756,7 +760,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={editForm.ytdCpp}
                   onChange={(e) => setEditForm({ ...editForm, ytdCpp: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -768,7 +772,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={editForm.ytdEi}
                   onChange={(e) => setEditForm({ ...editForm, ytdEi: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -780,7 +784,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={editForm.ytdTax}
                   onChange={(e) => setEditForm({ ...editForm, ytdTax: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
               <div>
@@ -792,7 +796,7 @@ export function EducatorsPage() {
                   step="0.01"
                   value={editForm.ytdHours}
                   onChange={(e) => setEditForm({ ...editForm, ytdHours: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
             </div>
@@ -816,14 +820,14 @@ export function EducatorsPage() {
                 setSelectedEducator(null);
               }}
               disabled={loading}
-              className="px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-50"
+              className="px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all disabled:opacity-50"
+              className="px-6 py-3 rounded-2xl bg-[var(--primary)] text-white font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
@@ -833,3 +837,4 @@ export function EducatorsPage() {
     </Layout>
   );
 }
+

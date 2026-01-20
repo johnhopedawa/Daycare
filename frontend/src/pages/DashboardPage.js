@@ -109,28 +109,28 @@ export function DashboardPage() {
           title="Total Children"
           value={stats.totalChildren}
           icon={Users}
-          color="bg-[#E5D4ED]"
+          themeIndex={1}
           delay={0.1}
         />
         <MetricCard
           title="Present Today"
           value={stats.presentToday}
           icon={UserCheck}
-          color="bg-[#B8E6D5]"
+          themeIndex={2}
           delay={0.2}
         />
         <MetricCard
           title="Staff on Duty"
           value={stats.staffOnDuty}
           icon={Briefcase}
-          color="bg-[#FFF4CC]"
+          themeIndex={3}
           delay={0.3}
         />
         <MetricCard
           title="Pending Tasks"
           value={stats.pendingTasks}
           icon={ClipboardList}
-          color="bg-[#FFDCC8]"
+          themeIndex={4}
           delay={0.4}
         />
       </div>
@@ -152,7 +152,7 @@ export function DashboardPage() {
                 Coming Soon
               </button>
             </div>
-            <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface p-6 rounded-3xl">
               <p className="text-stone-500 text-center py-8">
                 Messaging feature coming soon
               </p>

@@ -10,15 +10,15 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-01-17</last-updated>
+    <last-updated>2026-01-18</last-updated>
     <documentation-status>Updated to reflect current routing, auth gating, and document PDF flows</documentation-status>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>14</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 013_*.sql)</migration-pattern>
+    <total-migrations>17</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 017_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -435,6 +435,81 @@
       </columns>
     </table>
 
+    <!-- System Settings -->
+    <table name="themes">
+      <description>UI theme catalog with palette + font metadata (Migration 015, seeded Migration 016)</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="name" type="VARCHAR(100)" required="true"/>
+        <column name="slug" type="VARCHAR(100)" unique="true" required="true"/>
+        <column name="description" type="TEXT"/>
+        <column name="palette" type="JSONB" required="true">
+          <schema>
+            <field name="primary" type="string" description="Main brand color"/>
+            <field name="primary_dark" type="string" description="Darker variant for hover/active states"/>
+            <field name="accent" type="string" description="Secondary highlight color"/>
+            <field name="background" type="string" description="Page background color"/>
+            <field name="surface" type="string" description="Card/panel surface color"/>
+            <field name="text" type="string" description="Primary text color"/>
+            <field name="muted" type="string" description="Secondary/muted text color"/>
+            <field name="border" type="string" description="Border color for UI elements"/>
+            <field name="on_primary" type="string" description="Text color on primary backgrounds"/>
+            <field name="on_accent" type="string" description="Text color on accent backgrounds"/>
+            <field name="card_colors" type="array" description="Array of 4 background colors for dashboard cards"/>
+            <field name="card_text_colors" type="array" description="Array of 4 contrasting text colors for dashboard cards"/>
+          </schema>
+        </column>
+        <column name="fonts" type="JSONB" required="true">
+          <schema>
+            <field name="heading" type="string" description="Font family for headings"/>
+            <field name="body" type="string" description="Font family for body text"/>
+            <field name="import_url" type="string" description="Google Fonts import URL"/>
+          </schema>
+        </column>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+      <seeded-themes>
+        <theme id="1" name="Default" slug="default" mood="Current system theme">
+          <primary>#FF9B85</primary>
+          <card_colors>#E5D4ED, #B8E6D5, #FFF4CC, #FFDCC8</card_colors>
+          <card_text_colors>#44403C, #44403C, #44403C, #44403C</card_text_colors>
+        </theme>
+        <theme id="2" name="Ocean Breeze" slug="ocean-breeze" mood="Calm, trustworthy, fresh">
+          <primary>#87CEEB</primary>
+          <card_colors>#9FE2BF, #6CB4EE, #7FCDCD, #F5DEB3</card_colors>
+          <card_text_colors>#1E3A5F, #1E3A5F, #1E3A5F, #44403C</card_text_colors>
+        </theme>
+        <theme id="3" name="Forest Garden" slug="forest-garden" mood="Organic, nurturing">
+          <primary>#B2C9AB</primary>
+          <card_colors>#A8B89F, #E07A5F, #F4E1C1, #D4A5A5</card_colors>
+          <card_text_colors>#2D3B2D, #FFFFFF, #44403C, #44403C</card_text_colors>
+        </theme>
+        <theme id="4" name="Sunset Warmth" slug="sunset-warmth" mood="Welcoming, energetic">
+          <primary>#FF9B85</primary>
+          <card_colors>#FFB347, #FBCEB1, #E8927C, #F0C987</card_colors>
+          <card_text_colors>#44403C, #44403C, #FFFFFF, #44403C</card_text_colors>
+        </theme>
+        <theme id="5" name="Berry Bright" slug="berry-bright" mood="Creative, confident">
+          <primary>#9B6B9E</primary>
+          <card_colors>#E85D75, #C5A3D9, #F4C2C2, #CCCCFF</card_colors>
+          <card_text_colors>#FFFFFF, #2D1F3D, #44403C, #2D1F3D</card_text_colors>
+        </theme>
+      </seeded-themes>
+    </table>
+
+    <table name="daycare_settings">
+      <description>Singleton settings row (id=1) for system configuration</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="tax_rate" type="DECIMAL(5,4)" default="0.05"/>
+        <column name="tax_enabled" type="BOOLEAN" default="true"/>
+        <column name="theme_id" type="INTEGER" references="themes(id)"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+    </table>
+
     <!-- Notifications (Migration 007) -->
     <table name="notifications">
       <description>Notification queue for email/SMS/in-app notifications</description>
@@ -843,6 +918,8 @@
       <page file="SettingsPage.js">
         <description>User settings and preferences</description>
         <api-calls>
+          <call endpoint="GET /settings"/>
+          <call endpoint="PATCH /settings"/>
           <call endpoint="/auth/change-password"/>
         </api-calls>
         <tabs>
@@ -850,8 +927,18 @@
           <tab name="Security">Password change (FUNCTIONAL)</tab>
           <tab name="Notifications">Email/SMS preferences (not wired)</tab>
           <tab name="Preferences">Language, timezone, date format (not wired)</tab>
+          <tab name="Billing">Tax rate and tax enabled settings (FUNCTIONAL)</tab>
+          <tab name="Themes">Theme selection with color swatches (FUNCTIONAL)</tab>
         </tabs>
-        <status>PARTIAL - Only password change functional</status>
+        <features>
+          <feature>Load all available themes on mount</feature>
+          <feature>Display theme cards with primary color and card color swatches</feature>
+          <feature>Show Active badge for current theme</feature>
+          <feature>Show Selected badge for pending selection</feature>
+          <feature>Apply theme via PATCH /settings with theme_id</feature>
+          <feature>Theme applies immediately via ThemeContext</feature>
+        </features>
+        <status>PARTIAL - Password change, billing, and themes functional</status>
       </page>
 
       <!-- Additional Admin Pages (legacy - kept as reference, not routed) -->
@@ -1179,6 +1266,42 @@
         <description>Authentication context provider</description>
         <status>INTEGRATED - Used by App.js and index.js</status>
       </context>
+      <context file="ThemeContext.js">
+        <description>Loads active theme and applies CSS variables + font imports</description>
+        <exports>
+          <export name="ThemeProvider">Context provider component wrapping app</export>
+          <export name="useTheme">Hook returning { theme, loading, setTheme }</export>
+        </exports>
+        <functions>
+          <function name="applyTheme">Sets CSS variables on document.documentElement</function>
+          <function name="hexToRgb">Converts hex colors to RGB for rgba() usage</function>
+          <function name="ensureFontImport">Manages Google Fonts link tag in head</function>
+        </functions>
+        <css-variables-set>
+          <variable>--primary</variable>
+          <variable>--primary-dark</variable>
+          <variable>--primary-rgb</variable>
+          <variable>--accent</variable>
+          <variable>--background</variable>
+          <variable>--surface</variable>
+          <variable>--text</variable>
+          <variable>--muted</variable>
+          <variable>--border</variable>
+          <variable>--on-primary</variable>
+          <variable>--on-accent</variable>
+          <variable>--card-1</variable>
+          <variable>--card-2</variable>
+          <variable>--card-3</variable>
+          <variable>--card-4</variable>
+          <variable>--card-text-1</variable>
+          <variable>--card-text-2</variable>
+          <variable>--card-text-3</variable>
+          <variable>--card-text-4</variable>
+          <variable>--font-heading</variable>
+          <variable>--font-body</variable>
+        </css-variables-set>
+        <status>INTEGRATED - Used by index.js</status>
+      </context>
     </contexts-directory>
 
     <styling>
@@ -1199,6 +1322,27 @@
         <yellow>#FFF4CC</yellow>
         <peach>#FFDCC8</peach>
       </color-palette>
+      <theme-system>
+        <description>Active theme applies CSS variables for palette + fonts via ThemeContext</description>
+        <variables>--primary, --primary-dark, --accent, --background, --surface, --text, --muted, --border, --on-primary, --on-accent, --card-1, --card-2, --card-3, --card-4, --card-text-1, --card-text-2, --card-text-3, --card-text-4</variables>
+        <active-theme-endpoint>/api/themes/active</active-theme-endpoint>
+        <available-themes>
+          <theme name="Default" primary="#FF9B85" mood="Current system theme"/>
+          <theme name="Ocean Breeze" primary="#87CEEB" mood="Calm, trustworthy, fresh"/>
+          <theme name="Forest Garden" primary="#B2C9AB" mood="Organic, nurturing"/>
+          <theme name="Sunset Warmth" primary="#FF9B85" mood="Welcoming, energetic"/>
+          <theme name="Berry Bright" primary="#9B6B9E" mood="Creative, confident"/>
+        </available-themes>
+        <theme-flow>
+          <step>ThemeContext checks localStorage for cached theme on mount</step>
+          <step>If authenticated, fetches /themes/active endpoint</step>
+          <step>Applies CSS variables to document root via applyTheme()</step>
+          <step>Dynamically loads Google Fonts via ensureFontImport()</step>
+          <step>Admin can change theme in Settings page Themes tab</step>
+          <step>Theme change persists to daycare_settings.theme_id</step>
+          <step>All users (admin, educator, parent) see the active theme</step>
+        </theme-flow>
+      </theme-system>
       <responsive-design>
         <breakpoints>
           <sm>640px - Small devices</sm>
@@ -1293,6 +1437,8 @@
       <route-file>attendance.js</route-file>
       <route-file>billing.js</route-file>
       <route-file>businessExpenses.js</route-file>
+      <route-file>settings.js</route-file>
+      <route-file>themes.js</route-file>
       <route-file>parentDashboard.js</route-file>
       <route-file>parentInvoices.js</route-file>
       <route-file>parentDocuments.js</route-file>
@@ -1307,6 +1453,7 @@
       <service-file>fireflyService.js</service-file>
       <service-file>syncService.js</service-file>
       <service-file>scheduler.js</service-file>
+      <service-file>themesService.js</service-file>
     </service-files>
 
     <utilities-directory>backend/src/utils/</utilities-directory>
@@ -1437,7 +1584,7 @@
       <migration-command>node backend/src/db/migrate.js</migration-command>
       <migrations-directory>backend/migrations/</migrations-directory>
       <naming-pattern>000_*.sql, 001_*.sql, etc. (sequential)</naming-pattern>
-      <total-migrations>14</total-migrations>
+      <total-migrations>17</total-migrations>
     </database-setup>
 
     <backend-server>
@@ -1461,7 +1608,7 @@
   <current-state-assessment>
 
     <strengths>
-      <strength>Complete database schema with 20+ tables and 11 migrations</strength>
+      <strength>Complete database schema with 20+ tables and 17 migrations</strength>
       <strength>Comprehensive backend API with 100+ endpoints</strength>
       <strength>Clean MagicPattern UI design with Tailwind CSS</strength>
       <strength>Robust authentication with separate staff/parent systems</strength>
@@ -1550,13 +1697,13 @@
   <summary>
 
     <overview>
-      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 11 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, and business expense tracking via SimpleFIN/Firefly III.
+      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 17 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, and business expense tracking via SimpleFIN/Firefly III.
     </overview>
 
     <key-architectural-decisions>
       <decision>Separate authentication systems for staff (JWT in users table) and parents (JWT + sessions in parents table)</decision>
       <decision>Many-to-many parent-child relationships via parent_children junction table</decision>
-      <decision>Migration-based schema evolution (11 migrations applied)</decision>
+      <decision>Migration-based schema evolution (17 migrations applied)</decision>
       <decision>Scheduled tasks only run in production mode</decision>
       <decision>Document categories hardcoded in code, not database-driven</decision>
       <decision>Modular route structure with separate parent portal routes</decision>

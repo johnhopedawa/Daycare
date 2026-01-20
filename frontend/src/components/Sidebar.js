@@ -122,22 +122,34 @@ export function Sidebar({ isOpen, onClose }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className={`
-          w-64 bg-white h-screen fixed left-0 top-0 border-r border-[#FFE5D9]
-          flex flex-col shadow-[4px_0_24px_rgba(255,229,217,0.4)]
+          w-64 h-screen fixed left-0 top-0 border-r
+          flex flex-col
           transition-transform duration-300 ease-in-out
           lg:translate-x-0
           ${isOpen ? 'translate-x-0 z-40' : '-translate-x-full z-20'}
         `}
+        style={{
+          backgroundColor: 'var(--menu-bg)',
+          borderColor: 'var(--menu-border)',
+          boxShadow: '4px 0 24px var(--menu-shadow)',
+        }}
       >
-      <div className="px-4 pt-4 pb-2 sm:px-6 lg:hidden border-b border-[#FFE5D9]">
+      <div className="px-4 pt-4 pb-2 sm:px-6 lg:hidden border-b" style={{ borderColor: 'var(--menu-border)' }}>
         <div className="flex items-center justify-between">
-          <span className="font-quicksand text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">
+          <span
+            className="font-quicksand text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color: 'var(--menu-text)' }}
+          >
             Menu
           </span>
           {/* Mobile Close Button */}
           <button
             onClick={onClose}
-            className="lg:hidden w-9 h-9 flex items-center justify-center text-stone-400 hover:text-[#FF9B85] rounded-xl hover:bg-[#FFF8F3] transition-colors border border-[#FFE5D9]"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl transition-colors border"
+            style={{
+              color: 'var(--menu-text)',
+              borderColor: 'var(--menu-border)',
+            }}
             aria-label="Close menu"
           >
             <X size={18} />
@@ -145,13 +157,19 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
       </div>
 
-      <div className="py-6 px-4 border-b border-[#FFE5D9]">
+      <div className="py-6 px-4 border-b" style={{ borderColor: 'var(--menu-border)' }}>
         <div className="flex items-center justify-center gap-3">
-          <div className="min-w-10 min-h-10 w-10 h-10 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30 flex-shrink-0">
+          <div
+            className="min-w-10 min-h-10 w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0"
+            style={{
+              backgroundColor: 'var(--menu-accent)',
+              boxShadow: '0 8px 20px var(--menu-shadow)',
+            }}
+          >
             <Baby size={24} />
           </div>
-          <h1 className="font-quicksand font-bold text-xl sm:text-2xl text-stone-800 tracking-tight leading-tight">
-            Little<span className="text-[#FF9B85]">Sparrows</span>
+          <h1 className="font-quicksand font-bold text-xl sm:text-2xl tracking-tight leading-tight">
+            Little<span style={{ color: 'var(--menu-accent)' }}>Sparrows</span>
             <br />
             Academy
           </h1>
@@ -171,16 +189,15 @@ export function Sidebar({ isOpen, onClose }) {
                   onClose();
                 }
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
-                isActive
-                  ? 'bg-[#FFE5D9] text-[#E07A5F] font-semibold shadow-sm'
-                  : 'text-stone-500 hover:bg-[#FFF8F3] hover:text-[#E07A5F]'
+              className={`menu-link w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+                isActive ? 'menu-link-active font-semibold shadow-sm' : ''
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF9B85] rounded-full"
+                  className="absolute left-0 top-0 bottom-0 w-1 rounded-full"
+                  style={{ backgroundColor: 'var(--menu-accent)' }}
                 />
               )}
               <item.icon
@@ -196,10 +213,11 @@ export function Sidebar({ isOpen, onClose }) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-[#FFE5D9]">
+      <div className="p-4 border-t" style={{ borderColor: 'var(--menu-border)' }}>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-stone-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors"
+          style={{ color: 'var(--menu-text)' }}
         >
           <LogOut size={20} />
           <span className="font-quicksand text-sm font-medium">Logout</span>

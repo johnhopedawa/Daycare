@@ -11,8 +11,8 @@ const getDaycareSettings = async (client) => {
   }
 
   const insertResult = await runner.query(
-    `INSERT INTO daycare_settings (id, tax_rate, tax_enabled)
-     VALUES (1, 0.05, true)
+    `INSERT INTO daycare_settings (id, tax_rate, tax_enabled, theme_id)
+     VALUES (1, 0.05, true, 1)
      RETURNING *`
   );
 

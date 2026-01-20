@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { EducatorLayout } from '../components/EducatorLayout';
 
 function MyPaystubs() {
   const [paystubs, setPaystubs] = useState([]);
@@ -38,13 +39,16 @@ function MyPaystubs() {
     }
   };
 
-  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
+  if (loading) {
+    return (
+      <EducatorLayout title="My Paystubs" subtitle="Download your pay statements">
+        <div className="themed-surface p-6 rounded-3xl text-center">Loading...</div>
+      </EducatorLayout>
+    );
+  }
 
   return (
-    <main className="main">
-      <div className="header">
-        <h1>My Paystubs</h1>
-      </div>
+    <EducatorLayout title="My Paystubs" subtitle="Download your pay statements">
 
       {paystubs.length === 0 ? (
         <div className="card">
@@ -81,7 +85,7 @@ function MyPaystubs() {
           </tbody>
         </table>
       )}
-    </main>
+    </EducatorLayout>
   );
 }
 

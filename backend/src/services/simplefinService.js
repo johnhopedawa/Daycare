@@ -7,7 +7,7 @@
  * Flow:
  * 1. User obtains Setup Token from SimpleFIN Bridge (https://bridge.simplefin.org/simplefin/create)
  * 2. Setup Token is Base64-encoded URL
- * 3. POST to decoded URL → receive Access URL
+ * 3. POST to decoded URL -> receive Access URL
  * 4. Access URL contains embedded Basic Auth credentials
  * 5. Use Access URL for API calls
  *
@@ -16,11 +16,28 @@
 
 const axios = require('axios');
 
+function normalizeAccessUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const pathname = url.pathname.replace(/\/+$/, '');
+    if (!pathname.endsWith('/simplefin/accounts')) {
+      if (pathname.endsWith('/simplefin')) {
+        url.pathname = `${pathname}/accounts`;
+      } else if (!pathname || pathname === '/') {
+        url.pathname = '/simplefin/accounts';
+      }
+    }
+    return url.toString();
+  } catch (error) {
+    return rawUrl;
+  }
+}
+
 /**
  * Exchange SimpleFIN Setup Token for Access URL
  *
- * Per SimpleFIN protocol: Setup Token IS the Access URL (Base64-encoded)
- * No POST required - just decode and validate
+ * Per SimpleFIN protocol: Setup Token decodes to a claim URL.
+ * You must POST to that URL to receive the Access URL.
  *
  * @param {string} setupToken - Base64-encoded setup token from user
  * @returns {Promise<string>} - Access URL (includes Basic Auth credentials)
@@ -33,24 +50,53 @@ async function claimSetupToken(setupToken) {
       throw new Error('Setup token is required');
     }
 
-    // Decode the Base64 setup token to get the Access URL
-    let accessUrl;
+    // Decode the Base64 setup token to get the claim URL
+    let claimUrl;
     try {
-      accessUrl = Buffer.from(setupToken, 'base64').toString('utf8');
+      const normalized = setupToken.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      claimUrl = Buffer.from(padded, 'base64').toString('utf8');
     } catch (decodeError) {
       throw new Error('Invalid setup token format (must be Base64)');
     }
 
-    // Validate Access URL format
-    // SimpleFIN Access URLs have embedded credentials: https://user:pass@host/path
-    if (!accessUrl.startsWith('http://') && !accessUrl.startsWith('https://')) {
+    // Validate claim URL format
+    if (!claimUrl.startsWith('http://') && !claimUrl.startsWith('https://')) {
       throw new Error('Invalid setup token (decoded URL is invalid)');
     }
 
-    console.log('[SimpleFIN] Setup token decoded successfully');
+    console.log('[SimpleFIN] Setup token decoded. Claiming access URL...');
 
-    // The decoded token IS the Access URL - return it directly
-    return accessUrl;
+    const response = await axios.post(claimUrl, null, {
+      headers: {
+        'Accept': 'text/plain',
+        'User-Agent': 'Daycare-SimpleFIN/1.0'
+      },
+      timeout: 10000
+    });
+
+    let accessUrl = response.data;
+    if (typeof accessUrl === 'object' && accessUrl !== null) {
+      accessUrl = accessUrl.access_url || accessUrl.url || '';
+    }
+
+    if (typeof accessUrl === 'string') {
+      accessUrl = accessUrl.trim();
+    }
+
+    if (!accessUrl || (!accessUrl.startsWith('http://') && !accessUrl.startsWith('https://'))) {
+      throw new Error('Invalid SimpleFIN claim response');
+    }
+
+    const normalizedAccessUrl = normalizeAccessUrl(accessUrl);
+    try {
+      const safeUrl = new URL(normalizedAccessUrl);
+      console.log(`[SimpleFIN] Access URL claimed for ${safeUrl.host}${safeUrl.pathname}`);
+    } catch (logError) {
+      console.log('[SimpleFIN] Access URL claimed successfully');
+    }
+
+    return normalizedAccessUrl;
   } catch (error) {
     console.error('[SimpleFIN] Setup token error:', error.message);
     throw error;
@@ -72,15 +118,33 @@ async function fetchAccounts(accessUrl) {
 
     console.log('[SimpleFIN] Fetching accounts...');
 
+    const normalizedAccessUrl = normalizeAccessUrl(accessUrl);
+
     // Access URL includes Basic Auth credentials
     // SimpleFIN format: https://username:password@bridge.simplefin.org/simplefin/accounts
-    const response = await axios.get(accessUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Daycare-SimpleFIN/1.0'
-      },
-      timeout: 10000
-    });
+    let response;
+    try {
+      response = await axios.get(normalizedAccessUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Daycare-SimpleFIN/1.0'
+        },
+        timeout: 30000
+      });
+    } catch (error) {
+      if (error.code === 'ECONNABORTED') {
+        console.warn('[SimpleFIN] Accounts request timed out, retrying...');
+        response = await axios.get(normalizedAccessUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Daycare-SimpleFIN/1.0'
+          },
+          timeout: 30000
+        });
+      } else {
+        throw error;
+      }
+    }
 
     // SimpleFIN returns: { "accounts": [...] }
     if (!response.data || !Array.isArray(response.data.accounts)) {
@@ -131,6 +195,8 @@ async function fetchTransactions(accessUrl, accountId, startDate) {
 
     console.log(`[SimpleFIN] Fetching transactions for account ${accountId} since ${startDate}`);
 
+    const normalizedAccessUrl = normalizeAccessUrl(accessUrl);
+
     // SimpleFIN returns all accounts with transactions
     // We filter by start date using query parameter
     const params = {};
@@ -138,14 +204,31 @@ async function fetchTransactions(accessUrl, accountId, startDate) {
       params['start-date'] = startDate; // SimpleFIN uses 'start-date' query param
     }
 
-    const response = await axios.get(accessUrl, {
-      params,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Daycare-SimpleFIN/1.0'
-      },
-      timeout: 15000 // 15 seconds for transactions (can be larger response)
-    });
+    let response;
+    try {
+      response = await axios.get(normalizedAccessUrl, {
+        params,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Daycare-SimpleFIN/1.0'
+        },
+        timeout: 30000
+      });
+    } catch (error) {
+      if (error.code === 'ECONNABORTED') {
+        console.warn('[SimpleFIN] Transactions request timed out, retrying...');
+        response = await axios.get(normalizedAccessUrl, {
+          params,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Daycare-SimpleFIN/1.0'
+          },
+          timeout: 30000
+        });
+      } else {
+        throw error;
+      }
+    }
 
     if (!response.data || !Array.isArray(response.data.accounts)) {
       console.error('[SimpleFIN] Invalid transactions response:', response.data);
@@ -193,3 +276,4 @@ module.exports = {
   fetchAccounts,
   fetchTransactions
 };
+

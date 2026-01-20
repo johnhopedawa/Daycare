@@ -112,23 +112,30 @@ export function PaymentsPage() {
     return `$${amount.toFixed(2)}`;
   };
 
-  const getPaymentStatusBadge = (status) => {
-    const styles = {
-      PENDING: 'bg-amber-100 text-amber-700',
-      PAID: 'bg-emerald-100 text-emerald-700',
-    };
-    return styles[status] || 'bg-stone-100 text-stone-600';
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const paymentStatusStyles = {
+    PENDING: cardStyles[2],
+    PAID: cardStyles[1],
   };
-
-  const getInvoiceStatusBadge = (status) => {
-    const styles = {
-      DRAFT: 'bg-stone-100 text-stone-600',
-      SENT: 'bg-blue-100 text-blue-700',
-      PARTIAL: 'bg-amber-100 text-amber-700',
-      PAID: 'bg-emerald-100 text-emerald-700',
-      OVERDUE: 'bg-red-100 text-red-700',
-    };
-    return styles[status] || 'bg-stone-100 text-stone-600';
+  const invoiceStatusStyles = {
+    DRAFT: { backgroundColor: 'var(--background)', color: 'var(--muted)' },
+    SENT: cardStyles[0],
+    PARTIAL: cardStyles[2],
+    PAID: cardStyles[1],
+    OVERDUE: cardStyles[3],
+  };
+  const getPaymentStatusStyle = (status) => paymentStatusStyles[status] || {
+    backgroundColor: 'var(--background)',
+    color: 'var(--muted)',
+  };
+  const getInvoiceStatusStyle = (status) => invoiceStatusStyles[status] || {
+    backgroundColor: 'var(--background)',
+    color: 'var(--muted)',
   };
 
   if (loading) {
@@ -147,7 +154,8 @@ export function PaymentsPage() {
         <div className="flex justify-end">
           <button
             onClick={() => setIsRecordOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#FF9B85] text-white rounded-2xl font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 text-white rounded-2xl font-bold shadow-lg hover:opacity-90 transition-all"
+            style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
           >
             <DollarSign size={18} />
             Record Payment
@@ -163,14 +171,14 @@ export function PaymentsPage() {
             Payment History
           </h3>
           {payments.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl p-10 text-center">
               <p className="text-stone-500">No payments recorded yet.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Parent</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Invoice</th>
@@ -181,9 +189,9 @@ export function PaymentsPage() {
                       <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {payments.map((payment) => (
-                      <tr key={payment.id} className="hover:bg-[#FFF8F3] transition-colors">
+                      <tr key={payment.id} className="themed-row transition-colors">
                         <td className="px-6 py-4 text-sm text-stone-700">
                           {payment.first_name} {payment.last_name}
                         </td>
@@ -200,7 +208,10 @@ export function PaymentsPage() {
                           {payment.payment_method || '-'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusBadge(payment.status)}`}>
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            style={getPaymentStatusStyle(payment.status)}
+                          >
                             {payment.status}
                           </span>
                         </td>
@@ -208,14 +219,15 @@ export function PaymentsPage() {
                           {payment.status === 'PENDING' ? (
                             <button
                               onClick={() => handleMarkPaymentPaid(payment.id)}
-                              className="px-3 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-xs font-bold hover:bg-[#FFE5D9] transition-colors"
+                              className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
+                              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
                             >
                               Mark Paid
                             </button>
                           ) : (
                             <button
                               onClick={() => handleDownloadReceipt(payment)}
-                              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-[#FFE5D9] text-stone-600 text-xs font-bold hover:bg-[#FFF8F3] transition-colors"
+                              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border themed-border text-stone-600 text-xs font-bold themed-hover transition-colors"
                             >
                               <Download size={14} />
                               Receipt
@@ -240,14 +252,14 @@ export function PaymentsPage() {
             Invoices
           </h3>
           {invoices.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl p-10 text-center">
               <p className="text-stone-500">No invoices found.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Invoice #</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Parent</th>
@@ -257,9 +269,9 @@ export function PaymentsPage() {
                       <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {invoices.map((invoice) => (
-                      <tr key={invoice.id} className="hover:bg-[#FFF8F3] transition-colors">
+                      <tr key={invoice.id} className="themed-row transition-colors">
                         <td className="px-6 py-4 text-sm text-stone-700">
                           {invoice.invoice_number}
                         </td>
@@ -273,7 +285,10 @@ export function PaymentsPage() {
                           {formatCurrency(invoice.balance_due)}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${getInvoiceStatusBadge(invoice.status)}`}>
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            style={getInvoiceStatusStyle(invoice.status)}
+                          >
                             {invoice.status}
                           </span>
                         </td>
@@ -304,7 +319,7 @@ export function PaymentsPage() {
               value={paymentForm.parentId}
               onChange={(e) => setPaymentForm({ ...paymentForm, parentId: e.target.value, invoiceId: '' })}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="">Select parent...</option>
               {parents.map((parent) => (
@@ -322,7 +337,7 @@ export function PaymentsPage() {
             <select
               value={paymentForm.invoiceId}
               onChange={(e) => handleInvoiceChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="">No invoice</option>
               {invoices
@@ -346,7 +361,7 @@ export function PaymentsPage() {
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
 
@@ -360,7 +375,7 @@ export function PaymentsPage() {
                 value={paymentForm.paymentDate}
                 onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
                 required
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
             <div>
@@ -370,7 +385,7 @@ export function PaymentsPage() {
               <select
                 value={paymentForm.status}
                 onChange={(e) => setPaymentForm({ ...paymentForm, status: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               >
                 <option value="PENDING">Pending</option>
                 <option value="PAID">Paid</option>
@@ -385,7 +400,7 @@ export function PaymentsPage() {
             <select
               value={paymentForm.paymentMethod}
               onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="">Select method</option>
               <option value="E-Transfer">E-Transfer</option>
@@ -404,7 +419,7 @@ export function PaymentsPage() {
               rows={3}
               value={paymentForm.notes}
               onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
 
@@ -413,14 +428,15 @@ export function PaymentsPage() {
               type="button"
               onClick={() => setIsRecordOpen(false)}
               disabled={submitting}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-60"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all disabled:opacity-60"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all disabled:opacity-60"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               {submitting ? 'Saving...' : 'Save Payment'}
             </button>

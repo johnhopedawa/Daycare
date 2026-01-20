@@ -14,13 +14,10 @@ export function Layout({ children, title, subtitle }) {
   });
 
   return (
-    <div className="min-h-screen bg-[#FFF8F3] font-sans text-stone-800 selection:bg-[#FF9B85] selection:text-white">
-      {/* Inject Fonts */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
-        .font-quicksand { font-family: 'Quicksand', sans-serif; }
-        .font-sans { font-family: 'Inter', sans-serif; }
-      `}</style>
+    <div
+      className="min-h-screen font-sans"
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text)' }}
+    >
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -32,7 +29,12 @@ export function Layout({ children, title, subtitle }) {
               {/* Mobile Hamburger Menu */}
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden w-10 h-10 flex items-center justify-center bg-white rounded-xl border border-[#FFE5D9] text-stone-600 hover:text-[#FF9B85] hover:shadow-md transition-all"
+                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border hover:shadow-md transition-all"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--muted)',
+                }}
               >
                 <Menu size={20} />
               </button>
@@ -41,7 +43,7 @@ export function Layout({ children, title, subtitle }) {
                 <motion.h2
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-2xl sm:text-3xl font-bold font-quicksand text-stone-800 mb-1"
+                  className="text-2xl sm:text-3xl font-bold font-quicksand mb-1"
                 >
                   {title}
                 </motion.h2>
@@ -49,7 +51,8 @@ export function Layout({ children, title, subtitle }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.1 }}
-                  className="text-sm sm:text-base text-stone-500 font-medium"
+                  className="text-sm sm:text-base font-medium"
+                  style={{ color: 'var(--muted)' }}
                 >
                   {subtitle || currentDate}
                 </motion.p>
@@ -59,20 +62,41 @@ export function Layout({ children, title, subtitle }) {
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
               <div className="relative hidden md:block">
                 <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
                   size={18}
+                  style={{ color: 'var(--muted)' }}
                 />
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="pl-10 pr-4 py-2.5 rounded-2xl bg-white border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 text-sm w-32 lg:w-48 xl:w-64 shadow-sm placeholder:text-stone-400"
+                  className="pl-10 pr-4 py-2.5 rounded-2xl border focus:outline-none focus:ring-2 text-sm w-32 lg:w-48 xl:w-64 shadow-sm placeholder:text-stone-400"
+                  style={{
+                    backgroundColor: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    '--tw-ring-color': 'rgba(var(--primary-rgb), 0.5)',
+                  }}
                 />
               </div>
-              <button className="w-10 h-10 bg-white rounded-xl border border-[#FFE5D9] flex items-center justify-center text-stone-500 hover:text-[#FF9B85] hover:shadow-md transition-all relative flex-shrink-0">
+              <button
+                className="w-10 h-10 rounded-xl border flex items-center justify-center hover:shadow-md transition-all relative flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--muted)',
+                }}
+              >
                 <Bell size={20} />
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-400 rounded-full border border-white"></span>
               </button>
-              <div className="w-10 h-10 bg-[#FFDCC8] rounded-xl flex items-center justify-center text-[#E07A5F] font-bold border border-white shadow-sm flex-shrink-0">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold border shadow-sm flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--primary-dark)',
+                  borderColor: 'var(--surface)',
+                }}
+              >
                 S
               </div>
             </div>

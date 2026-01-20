@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { formatTime12Hour } from '../utils/timeFormat';
+import { EducatorLayout } from '../components/EducatorLayout';
 
 function MySchedule() {
   const [schedules, setSchedules] = useState([]);
@@ -125,10 +126,7 @@ function MySchedule() {
   };
 
   return (
-    <main className="main">
-      <div className="header">
-        <h1>My Schedule</h1>
-      </div>
+    <EducatorLayout title="My Schedule" subtitle="View and manage your shifts">
       <div className="flex-between mb-2">
         <div className="flex" style={{ gap: '2rem', alignItems: 'center' }}>
           <div style={{ textAlign: 'right' }}>
@@ -275,7 +273,7 @@ function MySchedule() {
           </div>
         </div>
       </div>
-    </main>
+    </EducatorLayout>
   );
 }
 

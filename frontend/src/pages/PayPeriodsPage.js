@@ -39,19 +39,21 @@ export function PayPeriodsPage() {
     });
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'OPEN':
-        return 'bg-blue-100 text-blue-700';
-      case 'PROCESSING':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'PAID':
-        return 'bg-green-100 text-green-700';
-      case 'CLOSED':
-        return 'bg-gray-100 text-gray-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const statusStyles = {
+    OPEN: cardStyles[0],
+    PROCESSING: cardStyles[2],
+    PAID: cardStyles[1],
+    CLOSED: { backgroundColor: 'var(--background)', color: 'var(--muted)' },
+  };
+  const getStatusStyle = (status) => statusStyles[status] || {
+    backgroundColor: 'var(--background)',
+    color: 'var(--muted)',
   };
 
   const handleCreate = async (e) => {
@@ -134,20 +136,22 @@ export function PayPeriodsPage() {
       <div className="flex flex-wrap gap-3 mb-6">
         <button
           onClick={() => setIsGenerateOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors"
+          className="px-4 py-2 rounded-xl font-medium text-sm themed-hover transition-colors"
+          style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
         >
           Auto-Generate Periods
         </button>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-medium text-sm hover:bg-[#E07A5F] transition-colors shadow-lg shadow-[#FF9B85]/30 flex items-center gap-2"
+          className="px-4 py-2 rounded-xl text-white font-medium text-sm hover:opacity-90 transition-colors shadow-lg flex items-center gap-2"
+          style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
         >
           <Plus size={16} /> Create Period
         </button>
       </div>
 
       {payPeriods.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+        <div className="themed-surface rounded-3xl p-12 text-center">
           <Calendar size={48} className="mx-auto mb-4 text-stone-300" />
           <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-2">
             No Pay Periods Yet
@@ -157,7 +161,8 @@ export function PayPeriodsPage() {
           </p>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors"
+            className="px-6 py-3 text-white font-bold rounded-xl shadow-md hover:opacity-90 transition-colors"
+            style={{ backgroundColor: 'var(--primary)' }}
           >
             Create Pay Period
           </button>
@@ -170,7 +175,7 @@ export function PayPeriodsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+              className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
                 <div>
@@ -179,7 +184,8 @@ export function PayPeriodsPage() {
                       {period.name || `${formatDate(period.start_date)} - ${formatDate(period.end_date)}`}
                     </h3>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(period.status)}`}
+                      className="px-3 py-1 rounded-full text-xs font-bold"
+                      style={getStatusStyle(period.status)}
                     >
                       {period.status}
                     </span>
@@ -192,14 +198,16 @@ export function PayPeriodsPage() {
                   {period.status === 'OPEN' ? (
                     <button
                       onClick={() => handlePreviewClose(period.id)}
-                      className="px-4 py-2 bg-[#FF9B85] text-white font-bold text-sm rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors"
+                      className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md hover:opacity-90 transition-colors"
+                      style={{ backgroundColor: 'var(--primary)' }}
                     >
                       Close Period
                     </button>
                   ) : (
                     <button
                       onClick={() => downloadExcel(period.id, period.name || `period-${period.id}`)}
-                      className="px-4 py-2 bg-[#FFF8F3] text-[#E07A5F] font-bold text-sm rounded-xl hover:bg-[#FFE5D9] transition-colors flex items-center gap-2"
+                      className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2"
+                      style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
                     >
                       <Download size={16} /> Export Excel
                     </button>
@@ -208,49 +216,52 @@ export function PayPeriodsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-[#FFF8F3] rounded-xl">
-                  <div className="flex items-center gap-2 text-stone-500 text-sm mb-1">
+                <div className="p-4 rounded-xl" style={cardStyles[0]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[0].color }}>
                     <DollarSign size={16} />
                     <span>Total Amount</span>
                   </div>
-                  <p className="font-bold text-stone-800 text-lg">
+                  <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>
                     ${period.total_amount ? parseFloat(period.total_amount).toFixed(2) : '0.00'}
                   </p>
                 </div>
 
-                <div className="p-4 bg-[#FFF8F3] rounded-xl">
-                  <div className="flex items-center gap-2 text-stone-500 text-sm mb-1">
+                <div className="p-4 rounded-xl" style={cardStyles[1]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[1].color }}>
                     <Users size={16} />
                     <span>Employees</span>
                   </div>
-                  <p className="font-bold text-stone-800 text-lg">
+                  <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
                     {period.employee_count || 0}
                   </p>
                 </div>
 
-                <div className="p-4 bg-[#FFF8F3] rounded-xl">
-                  <div className="flex items-center gap-2 text-stone-500 text-sm mb-1">
+                <div className="p-4 rounded-xl" style={cardStyles[2]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[2].color }}>
                     <Clock size={16} />
                     <span>Total Hours</span>
                   </div>
-                  <p className="font-bold text-stone-800 text-lg">
+                  <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>
                     {period.total_hours ? parseFloat(period.total_hours).toFixed(1) : '0.0'}
                   </p>
                 </div>
 
-                <div className="p-4 bg-[#FFF8F3] rounded-xl">
-                  <div className="flex items-center gap-2 text-stone-500 text-sm mb-1">
+                <div className="p-4 rounded-xl" style={cardStyles[3]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[3].color }}>
                     <CheckCircle size={16} />
                     <span>Approved Entries</span>
                   </div>
-                  <p className="font-bold text-stone-800 text-lg">
+                  <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>
                     {period.approved_entries || 0}
                   </p>
                 </div>
               </div>
 
               {period.notes && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-xl">
+                <div
+                  className="mt-4 p-4 rounded-xl border themed-border"
+                  style={{ backgroundColor: 'var(--background)' }}
+                >
                   <p className="text-sm text-stone-600">{period.notes}</p>
                 </div>
               )}
@@ -274,7 +285,7 @@ export function PayPeriodsPage() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g., March 2024"
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -286,7 +297,7 @@ export function PayPeriodsPage() {
               type="date"
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -298,21 +309,22 @@ export function PayPeriodsPage() {
               type="date"
               value={formData.endDate}
               onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => setIsCreateOpen(false)}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Create
             </button>
@@ -336,7 +348,7 @@ export function PayPeriodsPage() {
             <select
               value={generateData.frequency}
               onChange={(e) => setGenerateData({ ...generateData, frequency: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             >
               <option value="BI_WEEKLY">Bi-Weekly (Every 2 weeks)</option>
@@ -352,21 +364,22 @@ export function PayPeriodsPage() {
               type="date"
               value={generateData.startDate}
               onChange={(e) => setGenerateData({ ...generateData, startDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => setIsGenerateOpen(false)}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Generate
             </button>
@@ -397,7 +410,7 @@ export function PayPeriodsPage() {
                 <h4 className="font-bold text-stone-700 mb-2">Hourly Employees</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-[#FFF8F3]">
+                    <thead style={{ backgroundColor: 'var(--background)' }}>
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Name</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
@@ -405,9 +418,9 @@ export function PayPeriodsPage() {
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#FFE5D9]/30">
+                    <tbody className="divide-y themed-border">
                       {preview.hourly_employees.map((emp) => (
-                        <tr key={emp.id}>
+                        <tr key={emp.id} className="themed-row">
                           <td className="px-4 py-2 text-sm text-stone-700">{emp.first_name} {emp.last_name}</td>
                           <td className="px-4 py-2 text-sm text-stone-600">{parseFloat(emp.total_hours || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.hourly_rate || 0).toFixed(2)}/hr</td>
@@ -425,15 +438,15 @@ export function PayPeriodsPage() {
                 <h4 className="font-bold text-stone-700 mb-2">Salaried Employees</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-[#FFF8F3]">
+                    <thead style={{ backgroundColor: 'var(--background)' }}>
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Name</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#FFE5D9]/30">
+                    <tbody className="divide-y themed-border">
                       {preview.salaried_employees.map((emp) => (
-                        <tr key={emp.id}>
+                        <tr key={emp.id} className="themed-row">
                           <td className="px-4 py-2 text-sm text-stone-700">{emp.first_name} {emp.last_name}</td>
                           <td className="px-4 py-2 text-sm text-stone-700">${parseFloat(emp.gross_amount || 0).toFixed(2)}</td>
                         </tr>
@@ -444,14 +457,14 @@ export function PayPeriodsPage() {
               </div>
             )}
 
-            <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+            <div className="flex gap-3 pt-4 border-t themed-border">
               <button
                 type="button"
                 onClick={() => {
                   setIsPreviewOpen(false);
                   setPreview(null);
                 }}
-                className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+                className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
               >
                 Cancel
               </button>

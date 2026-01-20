@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+import { EducatorLayout } from '../components/EducatorLayout';
 
 function EducatorDashboard() {
   const { user } = useAuth();
@@ -35,61 +36,64 @@ function EducatorDashboard() {
     }
   };
 
-  if (loading) return <div className="main"><div className="loading">Loading...</div></div>;
+  if (loading) {
+    return (
+      <EducatorLayout title="Dashboard" subtitle="Your educator overview">
+        <div className="themed-surface p-6 rounded-3xl text-center">Loading...</div>
+      </EducatorLayout>
+    );
+  }
 
   return (
-    <main className="main">
-      <div className="header">
-        <h1>Dashboard</h1>
-        <div className="header-welcome">Welcome back, {user.first_name}</div>
-      </div>
-
-      <div className="card-grid">
-        <div className="card">
-          <h3>Recent Hours (Last 14 Days)</h3>
-          <div className="metric">
-            {stats.totalHours.toFixed(2)} <span>hours logged</span>
+    <EducatorLayout title="Dashboard" subtitle={`Welcome back, ${user.first_name}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="themed-surface p-6 rounded-3xl">
+          <h3 className="font-quicksand font-bold text-lg mb-3">Recent Hours (Last 14 Days)</h3>
+          <div className="text-3xl font-bold">
+            {stats.totalHours.toFixed(2)} <span className="text-sm font-medium" style={{ color: 'var(--muted)' }}>hours logged</span>
           </div>
         </div>
 
-        <div className="card">
-          <h3>Recent Entries</h3>
-          <div className="metric">
-            {stats.recentEntries.length} <span>entries</span>
+        <div className="themed-surface p-6 rounded-3xl">
+          <h3 className="font-quicksand font-bold text-lg mb-3">Recent Entries</h3>
+          <div className="text-3xl font-bold">
+            {stats.recentEntries.length} <span className="text-sm font-medium" style={{ color: 'var(--muted)' }}>entries</span>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <h2>Recent Time Entries</h2>
+      <div className="themed-surface p-6 rounded-3xl">
+        <h2 className="font-quicksand font-bold text-xl mb-4">Recent Time Entries</h2>
         {stats.recentEntries.length === 0 ? (
-          <p>No time entries yet</p>
+          <p style={{ color: 'var(--muted)' }}>No time entries yet</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Hours</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.recentEntries.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{new Date(entry.entry_date).toLocaleDateString()}</td>
-                  <td>{entry.total_hours}</td>
-                  <td>
-                    <span className={`badge ${entry.status.toLowerCase()}`}>
-                      {entry.status}
-                    </span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead style={{ backgroundColor: 'var(--background)' }}>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Hours</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stats.recentEntries.map((entry) => (
+                  <tr key={entry.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="px-4 py-3 text-sm">{new Date(entry.entry_date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-sm">{entry.total_hours}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: 'var(--accent)', color: 'var(--primary-dark)' }}>
+                        {entry.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
-    </main>
+    </EducatorLayout>
   );
 }
 

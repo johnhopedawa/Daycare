@@ -555,8 +555,8 @@ export function FamiliesPage() {
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-xl text-sm font-bold capitalize transition-colors ${
                 activeTab === tab
-                  ? 'bg-[#FF9B85] text-white shadow-md shadow-[#FF9B85]/30'
-                  : 'bg-white border border-[#FFE5D9] text-stone-600 hover:bg-[#FFF8F3]'
+                  ? 'bg-[var(--primary)] text-white shadow-md shadow-[0_12px_20px_-12px_var(--menu-shadow)]'
+                  : 'bg-white border themed-border text-stone-600 hover:bg-[var(--background)]'
               }`}
             >
               {tab}
@@ -566,7 +566,7 @@ export function FamiliesPage() {
         {activeTab === 'families' && (
           <button
             onClick={() => setIsAddFamilyOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#FF9B85] text-white rounded-2xl font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-2xl font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all hover:scale-105"
           >
             <Plus size={20} />
             Add Family
@@ -581,11 +581,11 @@ export function FamiliesPage() {
               <div className="text-stone-500">Loading families...</div>
             </div>
           ) : families.length === 0 ? (
-            <div className="bg-white p-12 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center">
+            <div className="bg-white p-12 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border text-center">
               <p className="text-stone-500 mb-4">No families found</p>
               <button
                 onClick={() => setIsAddFamilyOpen(true)}
-                className="px-5 py-2.5 bg-[#FF9B85] text-white rounded-2xl font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+                className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-2xl font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all"
               >
                 Add Your First Family
               </button>
@@ -606,10 +606,10 @@ export function FamiliesPage() {
                   transition={{
                     delay: i * 0.05,
                   }}
-                  className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 hover:border-[#FF9B85]/50 transition-all group"
+                  className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className="w-12 h-12 rounded-full bg-[#FFDCC8] flex items-center justify-center text-[#E07A5F] font-bold text-lg group-hover:bg-[#FF9B85] group-hover:text-white transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-[var(--card-4)] flex items-center justify-center text-[var(--primary-dark)] font-bold text-lg group-hover:bg-[var(--primary)] group-hover:text-white transition-colors">
                       {getInitial(family)}
                     </div>
                     {family.parents && family.parents.length > 0 && (
@@ -632,7 +632,7 @@ export function FamiliesPage() {
                     {family.children && family.children.map((child) => (
                       <span
                         key={child.id}
-                        className="px-2 py-1 bg-[#FFF8F3] text-stone-600 text-xs font-medium rounded-lg border border-[#FFE5D9]"
+                        className="px-2 py-1 bg-[var(--background)] text-stone-600 text-xs font-medium rounded-lg border themed-border"
                       >
                         {child.first_name}
                       </span>
@@ -641,20 +641,20 @@ export function FamiliesPage() {
 
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-3 text-stone-500 text-sm">
-                      <Users size={16} className="text-[#FF9B85]" />
+                      <Users size={16} className="text-[var(--primary)]" />
                       <span>{getParentNames(family)}</span>
                     </div>
                     {getPrimaryContact(family) && (
                       <>
                         {getPrimaryContact(family).phone && (
                           <div className="flex items-center gap-3 text-stone-500 text-sm">
-                            <Phone size={16} className="text-[#FF9B85]" />
+                            <Phone size={16} className="text-[var(--primary)]" />
                             <span>{getPrimaryContact(family).phone}</span>
                           </div>
                         )}
                         {getPrimaryContact(family).email && (
                           <div className="flex items-center gap-3 text-stone-500 text-sm">
-                            <Mail size={16} className="text-[#FF9B85]" />
+                            <Mail size={16} className="text-[var(--primary)]" />
                             <span className="truncate">{getPrimaryContact(family).email}</span>
                           </div>
                         )}
@@ -662,7 +662,7 @@ export function FamiliesPage() {
                     )}
                   </div>
 
-                  <div className="pt-4 border-t border-[#FFE5D9]/30 flex justify-between items-center">
+                  <div className="pt-4 border-t themed-border flex justify-between items-center">
                     <div>
                       <p className="text-xs text-stone-400 font-medium uppercase">
                         Monthly Rate
@@ -674,14 +674,14 @@ export function FamiliesPage() {
                     <div className="flex flex-col items-end gap-2">
                       <button
                         onClick={() => handleViewProfile(family)}
-                        className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-sm font-bold hover:bg-[#FFE5D9] transition-colors"
+                        className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-sm font-bold themed-hover transition-colors"
                       >
                         View Profile
                       </button>
                       {family.parents && family.parents.length > 0 && (
                         <button
                           onClick={() => handleToggleFamilyStatus(family)}
-                          className="text-xs font-bold text-stone-500 hover:text-[#E07A5F]"
+                          className="text-xs font-bold text-stone-500 hover:text-[var(--primary-dark)]"
                         >
                           {family.all_accounts_active ? 'Disable Logins' : 'Enable Logins'}
                         </button>
@@ -697,7 +697,7 @@ export function FamiliesPage() {
 
       {activeTab === 'children' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="bg-white rounded-3xl p-5 shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h3 className="font-quicksand font-bold text-xl text-stone-800">Children Directory</h3>
@@ -709,12 +709,12 @@ export function FamiliesPage() {
                   placeholder="Search by name..."
                   value={childSearch}
                   onChange={(e) => setChildSearch(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 />
                 <select
                   value={childStatusFilter}
                   onChange={(e) => setChildStatusFilter(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 >
                   <option value="">All Statuses</option>
                   <option value="ACTIVE">Active</option>
@@ -725,7 +725,7 @@ export function FamiliesPage() {
                 <select
                   value={childSort}
                   onChange={(e) => setChildSort(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 >
                   <option value="name">Sort: Name</option>
                   <option value="age">Sort: Age</option>
@@ -740,14 +740,14 @@ export function FamiliesPage() {
               <div className="text-stone-500">Loading children...</div>
             </div>
           ) : getSortedChildren().length === 0 ? (
-            <div className="bg-white p-12 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center">
+            <div className="bg-white p-12 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border text-center">
               <p className="text-stone-500">No children match the current filters.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead className="bg-[var(--background)]">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Child</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Age</th>
@@ -758,7 +758,7 @@ export function FamiliesPage() {
                   </thead>
                   <tbody className="divide-y divide-stone-100">
                     {getSortedChildren().map((child) => (
-                      <tr key={child.id} className="hover:bg-[#FFF8F3] transition-colors">
+                      <tr key={child.id} className="hover:bg-[var(--background)] transition-colors">
                         <td className="px-6 py-4">
                           <div className="font-medium text-stone-800">
                             {child.first_name} {child.last_name}
@@ -790,14 +790,14 @@ export function FamiliesPage() {
                           <div className="inline-flex flex-col items-end gap-2">
                             <button
                               onClick={() => handleOpenFilesModal('child', child)}
-                              className="px-3 py-1.5 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-xs font-bold hover:bg-[#FFE5D9] transition-colors"
+                              className="px-3 py-1.5 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
                             >
                               View Files
                             </button>
                             {child.status === 'WAITLIST' && (
                               <button
                                 onClick={() => handleUpdateWaitlistPriority(child)}
-                                className="text-xs font-semibold text-stone-500 hover:text-[#E07A5F]"
+                                className="text-xs font-semibold text-stone-500 hover:text-[var(--primary-dark)]"
                               >
                                 Update Priority
                               </button>
@@ -816,7 +816,7 @@ export function FamiliesPage() {
 
       {activeTab === 'parents' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="bg-white rounded-3xl p-5 shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h3 className="font-quicksand font-bold text-xl text-stone-800">Parents Directory</h3>
@@ -828,12 +828,12 @@ export function FamiliesPage() {
                   placeholder="Search by name, email..."
                   value={parentSearch}
                   onChange={(e) => setParentSearch(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 />
                 <select
                   value={parentStatusFilter}
                   onChange={(e) => setParentStatusFilter(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 >
                   <option value="all">All Accounts</option>
                   <option value="active">Active</option>
@@ -842,7 +842,7 @@ export function FamiliesPage() {
                 <select
                   value={parentHasChildrenFilter}
                   onChange={(e) => setParentHasChildrenFilter(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 >
                   <option value="all">All Parents</option>
                   <option value="yes">Has Children</option>
@@ -851,7 +851,7 @@ export function FamiliesPage() {
                 <select
                   value={parentBillingFilter}
                   onChange={(e) => setParentBillingFilter(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm themed-ring bg-white"
                 >
                   <option value="all">All Billing</option>
                   <option value="current">Current</option>
@@ -866,14 +866,14 @@ export function FamiliesPage() {
               <div className="text-stone-500">Loading parents...</div>
             </div>
           ) : getFilteredParents().length === 0 ? (
-            <div className="bg-white p-12 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center">
+            <div className="bg-white p-12 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border text-center">
               <p className="text-stone-500">No parents match the current filters.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead className="bg-[var(--background)]">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Parent</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Contact</th>
@@ -887,7 +887,7 @@ export function FamiliesPage() {
                     {getFilteredParents().map((parent) => {
                       const outstanding = parseFloat(parent.total_outstanding || 0);
                       return (
-                        <tr key={parent.id} className="hover:bg-[#FFF8F3] transition-colors">
+                        <tr key={parent.id} className="hover:bg-[var(--background)] transition-colors">
                           <td className="px-6 py-4">
                             <div className="font-medium text-stone-800">
                               {parent.first_name} {parent.last_name}
@@ -919,7 +919,7 @@ export function FamiliesPage() {
                           <td className="px-6 py-4 text-right">
                             <button
                               onClick={() => handleOpenFilesModal('parent', parent)}
-                              className="px-3 py-1.5 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-xs font-bold hover:bg-[#FFE5D9] transition-colors"
+                              className="px-3 py-1.5 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
                             >
                               View Files
                             </button>
@@ -959,11 +959,11 @@ export function FamiliesPage() {
             {linkedDocuments.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between rounded-2xl border border-[#FFE5D9]/40 px-4 py-3"
+                className="flex items-center justify-between rounded-2xl border themed-border px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#FFE5D9] flex items-center justify-center">
-                    <FileText size={18} className="text-[#E07A5F]" />
+                  <div className="w-10 h-10 rounded-lg bg-[var(--accent)] flex items-center justify-center">
+                    <FileText size={18} className="text-[var(--primary-dark)]" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-stone-800">
@@ -1017,28 +1017,28 @@ export function FamiliesPage() {
                 placeholder="First Name"
                 value={editForm.parent1FirstName}
                 onChange={(e) => setEditForm({ ...editForm, parent1FirstName: e.target.value })}
-                className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
               <input
                 type="text"
                 placeholder="Last Name"
                 value={editForm.parent1LastName}
                 onChange={(e) => setEditForm({ ...editForm, parent1LastName: e.target.value })}
-                className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
               <input
                 type="email"
                 placeholder="Email"
                 value={editForm.parent1Email}
                 onChange={(e) => setEditForm({ ...editForm, parent1Email: e.target.value })}
-                className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
               <input
                 type="tel"
                 placeholder="Phone"
                 value={editForm.parent1Phone}
                 onChange={(e) => setEditForm({ ...editForm, parent1Phone: e.target.value })}
-                className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
           </div>
@@ -1053,28 +1053,28 @@ export function FamiliesPage() {
                   placeholder="First Name"
                   value={editForm.parent2FirstName}
                   onChange={(e) => setEditForm({ ...editForm, parent2FirstName: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Last Name"
                   value={editForm.parent2LastName}
                   onChange={(e) => setEditForm({ ...editForm, parent2LastName: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <input
                   type="email"
                   placeholder="Email"
                   value={editForm.parent2Email}
                   onChange={(e) => setEditForm({ ...editForm, parent2Email: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <input
                   type="tel"
                   placeholder="Phone"
                   value={editForm.parent2Phone}
                   onChange={(e) => setEditForm({ ...editForm, parent2Phone: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
             </div>
@@ -1090,21 +1090,21 @@ export function FamiliesPage() {
                   placeholder="First Name"
                   value={editForm.childFirstName}
                   onChange={(e) => setEditForm({ ...editForm, childFirstName: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Last Name"
                   value={editForm.childLastName}
                   onChange={(e) => setEditForm({ ...editForm, childLastName: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <input
                   type="date"
                   placeholder="Date of Birth"
                   value={editForm.childDob}
                   onChange={(e) => setEditForm({ ...editForm, childDob: e.target.value })}
-                  className="px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
                 <div className="relative">
                   <DollarSign size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -1114,7 +1114,7 @@ export function FamiliesPage() {
                     placeholder="Monthly Rate"
                     value={editForm.childMonthlyRate}
                     onChange={(e) => setEditForm({ ...editForm, childMonthlyRate: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                   />
                 </div>
               </div>
@@ -1126,7 +1126,7 @@ export function FamiliesPage() {
                 <select
                   value={editForm.childStatus}
                   onChange={(e) => setEditForm({ ...editForm, childStatus: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="INACTIVE">Inactive</option>
@@ -1140,7 +1140,7 @@ export function FamiliesPage() {
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
                   Allergies
                 </label>
-                <div className="flex flex-wrap gap-2 p-4 bg-[#FFF8F3] rounded-2xl border border-[#FFE5D9]">
+                <div className="flex flex-wrap gap-2 p-4 bg-[var(--background)] rounded-2xl border themed-border">
                   {COMMON_ALLERGIES.map((allergy) => (
                     <button
                       key={allergy}
@@ -1148,8 +1148,8 @@ export function FamiliesPage() {
                       onClick={() => handleAllergyToggle(allergy)}
                       className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                         (editForm.allergies.common || []).includes(allergy)
-                          ? 'bg-[#FF9B85] text-white shadow-md'
-                          : 'bg-white text-stone-600 border border-[#FFE5D9] hover:border-[#FF9B85]'
+                          ? 'bg-[var(--primary)] text-white shadow-md'
+                          : 'bg-white text-stone-600 border themed-border hover:border-[var(--primary)]'
                       }`}
                     >
                       {allergy}
@@ -1164,7 +1164,7 @@ export function FamiliesPage() {
                     ...editForm,
                     allergies: { ...editForm.allergies, other: e.target.value }
                   })}
-                  className="w-full mt-2 px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="w-full mt-2 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
 
@@ -1178,7 +1178,7 @@ export function FamiliesPage() {
                   placeholder="Any medical conditions, medications, or important health information..."
                   value={editForm.medical_notes}
                   onChange={(e) => setEditForm({ ...editForm, medical_notes: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
                 />
               </div>
 
@@ -1192,7 +1192,7 @@ export function FamiliesPage() {
                   placeholder="Any additional notes about the child..."
                   value={editForm.notes}
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
                 />
               </div>
 
@@ -1205,13 +1205,13 @@ export function FamiliesPage() {
                   <button
                     type="button"
                     onClick={handleAddEmergencyContact}
-                    className="text-[#FF9B85] text-sm font-bold hover:underline"
+                    className="text-[var(--primary)] text-sm font-bold hover:underline"
                   >
                     + Add Contact
                   </button>
                 </div>
                 {editEmergencyContacts.length === 0 ? (
-                  <div className="p-4 bg-[#FFF8F3] rounded-2xl border border-[#FFE5D9] text-sm text-stone-500 text-center">
+                  <div className="p-4 bg-[var(--background)] rounded-2xl border themed-border text-sm text-stone-500 text-center">
                     No emergency contacts added. Click "Add Contact" to add one.
                   </div>
                 ) : (
@@ -1219,7 +1219,7 @@ export function FamiliesPage() {
                     {editEmergencyContacts.map((contact, index) => (
                       <div
                         key={contact.id || index}
-                        className="p-3 bg-[#FFF8F3] rounded-2xl border border-[#FFE5D9] space-y-2"
+                        className="p-3 bg-[var(--background)] rounded-2xl border themed-border space-y-2"
                       >
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
@@ -1227,7 +1227,7 @@ export function FamiliesPage() {
                               type="checkbox"
                               checked={!!contact.is_primary}
                               onChange={(e) => handleUpdateEmergencyContact(index, 'is_primary', e.target.checked)}
-                              className="rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]/50"
+                              className="rounded themed-border text-[var(--primary)] themed-ring"
                             />
                             Primary Contact
                           </label>
@@ -1245,21 +1245,21 @@ export function FamiliesPage() {
                             placeholder="Name *"
                             value={contact.name || ''}
                             onChange={(e) => handleUpdateEmergencyContact(index, 'name', e.target.value)}
-                            className="px-4 py-2 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                            className="px-4 py-2 rounded-2xl border themed-border themed-ring bg-white"
                           />
                           <input
                             type="tel"
                             placeholder="Phone"
                             value={contact.phone || ''}
                             onChange={(e) => handleUpdateEmergencyContact(index, 'phone', e.target.value)}
-                            className="px-4 py-2 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                            className="px-4 py-2 rounded-2xl border themed-border themed-ring bg-white"
                           />
                           <input
                             type="text"
                             placeholder="Relationship"
                             value={contact.relationship || ''}
                             onChange={(e) => handleUpdateEmergencyContact(index, 'relationship', e.target.value)}
-                            className="px-4 py-2 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                            className="px-4 py-2 rounded-2xl border themed-border themed-ring bg-white"
                           />
                         </div>
                       </div>
@@ -1271,7 +1271,7 @@ export function FamiliesPage() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => setIsDeleteModalOpen(true)}
@@ -1287,13 +1287,13 @@ export function FamiliesPage() {
                 setIsEditModalOpen(false);
                 setSelectedFamily(null);
               }}
-              className="px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="px-6 py-3 rounded-2xl bg-[var(--primary)] text-white font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all"
             >
               Save Changes
             </button>
@@ -1315,7 +1315,7 @@ export function FamiliesPage() {
             This will remove all family information, including children and their records.
           </p>
 
-          <div className="bg-[#FFF8F3] border border-[#FFE5D9] rounded-2xl p-4">
+          <div className="bg-[var(--background)] border themed-border rounded-2xl p-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -1335,7 +1335,7 @@ export function FamiliesPage() {
             <button
               type="button"
               onClick={() => setIsDeleteModalOpen(false)}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors"
             >
               Cancel
             </button>
@@ -1355,3 +1355,5 @@ export function FamiliesPage() {
     </Layout>
   );
 }
+
+

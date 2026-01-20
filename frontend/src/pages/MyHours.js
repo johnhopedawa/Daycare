@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { EducatorLayout } from '../components/EducatorLayout';
 
 function MyHours() {
   const [entries, setEntries] = useState([]);
@@ -45,13 +46,16 @@ function MyHours() {
     }
   };
 
-  if (loading) return <main className="main"><div className="loading">Loading...</div></main>;
+  if (loading) {
+    return (
+      <EducatorLayout title="My Hours" subtitle="Track logged hours">
+        <div className="themed-surface p-6 rounded-3xl text-center">Loading...</div>
+      </EducatorLayout>
+    );
+  }
 
   return (
-    <main className="main">
-      <div className="header">
-        <h1>My Hours</h1>
-      </div>
+    <EducatorLayout title="My Hours" subtitle="Review recent time entries">
       <div className="flex-between mb-2">
         <button onClick={() => navigate('/log-hours')}>Log New Hours</button>
       </div>
@@ -118,7 +122,7 @@ function MyHours() {
           </tbody>
         </table>
       )}
-    </main>
+    </EducatorLayout>
   );
 }
 

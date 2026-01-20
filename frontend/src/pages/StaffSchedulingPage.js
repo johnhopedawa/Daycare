@@ -95,15 +95,13 @@ export function StaffSchedulingPage() {
     return grouped;
   };
 
-  const getColorForEducator = (index) => {
-    const colors = [
-      'bg-[#E5D4ED] text-[#8E55A5]',
-      'bg-[#B8E6D5] text-[#2D6A4F]',
-      'bg-[#FFF4CC] text-[#B45309]',
-      'bg-[#FFDCC8] text-[#E07A5F]'
-    ];
-    return colors[index % colors.length];
-  };
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const getColorForEducator = (index) => cardStyles[index % cardStyles.length];
 
   const openEditModal = (schedule) => {
     setEditingSchedule(schedule);
@@ -154,9 +152,12 @@ export function StaffSchedulingPage() {
 
   return (
     <Layout title="Staff Scheduling" subtitle="Manage educator shifts and coverage">
-      <div className="bg-white rounded-3xl p-4 shadow-sm border border-[#FFE5D9] mb-8 flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+      <div className="themed-surface rounded-3xl p-4 mb-8 flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          <div className="flex items-center gap-2 bg-[#FFF8F3] p-1.5 rounded-2xl border border-[#FFE5D9]">
+          <div
+            className="flex items-center gap-2 p-1.5 rounded-2xl border themed-border"
+            style={{ backgroundColor: 'var(--background)' }}
+          >
             <input
               type="date"
               value={dateRange.from}
@@ -176,7 +177,7 @@ export function StaffSchedulingPage() {
             <select
               value={selectedEducator}
               onChange={(e) => setSelectedEducator(e.target.value)}
-              className="appearance-none pl-10 pr-8 py-2.5 rounded-2xl border border-[#FFE5D9] bg-white text-sm font-medium text-stone-600 focus:outline-none focus:ring-2 focus:ring-[#FF9B85] cursor-pointer hover:bg-[#FFF8F3] transition-colors"
+              className="appearance-none pl-10 pr-8 py-2.5 rounded-2xl border themed-border themed-ring bg-white text-sm font-medium text-stone-600 cursor-pointer themed-hover transition-colors"
             >
               <option value="all">All Educators</option>
               {educators.map((edu) => (
@@ -195,7 +196,8 @@ export function StaffSchedulingPage() {
         <div className="flex gap-3 w-full lg:w-auto">
           <button
             onClick={() => setIsAddShiftOpen(true)}
-            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-[#FF9B85] text-white font-bold text-sm shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl text-white font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
           >
             <Plus size={18} />
             Add Shift
@@ -205,16 +207,22 @@ export function StaffSchedulingPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-stone-400">
-          <div className="w-10 h-10 border-4 border-[#FFE5D9] border-t-[#FF9B85] rounded-full animate-spin mb-4" />
+          <div
+            className="w-10 h-10 border-4 rounded-full animate-spin mb-4"
+            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--primary)' }}
+          />
           <p className="font-quicksand font-medium">Loading schedules...</p>
         </div>
       ) : schedules.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl p-16 text-center shadow-sm border border-[#FFE5D9]/50"
+          className="themed-surface rounded-3xl p-16 text-center"
         >
-          <div className="w-20 h-20 bg-[#FFF8F3] rounded-full flex items-center justify-center mx-auto mb-6 text-[#FF9B85]">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+            style={{ backgroundColor: 'var(--background)', color: 'var(--primary)' }}
+          >
             <CalendarIcon size={40} />
           </div>
           <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-3">
@@ -226,7 +234,8 @@ export function StaffSchedulingPage() {
           </p>
           <button
             onClick={() => setIsAddShiftOpen(true)}
-            className="px-8 py-3 bg-[#FF9B85] text-white font-bold rounded-2xl shadow-lg hover:bg-[#E07A5F] transition-colors"
+            className="px-8 py-3 text-white font-bold rounded-2xl shadow-lg hover:opacity-90 transition-colors"
+            style={{ backgroundColor: 'var(--primary)' }}
           >
             Create First Shift
           </button>
@@ -240,9 +249,9 @@ export function StaffSchedulingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: dateIndex * 0.05 }}
-                className="bg-white/60 backdrop-blur-sm rounded-3xl p-5 border border-[#FFE5D9]/30 shadow-sm flex flex-col gap-4"
+                className="themed-surface rounded-3xl p-5 flex flex-col gap-4"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-[#FFE5D9]/50">
+                <div className="flex items-center justify-between pb-2 border-b themed-border">
                   <div className="flex items-baseline gap-2">
                     <span className="font-quicksand font-bold text-xl text-stone-800">
                       {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
@@ -254,7 +263,10 @@ export function StaffSchedulingPage() {
                       })}
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-[#FF9B85] bg-[#FFF8F3] px-2 py-1 rounded-lg">
+                  <span
+                    className="text-xs font-bold px-2 py-1 rounded-lg"
+                    style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                  >
                     {groupedSchedules[date].length} shifts
                   </span>
                 </div>
@@ -266,10 +278,12 @@ export function StaffSchedulingPage() {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: dateIndex * 0.05 + i * 0.03 }}
-                      className="group relative bg-white rounded-xl p-3 shadow-sm border border-[#FFE5D9]/50 hover:shadow-md hover:border-[#FF9B85]/30 transition-all duration-200"
+                      className="group relative rounded-xl p-3 shadow-sm border themed-border hover:shadow-md transition-all duration-200"
+                      style={{ backgroundColor: 'var(--surface)' }}
                     >
                       <div
-                        className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${getColorForEducator(i).split(' ')[0]}`}
+                        className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"
+                        style={{ backgroundColor: getColorForEducator(i).backgroundColor }}
                       />
                       <div className="pl-3">
                         <div className="flex justify-between items-start mb-1">
@@ -279,7 +293,7 @@ export function StaffSchedulingPage() {
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                             <button
                               onClick={() => openEditModal(schedule)}
-                              className="p-1 text-stone-400 hover:text-[#E07A5F]"
+                              className="p-1 text-stone-400 hover:text-[color:var(--primary-dark)]"
                             >
                               <Pencil size={12} />
                             </button>
@@ -297,13 +311,19 @@ export function StaffSchedulingPage() {
                           <span>
                             {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500 font-medium text-[10px]">
+                          <span
+                            className="px-1.5 py-0.5 rounded-md font-medium text-[10px]"
+                            style={{ backgroundColor: 'var(--background)', color: 'var(--muted)' }}
+                          >
                             {schedule.hours}h
                           </span>
                         </div>
 
                         {schedule.notes && (
-                          <div className="text-[10px] text-stone-500 bg-[#FFF8F3] p-1.5 rounded-lg line-clamp-2">
+                          <div
+                            className="text-[10px] text-stone-500 p-1.5 rounded-lg line-clamp-2"
+                            style={{ backgroundColor: 'var(--background)' }}
+                          >
                             {schedule.notes}
                           </div>
                         )}
@@ -340,7 +360,7 @@ export function StaffSchedulingPage() {
               type="date"
               value={editForm.shiftDate}
               onChange={(e) => setEditForm({ ...editForm, shiftDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -353,7 +373,7 @@ export function StaffSchedulingPage() {
                 type="time"
                 value={editForm.startTime}
                 onChange={(e) => handleEditTimeChange('startTime', e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -365,7 +385,7 @@ export function StaffSchedulingPage() {
                 type="time"
                 value={editForm.endTime}
                 onChange={(e) => handleEditTimeChange('endTime', e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
               />
             </div>
@@ -379,7 +399,7 @@ export function StaffSchedulingPage() {
               step="0.01"
               value={editForm.hours}
               onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -391,23 +411,24 @@ export function StaffSchedulingPage() {
               rows={3}
               value={editForm.notes}
               onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => {
                 setIsEditOpen(false);
                 setEditingSchedule(null);
               }}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Save Changes
             </button>

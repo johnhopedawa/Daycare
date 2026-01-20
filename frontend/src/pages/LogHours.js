@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { EducatorLayout } from '../components/EducatorLayout';
 
 function LogHours() {
   const [mode, setMode] = useState('manual'); // 'manual' or 'schedule'
@@ -96,10 +97,7 @@ function LogHours() {
   };
 
   return (
-    <main className="main">
-      <div className="header">
-        <h1>Log Hours</h1>
-      </div>
+    <EducatorLayout title="Log Hours" subtitle="Submit a new time entry">
 
       <div className="card mb-2">
         <h2>Choose Logging Method</h2>
@@ -235,7 +233,7 @@ function LogHours() {
           </div>
         </form>
       </div>
-    </main>
+    </EducatorLayout>
   );
 }
 

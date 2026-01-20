@@ -13,11 +13,23 @@ export function BankAccountsPage() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [setupToken, setSetupToken] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [simplefinAccounts, setSimplefinAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [pendingClaimToken, setPendingClaimToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [expensesError, setExpensesError] = useState('');
+
+  const resetConnectForm = () => {
+    setSetupToken('');
+    setAccountName('');
+    setSimplefinAccounts([]);
+    setSelectedAccountId('');
+    setPendingClaimToken('');
+    setError('');
+  };
 
   useEffect(() => {
     loadBankingData();
@@ -92,6 +104,37 @@ export function BankAccountsPage() {
     });
   };
 
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const categoryIndexMap = {
+    supplies: 0,
+    utilities: 1,
+    payroll: 2,
+    rent: 3,
+  };
+  const hashString = (value) => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+  };
+  const getCategoryStyle = (category) => {
+    const normalized = (category || '').toLowerCase().trim();
+    if (!normalized) {
+      return cardStyles[0];
+    }
+    const mappedIndex = categoryIndexMap[normalized];
+    const index = Number.isInteger(mappedIndex)
+      ? mappedIndex
+      : hashString(normalized) % cardStyles.length;
+    return cardStyles[index];
+  };
+
   const handleConnectAccount = async (e) => {
     e.preventDefault();
     setError('');
@@ -99,14 +142,36 @@ export function BankAccountsPage() {
     setConnecting(true);
 
     try {
-      await api.post('/business-expenses/simplefin/claim', {
-        setupToken,
-        accountName,
-      });
+      if (pendingClaimToken && !selectedAccountId) {
+        setError('Please choose an account to connect.');
+        return;
+      }
+
+      const payload = pendingClaimToken
+        ? {
+          claimToken: pendingClaimToken,
+          accountName,
+          simplefinAccountId: selectedAccountId,
+        }
+        : {
+          setupToken,
+          accountName,
+        };
+
+      const response = await api.post('/business-expenses/simplefin/claim', payload);
+
+      if (response.data?.requiresAccountSelection) {
+        const accounts = response.data.accounts || [];
+        setSimplefinAccounts(accounts);
+        setPendingClaimToken(response.data.claimToken || '');
+        if (accounts.length === 1) {
+          setSelectedAccountId(accounts[0].id);
+        }
+        return;
+      }
 
       setSuccess('Bank account connected successfully.');
-      setSetupToken('');
-      setAccountName('');
+      resetConnectForm();
       setShowConnectModal(false);
       loadBankingData(false);
     } catch (err) {
@@ -151,18 +216,6 @@ export function BankAccountsPage() {
     }
   };
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      supplies: 'bg-[#E5D4ED] text-[#8E55A5]',
-      utilities: 'bg-[#B8E6D5] text-[#2D6A4F]',
-      payroll: 'bg-[#FFF4CC] text-[#B45309]',
-      rent: 'bg-[#FFDCC8] text-[#E07A5F]',
-      insurance: 'bg-blue-100 text-blue-700',
-      maintenance: 'bg-green-100 text-green-700',
-    };
-    return colors[category?.toLowerCase()] || 'bg-gray-100 text-gray-700';
-  };
-
   if (loading) {
     return (
       <Layout title="Bank Accounts" subtitle="Manage connected accounts and transactions">
@@ -193,11 +246,14 @@ export function BankAccountsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+            className="themed-surface p-6 rounded-3xl"
           >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#FFDCC8] flex items-center justify-center">
-                <TrendingDown size={20} className="text-[#E07A5F]" />
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: cardStyles[3].backgroundColor }}
+              >
+                <TrendingDown size={20} style={{ color: cardStyles[3].color }} />
               </div>
               <div>
                 <p className="text-stone-500 text-sm">Total Expenses</p>
@@ -212,11 +268,14 @@ export function BankAccountsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+            className="themed-surface p-6 rounded-3xl"
           >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#B8E6D5] flex items-center justify-center">
-                <Calendar size={20} className="text-[#2D6A4F]" />
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: cardStyles[1].backgroundColor }}
+              >
+                <Calendar size={20} style={{ color: cardStyles[1].color }} />
               </div>
               <div>
                 <p className="text-stone-500 text-sm">Transactions</p>
@@ -240,14 +299,15 @@ export function BankAccountsPage() {
             </h3>
             <button
               onClick={() => setShowConnectModal(true)}
-              className="px-4 py-2 bg-[#FF9B85] text-white font-bold text-sm rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors"
+              className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md transition-colors"
+              style={{ backgroundColor: 'var(--primary)' }}
             >
               Connect Account
             </button>
           </div>
 
           {connections.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl p-12 text-center">
               <Building2 size={48} className="mx-auto mb-4 text-stone-300" />
               <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-2">
                 No Connected Accounts
@@ -261,12 +321,15 @@ export function BankAccountsPage() {
               {connections.map((connection, i) => (
                 <div
                   key={connection.id}
-                  className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+                  className="themed-surface p-6 rounded-3xl"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-[#E5D4ED] flex items-center justify-center">
-                        <Building2 size={20} className="text-[#8E55A5]" />
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: cardStyles[0].backgroundColor }}
+                      >
+                        <Building2 size={20} style={{ color: cardStyles[0].color }} />
                       </div>
                       <div>
                         <h4 className="font-bold text-stone-800">
@@ -295,7 +358,8 @@ export function BankAccountsPage() {
                     <button
                       onClick={() => handleSync(connection.id)}
                       disabled={syncingId === connection.id || !connection.is_active}
-                      className="flex-1 px-3 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] text-sm font-bold hover:bg-[#FFE5D9] transition-colors disabled:opacity-60"
+                      className="flex-1 px-3 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
+                      style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
                     >
                       {syncingId === connection.id ? 'Syncing...' : 'Sync Now'}
                     </button>
@@ -329,15 +393,15 @@ export function BankAccountsPage() {
           )}
 
           {expenses.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl p-12 text-center">
               <DollarSign size={48} className="mx-auto mb-4 text-stone-300" />
               <p className="text-stone-500">No expenses recorded yet</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">
                         Date
@@ -353,9 +417,9 @@ export function BankAccountsPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {expenses.map((expense, i) => (
-                      <tr key={expense.id} className="hover:bg-[#FFF8F3] transition-colors">
+                      <tr key={expense.id} className="themed-row transition-colors">
                         <td className="px-6 py-4 text-sm text-stone-600">
                           {formatDate(expense.transaction_date)}
                         </td>
@@ -369,9 +433,8 @@ export function BankAccountsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold ${getCategoryColor(
-                              expense.category
-                            )}`}
+                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            style={getCategoryStyle(expense.category)}
                           >
                             {expense.category || 'Uncategorized'}
                           </span>
@@ -393,7 +456,10 @@ export function BankAccountsPage() {
 
       <BaseModal
         isOpen={showConnectModal}
-        onClose={() => setShowConnectModal(false)}
+        onClose={() => {
+          resetConnectForm();
+          setShowConnectModal(false);
+        }}
         title="Connect Bank Account"
       >
         <form onSubmit={handleConnectAccount} className="space-y-5">
@@ -404,7 +470,8 @@ export function BankAccountsPage() {
                 href="https://bridge.simplefin.org/simplefin/create"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#E07A5F] font-semibold hover:underline"
+                className="font-semibold hover:underline"
+                style={{ color: 'var(--primary-dark)' }}
               >
                 SimpleFIN Bridge
               </a>.
@@ -425,39 +492,67 @@ export function BankAccountsPage() {
               placeholder="Main Business Checking"
               maxLength={255}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Connection Token
-            </label>
-            <input
-              type="text"
-              value={setupToken}
-              onChange={(e) => setSetupToken(e.target.value)}
-              placeholder="Paste your SimpleFIN token"
-              required
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
-            />
-          </div>
+          {pendingClaimToken ? (
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Choose Account
+              </label>
+              <select
+                value={selectedAccountId}
+                onChange={(e) => setSelectedAccountId(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
+              >
+                <option value="">Select an account</option>
+                {simplefinAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.displayName || account.name || account.id}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-stone-500 mt-2">
+                Pick the specific account you want to sync into Firefly.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Connection Token
+              </label>
+              <input
+                type="text"
+                value={setupToken}
+                onChange={(e) => setSetupToken(e.target.value)}
+                placeholder="Paste your SimpleFIN token"
+                required
+                className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
+              />
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setShowConnectModal(false)}
+              onClick={() => {
+                resetConnectForm();
+                setShowConnectModal(false);
+              }}
               disabled={connecting}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-60"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={connecting}
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all disabled:opacity-60"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg transition-all disabled:opacity-60"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
-              {connecting ? 'Connecting...' : 'Connect Account'}
+              {connecting ? 'Connecting...' : pendingClaimToken ? 'Confirm Account' : 'Connect Account'}
             </button>
           </div>
         </form>

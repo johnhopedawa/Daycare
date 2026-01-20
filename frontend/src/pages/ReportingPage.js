@@ -111,32 +111,44 @@ export function ReportingPage() {
       <div className="flex flex-wrap gap-3 mb-6">
         <button
           onClick={() => setActiveTab('financial')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold ${activeTab === 'financial' ? 'bg-[#FF9B85] text-white' : 'bg-[#FFF8F3] text-[#E07A5F]'}`}
+          className="px-4 py-2 rounded-xl text-sm font-bold"
+          style={activeTab === 'financial'
+            ? { backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }
+            : { backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
         >
           Financial
         </button>
         <button
           onClick={() => setActiveTab('enrollment')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold ${activeTab === 'enrollment' ? 'bg-[#FF9B85] text-white' : 'bg-[#FFF8F3] text-[#E07A5F]'}`}
+          className="px-4 py-2 rounded-xl text-sm font-bold"
+          style={activeTab === 'enrollment'
+            ? { backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }
+            : { backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
         >
           Enrollment
         </button>
         <button
           onClick={() => setActiveTab('staffing')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold ${activeTab === 'staffing' ? 'bg-[#FF9B85] text-white' : 'bg-[#FFF8F3] text-[#E07A5F]'}`}
+          className="px-4 py-2 rounded-xl text-sm font-bold"
+          style={activeTab === 'staffing'
+            ? { backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }
+            : { backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
         >
           Staffing
         </button>
         <button
           onClick={() => setActiveTab('attendance')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold ${activeTab === 'attendance' ? 'bg-[#FF9B85] text-white' : 'bg-[#FFF8F3] text-[#E07A5F]'}`}
+          className="px-4 py-2 rounded-xl text-sm font-bold"
+          style={activeTab === 'attendance'
+            ? { backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }
+            : { backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
         >
           Attendance
         </button>
       </div>
 
       {activeTab !== 'attendance' && (
-        <div className="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 mb-6">
+        <div className="themed-surface rounded-3xl p-6 mb-6">
           <div className="flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand mb-2">Start Date</label>
@@ -144,7 +156,7 @@ export function ReportingPage() {
                 type="date"
                 value={dateRange.start_date}
                 onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               />
             </div>
             <div>
@@ -153,12 +165,13 @@ export function ReportingPage() {
                 type="date"
                 value={dateRange.end_date}
                 onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               />
             </div>
             <button
               onClick={handleRunReport}
-              className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="px-4 py-2 rounded-xl text-white font-bold shadow-lg transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Run Report
             </button>
@@ -167,7 +180,7 @@ export function ReportingPage() {
       )}
 
       {activeTab === 'attendance' && (
-        <div className="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 mb-6">
+        <div className="themed-surface rounded-3xl p-6 mb-6">
           <div className="flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand mb-2">Start Date</label>
@@ -175,7 +188,7 @@ export function ReportingPage() {
                 type="date"
                 value={attendanceStartDate}
                 onChange={(e) => setAttendanceStartDate(e.target.value)}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               />
             </div>
             <div>
@@ -184,7 +197,7 @@ export function ReportingPage() {
                 type="date"
                 value={attendanceEndDate}
                 onChange={(e) => setAttendanceEndDate(e.target.value)}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               />
             </div>
             <div>
@@ -192,7 +205,7 @@ export function ReportingPage() {
               <select
                 value={attendanceMode}
                 onChange={(e) => setAttendanceMode(e.target.value)}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               >
                 <option value="summary">Summary by Child</option>
                 <option value="detailed">Detailed Log</option>
@@ -200,7 +213,8 @@ export function ReportingPage() {
             </div>
             <button
               onClick={handleRunReport}
-              className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="px-4 py-2 rounded-xl text-white font-bold shadow-lg transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Run Report
             </button>
@@ -222,13 +236,13 @@ export function ReportingPage() {
 
       {!loading && activeTab === 'financial' && financialData && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <DollarSign size={22} className="text-[#FF9B85]" /> Revenue
+              <DollarSign size={22} style={{ color: 'var(--primary)' }} /> Revenue
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Period</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Payments</th>
@@ -236,9 +250,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Average</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {financialData.revenue.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.period}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.payment_count}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">${parseFloat(row.total_revenue || 0).toFixed(2)}</td>
@@ -250,13 +264,13 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <FileText size={22} className="text-[#FF9B85]" /> Outstanding Balances
+              <FileText size={22} style={{ color: 'var(--primary)' }} /> Outstanding Balances
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Parent</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Email</th>
@@ -265,9 +279,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Total Outstanding</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {financialData.outstanding.map((row) => (
-                    <tr key={row.id}>
+                    <tr key={row.id} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.parent_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.email}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.phone}</td>
@@ -280,13 +294,13 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <BarChart3 size={22} className="text-[#FF9B85]" /> Invoice Aging
+              <BarChart3 size={22} style={{ color: 'var(--primary)' }} /> Invoice Aging
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Parent</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Invoice</th>
@@ -296,9 +310,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Bucket</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {financialData.aging.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.parent_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.invoice_number}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{new Date(row.due_date).toLocaleDateString()}</td>
@@ -316,13 +330,13 @@ export function ReportingPage() {
 
       {!loading && activeTab === 'enrollment' && enrollmentData && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <Users size={22} className="text-[#FF9B85]" /> Enrollment Summary
+              <Users size={22} style={{ color: 'var(--primary)' }} /> Enrollment Summary
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Count</th>
@@ -330,9 +344,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Total Monthly Revenue</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {enrollmentData.summary.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.status}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.count}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">${parseFloat(row.avg_monthly_rate || 0).toFixed(2)}</td>
@@ -344,22 +358,22 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <BarChart3 size={22} className="text-[#FF9B85]" /> Enrollment Trends
+              <BarChart3 size={22} style={{ color: 'var(--primary)' }} /> Enrollment Trends
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Month</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">New Enrollments</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {enrollmentData.trends.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.month}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.status}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.new_enrollments}</td>
@@ -370,13 +384,13 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <Clock size={22} className="text-[#FF9B85]" /> Waitlist
+              <Clock size={22} style={{ color: 'var(--primary)' }} /> Waitlist
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Priority</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Child</th>
@@ -387,9 +401,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Email</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {enrollmentData.waitlist.map((row) => (
-                    <tr key={row.id}>
+                    <tr key={row.id} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.waitlist_priority || 'N/A'}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.child_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{new Date(row.date_of_birth).toLocaleDateString()}</td>
@@ -408,13 +422,13 @@ export function ReportingPage() {
 
       {!loading && activeTab === 'staffing' && staffingData && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <Clock size={22} className="text-[#FF9B85]" /> Hours Worked
+              <Clock size={22} style={{ color: 'var(--primary)' }} /> Hours Worked
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Educator</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hourly Rate</th>
@@ -423,9 +437,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Entries</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {staffingData.hours.map((row) => (
-                    <tr key={row.educator_id}>
+                    <tr key={row.educator_id} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.educator_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">${parseFloat(row.hourly_rate || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{parseFloat(row.total_hours || 0).toFixed(2)}</td>
@@ -438,13 +452,13 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <FileText size={22} className="text-[#FF9B85]" /> Payroll Summary
+              <FileText size={22} style={{ color: 'var(--primary)' }} /> Payroll Summary
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Pay Period</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Status</th>
@@ -453,9 +467,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Total Gross Pay</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {staffingData.payroll.map((row) => (
-                    <tr key={row.pay_period_id}>
+                    <tr key={row.pay_period_id} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">
                         {new Date(row.start_date).toLocaleDateString()} - {new Date(row.end_date).toLocaleDateString()}
                       </td>
@@ -470,13 +484,13 @@ export function ReportingPage() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="themed-surface p-6 rounded-3xl">
             <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-              <BarChart3 size={22} className="text-[#FF9B85]" /> Schedule Coverage
+              <BarChart3 size={22} style={{ color: 'var(--primary)' }} /> Schedule Coverage
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Scheduled</th>
@@ -485,9 +499,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Pending</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {staffingData.coverage.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{new Date(row.schedule_date).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.scheduled_educators}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{parseFloat(row.total_scheduled_hours || 0).toFixed(2)}</td>
@@ -503,15 +517,15 @@ export function ReportingPage() {
       )}
 
       {!loading && activeTab === 'attendance' && (
-        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+        <div className="themed-surface p-6 rounded-3xl">
           <h3 className="font-quicksand font-bold text-xl text-stone-800 flex items-center gap-2 mb-4">
-            <Clock size={22} className="text-[#FF9B85]" /> Attendance Report
+            <Clock size={22} style={{ color: 'var(--primary)' }} /> Attendance Report
           </h3>
 
           {attendanceMode === 'summary' ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Child</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Total Days</th>
@@ -522,9 +536,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {attendanceSummary.map((row) => (
-                    <tr key={row.child_id}>
+                    <tr key={row.child_id} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{row.child_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.total_days}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.present_days}</td>
@@ -540,7 +554,7 @@ export function ReportingPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Child</th>
@@ -551,9 +565,9 @@ export function ReportingPage() {
                     <th className="px-4 py-3 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Picked Up By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {attendanceDetailed.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="themed-row">
                       <td className="px-4 py-3 text-sm text-stone-600">{new Date(row.attendance_date).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.child_name}</td>
                       <td className="px-4 py-3 text-sm text-stone-600">{row.status || '-'}</td>

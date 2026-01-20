@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
 import { motion } from 'framer-motion';
-import { FileText, Download, Upload, Trash2 } from 'lucide-react';
+import { FileText, Download, Upload, Trash2, User, AlertCircle, Bell, ClipboardCheck } from 'lucide-react';
 import api from '../utils/api';
 import { UploadDocumentModal } from '../components/modals/UploadDocumentModal';
 
@@ -86,28 +86,48 @@ export function PaperworkPage() {
     return `${mb.toFixed(1)} MB`;
   };
 
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const categoryIndexMap = {
+    enrollment: 0,
+    medical: 1,
+    policy: 2,
+    emergency: 3,
+  };
+  const hashString = (value) => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+  };
+  const getCategoryStyle = (category) => {
+    const normalized = (category || '').toLowerCase().trim();
+    if (!normalized || normalized === 'general') {
+      return { backgroundColor: 'var(--background)', color: 'var(--muted)' };
+    }
+    const mappedIndex = categoryIndexMap[normalized];
+    const index = Number.isInteger(mappedIndex)
+      ? mappedIndex
+      : hashString(normalized) % cardStyles.length;
+    return cardStyles[index];
+  };
+
   const getCategoryIcon = (category) => {
     const icons = {
-      enrollment: '📋',
-      medical: '🏥',
-      emergency: '🚨',
-      policy: '📜',
-      general: '📄',
+      enrollment: User,
+      medical: AlertCircle,
+      emergency: Bell,
+      policy: ClipboardCheck,
+      general: FileText,
     };
-    return icons[category?.toLowerCase()] || '📄';
+    const normalized = (category || '').toLowerCase().trim();
+    return icons[normalized] || FileText;
   };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      enrollment: 'bg-[#E5D4ED] text-[#8E55A5]',
-      medical: 'bg-[#B8E6D5] text-[#2D6A4F]',
-      emergency: 'bg-[#FFDCC8] text-[#E07A5F]',
-      policy: 'bg-[#FFF4CC] text-[#B45309]',
-      general: 'bg-gray-100 text-gray-700',
-    };
-    return colors[category?.toLowerCase()] || 'bg-gray-100 text-gray-700';
-  };
-
   const handleDownload = async (doc) => {
     try {
       const response = await api.get(`/files/${doc.id}/download`, {
@@ -187,9 +207,13 @@ export function PaperworkPage() {
         >
           <button
             onClick={() => setIsUploadOpen(true)}
-            className="w-full border-2 border-dashed border-[#FFE5D9] rounded-3xl flex flex-col items-center justify-center p-12 text-[#FF9B85] hover:bg-[#FFF8F3] transition-colors"
+            className="w-full themed-dashed rounded-3xl flex flex-col items-center justify-center p-12 transition-colors"
+            style={{ color: 'var(--menu-accent)' }}
           >
-            <div className="w-20 h-20 rounded-full bg-[#FFE5D9] flex items-center justify-center mb-4">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center mb-4"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
               <Upload size={32} />
             </div>
             <h3 className="font-quicksand font-bold text-xl mb-2">
@@ -213,14 +237,15 @@ export function PaperworkPage() {
             </h3>
             <button
               onClick={() => setShowCategoryManager((prev) => !prev)}
-              className="px-4 py-2 bg-white border border-[#FFE5D9] text-stone-700 font-medium text-sm rounded-xl hover:bg-[#FFF8F3] transition-colors"
+              className="px-4 py-2 border themed-border text-stone-700 font-medium text-sm rounded-xl themed-hover transition-colors"
+              style={{ backgroundColor: 'var(--surface)' }}
             >
               {showCategoryManager ? 'Close Manager' : 'Manage Categories'}
             </button>
           </div>
 
           {categories.length === 0 ? (
-            <div className="bg-white rounded-2xl p-6 text-stone-500 border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-2xl p-6 text-stone-500">
               No categories yet. Create one to organize documents.
             </div>
           ) : (
@@ -230,13 +255,13 @@ export function PaperworkPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.2 }}
                 onClick={() => setCategoryFilter('')}
-                className={`bg-white p-5 rounded-2xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border transition-transform cursor-pointer ${
-                  categoryFilter
-                    ? 'border-[#FFE5D9]/30 hover:translate-y-[-2px]'
-                    : 'border-[#FF9B85] shadow-[0_6px_18px_-6px_rgba(255,155,133,0.5)]'
-                }`}
+                className="themed-surface p-5 rounded-2xl transition-transform cursor-pointer"
+                style={{
+                  borderColor: categoryFilter ? 'var(--border)' : 'var(--primary)',
+                  backgroundColor: 'var(--surface)',
+                }}
               >
-                <div className="text-3xl mb-2">dY",</div>
+                <div className="mb-2"><FileText size={28} style={{ color: "var(--primary-dark)" }} /></div>
                 <h4 className="font-bold text-stone-800 mb-1">All</h4>
                 <p className="text-stone-500 text-sm">{documents.length} documents</p>
               </motion.div>
@@ -246,6 +271,8 @@ export function PaperworkPage() {
                   doc => doc.category_id === category.id
                 ).length;
                 const isActive = categoryFilter === String(category.id);
+                const Icon = getCategoryIcon(category.name);
+                const categoryStyle = getCategoryStyle(category.name);
                 return (
                   <motion.div
                     key={category.id}
@@ -253,11 +280,10 @@ export function PaperworkPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.25 + i * 0.05 }}
                     onClick={() => setCategoryFilter(String(category.id))}
-                    className={`bg-white p-5 rounded-2xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border hover:translate-y-[-2px] transition-transform cursor-pointer ${
-                      isActive ? 'border-[#FF9B85]' : 'border-[#FFE5D9]/30'
-                    }`}
+                    className="themed-surface p-5 rounded-2xl hover:translate-y-[-2px] transition-transform cursor-pointer"
+                    style={{ borderColor: isActive ? 'var(--primary)' : 'var(--border)' }}
                   >
-                    <div className="text-3xl mb-2">{getCategoryIcon(category.name)}</div>
+                    <div className="mb-2"><Icon size={28} style={{ color: categoryStyle.color }} /></div>
                     <h4 className="font-bold text-stone-800 capitalize mb-1">
                       {category.name}
                     </h4>
@@ -274,7 +300,7 @@ export function PaperworkPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+            className="themed-surface rounded-3xl p-6"
           >
             <h3 className="font-quicksand font-bold text-lg text-stone-800 mb-4">
               Category Manager
@@ -285,11 +311,12 @@ export function PaperworkPage() {
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="New category name..."
-                className="flex-1 px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="flex-1 px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
               />
               <button
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+                className="px-6 py-3 rounded-2xl text-white font-bold shadow-lg transition-all"
+                style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
               >
                 Add
               </button>
@@ -302,7 +329,7 @@ export function PaperworkPage() {
                 {categories.map((category) => (
                   <div
                     key={category.id}
-                    className="flex items-center justify-between rounded-2xl border border-[#FFE5D9]/40 px-4 py-3"
+                    className="flex items-center justify-between rounded-2xl border themed-border px-4 py-3"
                   >
                     <div className="font-medium text-stone-700">{category.name}</div>
                     <button
@@ -335,13 +362,13 @@ export function PaperworkPage() {
                 placeholder="Search documents..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="px-4 py-2 rounded-xl border themed-border text-sm focus:outline-none focus:ring-2 bg-white"
               />
               <div className="flex gap-2">
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                  className="px-4 py-2 rounded-xl border themed-border text-sm focus:outline-none focus:ring-2 bg-white"
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -356,7 +383,7 @@ export function PaperworkPage() {
                       setCategoryFilter('');
                       setSearchTerm('');
                     }}
-                    className="px-3 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 text-sm hover:bg-[#FFF8F3] transition-colors"
+                    className="px-3 py-2 rounded-xl border themed-border text-stone-600 text-sm themed-hover transition-colors"
                   >
                     Clear
                   </button>
@@ -366,7 +393,7 @@ export function PaperworkPage() {
           </div>
 
           {documents.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl p-12 text-center">
               <FileText size={48} className="mx-auto mb-4 text-stone-300" />
               <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-2">
                 No Documents Yet
@@ -376,10 +403,10 @@ export function PaperworkPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+            <div className="themed-surface rounded-3xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-[#FFF8F3]">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">
                         Document Name
@@ -404,13 +431,16 @@ export function PaperworkPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {documents.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-[#FFF8F3] transition-colors">
+                      <tr key={doc.id} className="themed-row transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#FFE5D9] flex items-center justify-center">
-                              <FileText size={18} className="text-[#E07A5F]" />
+                            <div
+                              className="w-10 h-10 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: 'var(--accent)' }}
+                            >
+                              <FileText size={18} style={{ color: 'var(--primary-dark)' }} />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-stone-800">
@@ -421,9 +451,8 @@ export function PaperworkPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${getCategoryColor(
-                              doc.category_name || 'general'
-                            )}`}
+                            className="px-3 py-1 rounded-full text-xs font-bold capitalize"
+                            style={getCategoryStyle(doc.category_name || 'general')}
                           >
                             {doc.category_name || 'Uncategorized'}
                           </span>
@@ -443,7 +472,8 @@ export function PaperworkPage() {
                               {doc.tags.map((tag) => (
                                 <span
                                   key={`${doc.id}-${tag}`}
-                                  className="px-2 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold"
+                                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                                  style={{ backgroundColor: 'var(--background)', color: 'var(--muted)' }}
                                 >
                                   {tag}
                                 </span>
@@ -457,7 +487,7 @@ export function PaperworkPage() {
                           <div className="inline-flex items-center gap-2">
                             <button
                               onClick={() => handleDownload(doc)}
-                              className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                              className="p-2 themed-hover rounded-lg transition-colors"
                             >
                               <Download size={16} className="text-stone-500" />
                             </button>
@@ -490,3 +520,5 @@ export function PaperworkPage() {
     </Layout>
   );
 }
+
+

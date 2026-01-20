@@ -14,6 +14,22 @@ export function TimeEntriesApprovalPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectEntryId, setRejectEntryId] = useState(null);
 
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+  const statusStyles = {
+    APPROVED: cardStyles[1],
+    REJECTED: cardStyles[3],
+    PENDING: cardStyles[2],
+  };
+  const getStatusStyle = (status) => statusStyles[status] || {
+    backgroundColor: 'var(--background)',
+    color: 'var(--muted)',
+  };
+
   const loadPayPeriods = useCallback(async () => {
     try {
       const response = await api.get('/pay-periods');
@@ -118,8 +134,8 @@ export function TimeEntriesApprovalPage() {
 
   return (
     <Layout title="Time Entries" subtitle="Approve or reject educator time entries">
-      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
-        <div className="p-6 border-b border-[#FFE5D9]/30 flex flex-wrap items-center justify-between gap-4">
+      <div className="themed-surface rounded-3xl overflow-hidden">
+        <div className="p-6 border-b themed-border flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-4">
             <div>
               <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand mb-2">
@@ -128,7 +144,7 @@ export function TimeEntriesApprovalPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               >
                 <option value="">All</option>
                 <option value="PENDING">Pending</option>
@@ -143,7 +159,7 @@ export function TimeEntriesApprovalPage() {
               <select
                 value={payPeriodId}
                 onChange={(e) => setPayPeriodId(e.target.value)}
-                className="px-4 py-2 rounded-2xl border border-[#FFE5D9] bg-white text-stone-600"
+                className="px-4 py-2 rounded-2xl border themed-border bg-white text-stone-600"
               >
                 <option value="">All Periods</option>
                 {payPeriods.map((period) => (
@@ -157,7 +173,8 @@ export function TimeEntriesApprovalPage() {
           {statusFilter === 'PENDING' && selected.length > 0 && (
             <button
               onClick={handleBatchApprove}
-              className="px-4 py-2 rounded-2xl bg-[#B8E6D5] text-[#2D6A4F] font-semibold hover:bg-[#9ED9C2] transition-colors"
+              className="px-4 py-2 rounded-2xl font-semibold transition-colors hover:opacity-90"
+              style={cardStyles[1]}
             >
               Approve Selected ({selected.length})
             </button>
@@ -175,7 +192,7 @@ export function TimeEntriesApprovalPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#FFF8F3]">
+              <thead style={{ backgroundColor: 'var(--background)' }}>
                 <tr>
                   {statusFilter === 'PENDING' && (
                     <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
@@ -208,9 +225,9 @@ export function TimeEntriesApprovalPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#FFE5D9]/30">
+              <tbody className="divide-y themed-border">
                 {entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-[#FFF8F3]/50 transition-colors">
+                  <tr key={entry.id} className="themed-row transition-colors">
                     {statusFilter === 'PENDING' && (
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
@@ -233,13 +250,10 @@ export function TimeEntriesApprovalPage() {
                       {entry.notes || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        entry.status === 'APPROVED'
-                          ? 'bg-[#B8E6D5] text-[#2D6A4F]'
-                          : entry.status === 'REJECTED'
-                          ? 'bg-[#FFE5D9] text-[#C4554D]'
-                          : 'bg-[#FFF4CC] text-[#B45309]'
-                      }`}>
+                      <span
+                        className="px-3 py-1 rounded-full text-xs font-semibold"
+                        style={getStatusStyle(entry.status)}
+                      >
                         {entry.status}
                       </span>
                     </td>
@@ -248,13 +262,15 @@ export function TimeEntriesApprovalPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => handleApprove(entry.id)}
-                            className="px-4 py-2 rounded-xl bg-[#B8E6D5] text-[#2D6A4F] font-semibold hover:bg-[#9ED9C2] transition-colors"
+                            className="px-4 py-2 rounded-xl font-semibold transition-colors hover:opacity-90"
+                            style={cardStyles[1]}
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => openRejectModal(entry.id)}
-                            className="px-4 py-2 rounded-xl bg-[#FFE5D9] text-[#C4554D] font-semibold hover:bg-[#FFD5C5] transition-colors"
+                            className="px-4 py-2 rounded-xl font-semibold transition-colors hover:opacity-90"
+                            style={cardStyles[3]}
                           >
                             Reject
                           </button>
@@ -287,7 +303,7 @@ export function TimeEntriesApprovalPage() {
               rows={3}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
@@ -298,14 +314,15 @@ export function TimeEntriesApprovalPage() {
                 setRejectEntryId(null);
                 setRejectReason('');
               }}
-              className="flex-1 px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold themed-hover"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleReject}
-              className="flex-1 px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl text-white font-semibold hover:opacity-90"
+              style={{ backgroundColor: 'var(--primary)' }}
             >
               Reject Entry
             </button>

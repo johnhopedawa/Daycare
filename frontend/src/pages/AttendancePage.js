@@ -300,15 +300,15 @@ export function AttendancePage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30"
+          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-stone-400 font-medium uppercase mb-1">Total Children</p>
               <p className="text-3xl font-bold text-stone-800">{stats.total}</p>
             </div>
-            <div className="p-3 bg-[#E5D4ED] rounded-2xl">
-              <UserCheck size={24} className="text-[#8E55A5]" />
+            <div className="p-3 bg-[var(--card-1)] rounded-2xl">
+              <UserCheck size={24} className="text-[var(--card-text-1)]" />
             </div>
           </div>
         </motion.div>
@@ -317,15 +317,15 @@ export function AttendancePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30"
+          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-stone-400 font-medium uppercase mb-1">Present</p>
               <p className="text-3xl font-bold text-green-600">{stats.present}</p>
             </div>
-            <div className="p-3 bg-[#B8E6D5] rounded-2xl">
-              <Check size={24} className="text-[#2D6A4F]" />
+            <div className="p-3 bg-[var(--card-2)] rounded-2xl">
+              <Check size={24} className="text-[var(--card-text-2)]" />
             </div>
           </div>
         </motion.div>
@@ -334,15 +334,15 @@ export function AttendancePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30"
+          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-stone-400 font-medium uppercase mb-1">Checked Out</p>
               <p className="text-3xl font-bold text-amber-600">{stats.checkedOut}</p>
             </div>
-            <div className="p-3 bg-[#FFF4CC] rounded-2xl">
-              <Clock size={24} className="text-[#B45309]" />
+            <div className="p-3 bg-[var(--card-3)] rounded-2xl">
+              <Clock size={24} className="text-[var(--card-text-3)]" />
             </div>
           </div>
         </motion.div>
@@ -351,36 +351,36 @@ export function AttendancePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-3xl shadow-sm border border-[#FFE5D9]/30"
+          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-stone-400 font-medium uppercase mb-1">Absent</p>
               <p className="text-3xl font-bold text-red-500">{stats.absent}</p>
             </div>
-            <div className="p-3 bg-[#FFE5D9] rounded-2xl">
-              <AlertCircle size={24} className="text-[#C4554D]" />
+            <div className="p-3 bg-[var(--card-4)] rounded-2xl">
+              <AlertCircle size={24} className="text-[var(--card-text-4)]" />
             </div>
           </div>
         </motion.div>
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
-        <div className="p-6 border-b border-[#FFE5D9]/30 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border overflow-hidden">
+        <div className="p-6 border-b themed-border flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-quicksand font-bold text-xl text-stone-800">
             Attendance for {selectedDate.toLocaleDateString()}
           </h3>
           <div className="flex items-center gap-2">
             <button
               onClick={openDatePicker}
-              className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] font-medium text-sm themed-hover transition-colors flex items-center gap-2"
             >
               <Calendar size={16} /> Choose Date
             </button>
             <button
               onClick={toggleAttendanceMode}
-              className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] font-medium text-sm themed-hover transition-colors flex items-center gap-2"
             >
               {attendanceMode === 'manual' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
               {attendanceMode === 'manual' ? 'Manual Time' : 'Auto Time'}
@@ -395,7 +395,7 @@ export function AttendancePage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#FFF8F3]">
+              <thead className="bg-[var(--background)]">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                     Child
@@ -423,7 +423,7 @@ export function AttendancePage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#FFE5D9]/30">
+              <tbody className="divide-y themed-border">
                 {children.map((child) => {
                   const record = getAttendanceRecord(child.id);
                   const isCheckedIn = record && record.check_in_time && !record.check_out_time;
@@ -433,11 +433,11 @@ export function AttendancePage() {
                   return (
                     <tr
                       key={child.id}
-                      className="hover:bg-[#FFF8F3]/50 transition-colors"
+                      className="themed-row transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-[#E5D4ED] flex items-center justify-center text-[#8E55A5] font-bold mr-3">
+                          <div className="h-10 w-10 rounded-full bg-[var(--card-1)] flex items-center justify-center text-[var(--card-text-1)] font-bold mr-3">
                             {child.first_name.charAt(0)}
                           </div>
                           <div className="text-sm font-bold text-stone-800">
@@ -468,7 +468,7 @@ export function AttendancePage() {
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => handleCheckIn(child.id)}
-                              className="text-[#E07A5F] hover:text-[#C4554D]"
+                              className="text-[var(--primary-dark)] hover:text-[var(--card-text-4)]"
                               disabled={submittingChildId === child.id}
                             >
                               Check In
@@ -485,7 +485,7 @@ export function AttendancePage() {
                         {isCheckedIn && (
                           <button
                             onClick={() => handleCheckOut(child.id)}
-                            className="text-[#E07A5F] hover:text-[#C4554D]"
+                            className="text-[var(--primary-dark)] hover:text-[var(--card-text-4)]"
                             disabled={submittingChildId === child.id}
                           >
                             Check Out
@@ -515,7 +515,7 @@ export function AttendancePage() {
             <button
               type="button"
               onClick={() => setDatePickerMonth(new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() - 1, 1))}
-              className="px-3 py-1 rounded-xl border border-[#FFE5D9] text-stone-600"
+              className="px-3 py-1 rounded-xl border themed-border text-stone-600"
             >
               Prev
             </button>
@@ -525,7 +525,7 @@ export function AttendancePage() {
             <button
               type="button"
               onClick={() => setDatePickerMonth(new Date(datePickerMonth.getFullYear(), datePickerMonth.getMonth() + 1, 1))}
-              className="px-3 py-1 rounded-xl border border-[#FFE5D9] text-stone-600"
+              className="px-3 py-1 rounded-xl border themed-border text-stone-600"
             >
               Next
             </button>
@@ -550,8 +550,8 @@ export function AttendancePage() {
                   onClick={() => setPendingDate(new Date(day))}
                   className={`h-10 rounded-xl border text-sm ${
                     isSelected
-                      ? 'border-[#FF9B85] bg-[#FFF8F3] text-[#E07A5F]'
-                      : 'border-[#FFE5D9] text-stone-600'
+                      ? 'border-[var(--primary)] bg-[var(--background)] text-[var(--primary-dark)]'
+                      : 'themed-border text-stone-600'
                   }`}
                 >
                   {day.getDate()}
@@ -563,14 +563,14 @@ export function AttendancePage() {
             <button
               type="button"
               onClick={() => setIsDatePickerOpen(false)}
-              className="flex-1 px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleDateSelect}
-              className="flex-1 px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold"
             >
               Apply
             </button>
@@ -593,7 +593,7 @@ export function AttendancePage() {
               type="text"
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
           {attendanceMode === 'manual' ? (
@@ -604,7 +604,7 @@ export function AttendancePage() {
               <select
                 value={manualTime}
                 onChange={(e) => setManualTime(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               >
                 {timeOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -614,7 +614,7 @@ export function AttendancePage() {
               </select>
             </div>
           ) : (
-            <div className="p-3 rounded-2xl bg-[#FFF8F3] text-stone-600 text-sm">
+            <div className="p-3 rounded-2xl bg-[var(--background)] text-stone-600 text-sm">
               Check-In Time: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             </div>
           )}
@@ -626,21 +626,21 @@ export function AttendancePage() {
               rows={3}
               value={checkInNotes}
               onChange={(e) => setCheckInNotes(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={() => setIsCheckInOpen(false)}
-              className="flex-1 px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmitCheckIn}
-              className="flex-1 px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold"
               disabled={submittingChildId === selectedChildId}
             >
               Check In
@@ -664,7 +664,7 @@ export function AttendancePage() {
               type="text"
               value={parentName}
               onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
           {attendanceMode === 'manual' ? (
@@ -675,7 +675,7 @@ export function AttendancePage() {
               <select
                 value={manualTime}
                 onChange={(e) => setManualTime(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               >
                 {timeOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -685,7 +685,7 @@ export function AttendancePage() {
               </select>
             </div>
           ) : (
-            <div className="p-3 rounded-2xl bg-[#FFF8F3] text-stone-600 text-sm">
+            <div className="p-3 rounded-2xl bg-[var(--background)] text-stone-600 text-sm">
               Check-Out Time: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
             </div>
           )}
@@ -697,21 +697,21 @@ export function AttendancePage() {
               rows={3}
               value={checkOutNotes}
               onChange={(e) => setCheckOutNotes(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={() => setIsCheckOutOpen(false)}
-              className="flex-1 px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmitCheckOut}
-              className="flex-1 px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold"
               disabled={submittingChildId === selectedChildId}
             >
               Check Out
@@ -734,7 +734,7 @@ export function AttendancePage() {
             <select
               value={absentStatus}
               onChange={(e) => setAbsentStatus(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="ABSENT">Absent</option>
               <option value="SICK">Sick</option>
@@ -749,21 +749,21 @@ export function AttendancePage() {
               rows={3}
               value={absentNotes}
               onChange={(e) => setAbsentNotes(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={() => setIsAbsentOpen(false)}
-              className="flex-1 px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmitAbsent}
-              className="flex-1 px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold"
               disabled={submittingChildId === selectedChildId}
             >
               Submit
@@ -774,3 +774,4 @@ export function AttendancePage() {
     </Layout>
   );
 }
+

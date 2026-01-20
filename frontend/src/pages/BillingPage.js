@@ -246,12 +246,24 @@ export function BillingPage() {
     }
   };
 
+  const cardStyles = [
+    { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
+    { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
+    { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
+    { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
+  ];
+
   const getPaymentStatusBadge = (status) => {
-    const badges = {
-      PAID: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]',
-      PENDING: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]',
+    const styles = {
+      PAID: cardStyles[1],
+      PENDING: cardStyles[2],
     };
-    return <span className={badges[status] || badges.PENDING}>{status}</span>;
+    const style = styles[status] || { backgroundColor: 'var(--background)', color: 'var(--muted)' };
+    return (
+      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full" style={style}>
+        {status}
+      </span>
+    );
   };
 
   const indexOfLastPayment = currentPaymentsPage * paymentsPerPage;
@@ -260,14 +272,19 @@ export function BillingPage() {
   const totalPaymentPages = Math.ceil(payments.length / paymentsPerPage);
 
   const getStatusBadge = (status) => {
-    const badges = {
-      PAID: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#B8E6D5] text-[#2D6A4F]',
-      SENT: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFF4CC] text-[#B45309]',
-      PARTIAL: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#E5D4ED] text-[#8E55A5]',
-      OVERDUE: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#FFE5D9] text-[#C4554D]',
-      DRAFT: 'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-stone-200 text-stone-600',
+    const styles = {
+      PAID: cardStyles[1],
+      SENT: cardStyles[2],
+      PARTIAL: cardStyles[0],
+      OVERDUE: cardStyles[3],
+      DRAFT: { backgroundColor: 'var(--background)', color: 'var(--muted)' },
     };
-    return <span className={badges[status] || badges.DRAFT}>{status}</span>;
+    const style = styles[status] || { backgroundColor: 'var(--background)', color: 'var(--muted)' };
+    return (
+      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full" style={style}>
+        {status}
+      </span>
+    );
   };
 
   if (loading) {
@@ -288,50 +305,55 @@ export function BillingPage() {
           title="Revenue This Month"
           value={`$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={DollarSign}
-          color="bg-[#B8E6D5]"
+          themeIndex={2}
           delay={0.1}
         />
         <MetricCard
           title="Pending Payments"
           value={`$${stats.pending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={Clock}
-          color="bg-[#FFF4CC]"
+          themeIndex={3}
           delay={0.2}
         />
         <MetricCard
           title="Overdue"
           value={`$${stats.overdue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={AlertCircle}
-          color="bg-[#FFE5D9]"
+          themeIndex={4}
           delay={0.3}
         />
       </div>
 
       {/* Invoices Table */}
-      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden">
-        <div className="p-6 border-b border-[#FFE5D9]/30 flex flex-wrap justify-between items-center gap-3">
+      <div className="themed-surface rounded-3xl overflow-hidden">
+        <div className="p-6 border-b themed-border flex flex-wrap justify-between items-center gap-3">
           <h3 className="font-quicksand font-bold text-xl text-stone-800">
             Recent Invoices
           </h3>
           <div className="flex gap-2">
             <button
               onClick={() => setShowClosedInvoices(!showClosedInvoices)}
-              className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-medium text-sm hover:bg-[#FFF8F3] transition-colors"
+              className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium text-sm themed-hover transition-colors"
             >
               {showClosedInvoices ? 'Hide Closed' : 'Show Closed'}
             </button>
             <button
               onClick={() => openPaymentModal()}
-              className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-xl font-medium text-sm themed-hover transition-colors flex items-center gap-2"
+              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
             >
               <Wallet size={16} /> Record Payment
             </button>
-            <button className="px-4 py-2 rounded-xl bg-[#FFF8F3] text-[#E07A5F] font-medium text-sm hover:bg-[#FFE5D9] transition-colors flex items-center gap-2">
+            <button
+              className="px-4 py-2 rounded-xl font-medium text-sm themed-hover transition-colors flex items-center gap-2"
+              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+            >
               <Download size={16} /> Export
             </button>
             <button
               onClick={() => setIsCreateInvoiceOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#FF9B85] text-white font-medium text-sm hover:bg-[#E07A5F] transition-colors shadow-lg shadow-[#FF9B85]/30 flex items-center gap-2"
+              className="px-4 py-2 rounded-xl text-white font-medium text-sm hover:opacity-90 transition-colors shadow-lg flex items-center gap-2"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               <Send size={16} /> Create Invoice
             </button>
@@ -345,7 +367,7 @@ export function BillingPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#FFF8F3]">
+              <thead style={{ backgroundColor: 'var(--background)' }}>
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                     Invoice #
@@ -370,13 +392,13 @@ export function BillingPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#FFE5D9]/30">
+              <tbody className="divide-y themed-border">
                 {invoices
                   .filter((invoice) => (showClosedInvoices ? true : invoice.status !== 'PAID'))
                   .map((invoice) => (
                   <tr
                     key={invoice.id}
-                    className="hover:bg-[#FFF8F3]/50 transition-colors"
+                    className="themed-row transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-600">
                       {invoice.invoice_number}
@@ -400,14 +422,16 @@ export function BillingPage() {
                       {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 && (
                         <button
                           onClick={() => openPaymentModal(invoice)}
-                          className="text-[#E07A5F] hover:text-[#C4554D] mr-4"
+                          className="mr-4 hover:opacity-80 transition-opacity"
+                          style={{ color: 'var(--primary-dark)' }}
                         >
                           Mark Paid
                         </button>
                       )}
                       <button
                         onClick={() => openEditInvoiceModal(invoice)}
-                        className="text-[#FF9B85] hover:text-[#E07A5F] mr-4"
+                        className="mr-4 hover:opacity-80 transition-opacity"
+                        style={{ color: 'var(--primary)' }}
                       >
                         Edit
                       </button>
@@ -433,8 +457,8 @@ export function BillingPage() {
       </div>
 
       {/* Payment History */}
-      <div className="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 overflow-hidden mt-8">
-        <div className="p-6 border-b border-[#FFE5D9]/30">
+      <div className="themed-surface rounded-3xl overflow-hidden mt-8">
+        <div className="p-6 border-b themed-border">
           <h3 className="font-quicksand font-bold text-xl text-stone-800">
             Payment History
           </h3>
@@ -448,7 +472,7 @@ export function BillingPage() {
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#FFF8F3]">
+                <thead style={{ backgroundColor: 'var(--background)' }}>
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                       Parent
@@ -473,9 +497,9 @@ export function BillingPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#FFE5D9]/30">
+                <tbody className="divide-y themed-border">
                   {currentPayments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-[#FFF8F3]/50 transition-colors">
+                    <tr key={payment.id} className="themed-row transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
                         {payment.first_name} {payment.last_name}
                       </td>
@@ -498,14 +522,16 @@ export function BillingPage() {
                         {payment.status === 'PENDING' ? (
                           <button
                             onClick={() => handleMarkPaymentCompleted(payment.id)}
-                            className="text-[#E07A5F] hover:text-[#C4554D]"
+                            className="hover:opacity-80 transition-opacity"
+                            style={{ color: 'var(--primary-dark)' }}
                           >
                             Mark Completed
                           </button>
                         ) : (
                           <button
                             onClick={() => downloadReceipt(payment)}
-                            className="text-[#FF9B85] hover:text-[#E07A5F]"
+                            className="hover:opacity-80 transition-opacity"
+                            style={{ color: 'var(--primary)' }}
                           >
                             Receipt
                           </button>
@@ -521,7 +547,7 @@ export function BillingPage() {
                 <button
                   onClick={() => setCurrentPaymentsPage(currentPaymentsPage - 1)}
                   disabled={currentPaymentsPage === 1}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium themed-hover disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -531,7 +557,7 @@ export function BillingPage() {
                 <button
                   onClick={() => setCurrentPaymentsPage(currentPaymentsPage + 1)}
                   disabled={currentPaymentsPage === totalPaymentPages}
-                  className="px-4 py-2 rounded-xl border border-[#FFE5D9] text-stone-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium themed-hover disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -559,7 +585,7 @@ export function BillingPage() {
             <select
               value={paymentForm.parentId}
               onChange={(e) => setPaymentForm({ ...paymentForm, parentId: e.target.value, invoiceId: '', amount: '' })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             >
               <option value="">Select parent</option>
@@ -578,7 +604,7 @@ export function BillingPage() {
             <select
               value={paymentForm.invoiceId}
               onChange={(e) => handlePaymentInvoiceChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="">No invoice (general payment)</option>
               {invoices
@@ -604,7 +630,7 @@ export function BillingPage() {
               step="0.01"
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -617,7 +643,7 @@ export function BillingPage() {
               type="date"
               value={paymentForm.paymentDate}
               onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               required
             />
           </div>
@@ -629,7 +655,7 @@ export function BillingPage() {
             <select
               value={paymentForm.paymentMethod}
               onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="">Select method</option>
               <option value="E-Transfer">E-Transfer</option>
@@ -648,11 +674,11 @@ export function BillingPage() {
               rows={3}
               value={paymentForm.notes}
               onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => {
@@ -660,13 +686,14 @@ export function BillingPage() {
                 setSelectedInvoice(null);
                 resetPaymentForm();
               }}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Record Payment
             </button>
@@ -691,7 +718,7 @@ export function BillingPage() {
               type="date"
               value={invoiceEditForm.due_date}
               onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, due_date: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
           <div>
@@ -701,7 +728,7 @@ export function BillingPage() {
             <select
               value={invoiceEditForm.status}
               onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, status: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             >
               <option value="DRAFT">Draft</option>
               <option value="SENT">Sent</option>
@@ -718,7 +745,7 @@ export function BillingPage() {
               type="text"
               value={invoiceEditForm.payment_terms}
               onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, payment_terms: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
             />
           </div>
           <div>
@@ -729,23 +756,24 @@ export function BillingPage() {
               rows={3}
               value={invoiceEditForm.notes}
               onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
             />
           </div>
-          <div className="flex gap-3 pt-4 border-t border-[#FFE5D9]">
+          <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
               onClick={() => {
                 setIsEditInvoiceOpen(false);
                 setSelectedInvoiceForEdit(null);
               }}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl bg-[#FF9B85] text-white font-bold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-all"
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               Save Changes
             </button>
@@ -779,7 +807,7 @@ export function BillingPage() {
                 setIsDeleteInvoiceOpen(false);
                 setSelectedInvoiceForDelete(null);
               }}
-              className="flex-1 px-6 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
             >
               Cancel
             </button>

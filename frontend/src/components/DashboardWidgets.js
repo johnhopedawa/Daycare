@@ -9,13 +9,20 @@ import {
 } from 'lucide-react';
 
 // --- Metric Card Component ---
-export function MetricCard({ title, value, icon: Icon, color, delay = 0 }) {
+export function MetricCard({ title, value, icon: Icon, color, delay = 0, themeIndex }) {
+  const themeBackground = themeIndex ? `var(--card-${themeIndex})` : null;
+  const cardStyle = themeIndex
+    ? { backgroundColor: themeBackground }
+    : undefined;
+  const cardClass = themeIndex ? '' : color;
+
   return (
     <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, duration: 0.5 }}
-      className={`p-6 rounded-3xl ${color} relative overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-default`}
+      className={`p-6 rounded-3xl ${cardClass} relative overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-default`}
+      style={cardStyle}
     >
       {/* Decorative background circle */}
       <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500" />
@@ -46,7 +53,7 @@ export function AttendanceWidget({ children = [] }) {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.2 }}
-      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+      className="themed-surface p-6 rounded-3xl h-full"
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-quicksand font-bold text-lg text-stone-800">
@@ -139,7 +146,7 @@ export function TimelineWidget() {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3 }}
-      className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 h-full"
+      className="themed-surface p-6 rounded-3xl h-full"
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-quicksand font-bold text-lg text-stone-800">
@@ -181,45 +188,49 @@ export function QuickActions({ onAddChild, onSendMessage, onCreateEvent }) {
     {
       icon: Plus,
       label: 'Add Child',
-      color: 'bg-[#FFE5D9] text-[#E07A5F]',
       onClick: onAddChild,
     },
     {
       icon: Mail,
       label: 'Message',
-      color: 'bg-[#E5D4ED] text-[#8E55A5]',
       onClick: onSendMessage,
     },
     {
       icon: CalendarIcon,
       label: 'Event',
-      color: 'bg-[#B8E6D5] text-[#2D6A4F]',
       onClick: onCreateEvent,
     },
     {
       icon: Bell,
       label: 'Alert',
-      color: 'bg-[#FFF4CC] text-[#B45309]',
       onClick: () => alert('Alert functionality coming soon'),
     },
   ];
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {actions.map((action, i) => (
+      {actions.map((action, i) => {
+        const themeIndex = i + 1;
+        const buttonStyle = {
+          backgroundColor: `var(--card-${themeIndex})`,
+          color: `var(--card-text-${themeIndex})`,
+        };
+        return (
         <motion.button
           key={i}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={action.onClick}
-          className={`${action.color} p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50`}
+          className="p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50"
+          style={buttonStyle}
         >
           <action.icon size={20} />
           <span className="text-xs font-bold font-quicksand">
             {action.label}
           </span>
         </motion.button>
-      ))}
+        );
+      })}
     </div>
   );
 }

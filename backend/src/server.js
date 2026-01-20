@@ -19,6 +19,7 @@ const familiesRoutes = require('./routes/families');
 const emergencyContactsRoutes = require('./routes/emergencyContacts');
 const businessExpensesRoutes = require('./routes/businessExpenses');
 const settingsRoutes = require('./routes/settings');
+const themesRoutes = require('./routes/themes');
 
 // Parent portal routes
 const parentDashboardRoutes = require('./routes/parentDashboard');
@@ -55,6 +56,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/business-expenses', businessExpensesRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/themes', themesRoutes);
 
 // Parent portal routes (unified auth via /api/auth/login)
 app.use('/api/parent', parentDashboardRoutes);

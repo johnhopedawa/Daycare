@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { motion } from 'framer-motion';
-import { User, Lock, Bell, Globe, Percent } from 'lucide-react';
+import { User, Lock, Bell, Globe, Percent, Palette } from 'lucide-react';
 import api from '../utils/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 export function SettingsPage() {
+  const defaultCardColors = ['#E5D4ED', '#B8E6D5', '#FFF4CC', '#FFDCC8'];
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -14,6 +16,12 @@ export function SettingsPage() {
   });
   const [taxMessage, setTaxMessage] = useState(null);
   const [taxSaving, setTaxSaving] = useState(false);
+  const [themes, setThemes] = useState([]);
+  const [activeThemeId, setActiveThemeId] = useState(null);
+  const [currentThemeId, setCurrentThemeId] = useState(null);
+  const [themeMessage, setThemeMessage] = useState(null);
+  const [themeSaving, setThemeSaving] = useState(false);
+  const { setTheme } = useTheme();
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -21,6 +29,7 @@ export function SettingsPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'preferences', label: 'Preferences', icon: Globe },
     { id: 'billing', label: 'Billing', icon: Percent },
+    { id: 'themes', label: 'Themes', icon: Palette },
   ];
 
   useEffect(() => {
@@ -33,6 +42,12 @@ export function SettingsPage() {
           taxEnabled: enabled,
           taxRatePercent: (rate * 100).toFixed(2),
         });
+        const themeList = response.data.themes || [];
+        const rawThemeId = response.data.settings?.theme_id ?? themeList[0]?.id ?? null;
+        const normalizedThemeId = Number.isFinite(Number(rawThemeId)) ? Number(rawThemeId) : null;
+        setThemes(themeList);
+        setActiveThemeId(normalizedThemeId);
+        setCurrentThemeId(normalizedThemeId);
       } catch (error) {
         setTaxMessage({
           type: 'error',
@@ -104,6 +119,34 @@ export function SettingsPage() {
     }
   };
 
+  const handleThemeSave = async () => {
+    if (!activeThemeId) {
+      setThemeMessage({ type: 'error', text: 'Select a theme to apply.' });
+      return;
+    }
+    const selectedTheme = themes.find((theme) => theme.id === activeThemeId);
+    if (!selectedTheme) {
+      setThemeMessage({ type: 'error', text: 'Selected theme not found.' });
+      return;
+    }
+    try {
+      setThemeSaving(true);
+      setThemeMessage(null);
+      const response = await api.patch('/settings', { theme_id: activeThemeId });
+      const nextTheme = response.data?.active_theme || selectedTheme;
+      setTheme(nextTheme);
+      setCurrentThemeId(activeThemeId);
+      setThemeMessage({ type: 'success', text: 'Theme applied successfully.' });
+    } catch (error) {
+      setThemeMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to apply theme.',
+      });
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
   return (
     <Layout title="Settings" subtitle="System configuration">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -113,7 +156,7 @@ export function SettingsPage() {
           animate={{ opacity: 1, x: 0 }}
           className="lg:col-span-1"
         >
-          <div className="bg-white rounded-3xl p-4 shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="menu-surface rounded-3xl p-4">
             <nav className="space-y-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -122,10 +165,8 @@ export function SettingsPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                      isActive
-                        ? 'bg-[#FF9B85] text-white'
-                        : 'text-stone-600 hover:bg-[#FFF8F3]'
+                    className={`menu-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      isActive ? 'menu-tab-active text-white' : ''
                     }`}
                   >
                     <Icon size={18} />
@@ -431,6 +472,132 @@ export function SettingsPage() {
                       Save Preferences
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'themes' && (
+              <div>
+                <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-6">
+                  Theme Settings
+                </h3>
+
+                {themeMessage && (
+                  <div
+                    className={`mb-6 p-4 rounded-xl ${
+                      themeMessage.type === 'success'
+                        ? 'bg-green-50 text-green-700 border border-green-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}
+                  >
+                    {themeMessage.text}
+                  </div>
+                )}
+
+                {themes.length === 0 ? (
+                  <p className="text-stone-500">No themes available yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {themes.map((theme) => {
+                      let palette = {};
+                      if (theme.palette && typeof theme.palette === 'object') {
+                        palette = theme.palette;
+                      } else if (typeof theme.palette === 'string') {
+                        try {
+                          palette = JSON.parse(theme.palette);
+                        } catch (error) {
+                          palette = {};
+                        }
+                      }
+                      let cardColors = Array.isArray(palette.card_colors) ? palette.card_colors : [];
+                      if (cardColors.length === 0 && theme.id === 1) {
+                        cardColors = defaultCardColors;
+                      }
+                      const swatches = cardColors.length > 0
+                        ? cardColors
+                        : [
+                            palette.primary,
+                            palette.accent,
+                            palette.background,
+                            palette.surface,
+                          ].filter(Boolean);
+                      const isSelected = activeThemeId === theme.id;
+                      const isCurrent = currentThemeId === theme.id;
+
+                      return (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => setActiveThemeId(theme.id)}
+                          className={`text-left border rounded-2xl p-4 transition-all ${
+                            isSelected
+                              ? 'border-2 shadow-md'
+                              : 'border-stone-200 hover:shadow-sm'
+                          }`}
+                          style={{
+                            borderColor: isSelected ? palette.primary || 'var(--primary)' : undefined,
+                            backgroundColor: isSelected ? `${palette.background || '#FFF8F3'}20` : undefined,
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="font-semibold text-stone-800">{theme.name}</p>
+                              {theme.description && (
+                                <p className="text-sm text-stone-500 mt-1">{theme.description}</p>
+                              )}
+                              {swatches.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {swatches.map((color, index) => (
+                                    <span
+                                      key={`${theme.id}-swatch-${index}`}
+                                      className="w-6 h-6 rounded-full border border-white shadow-sm"
+                                      style={{ backgroundColor: color }}
+                                      aria-hidden="true"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {isCurrent && (
+                                <span
+                                  className="text-xs font-semibold px-3 py-1 rounded-full"
+                                  style={{
+                                    backgroundColor: palette.accent || 'var(--accent)',
+                                    color: palette.primary_dark || 'var(--primary-dark)',
+                                  }}
+                                >
+                                  Active
+                                </span>
+                              )}
+                              {isSelected && !isCurrent && (
+                                <span
+                                  className="text-xs font-semibold px-3 py-1 rounded-full"
+                                  style={{
+                                    backgroundColor: palette.primary || 'var(--primary)',
+                                    color: palette.on_primary || '#FFFFFF',
+                                  }}
+                                >
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="pt-6">
+                  <button
+                    type="button"
+                    onClick={handleThemeSave}
+                    disabled={themeSaving || !activeThemeId || activeThemeId === currentThemeId}
+                    className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {themeSaving ? 'Saving...' : 'Apply Theme'}
+                  </button>
                 </div>
               </div>
             )}
