@@ -547,6 +547,9 @@
         <column name="account_name" type="VARCHAR(255)" required="true" description="User-friendly label"/>
         <column name="simplefin_account_id" type="VARCHAR(255)"/>
         <column name="firefly_account_id" type="VARCHAR(255)"/>
+        <column name="account_type" type="VARCHAR(20)" default="credit"/>
+        <column name="opening_balance" type="NUMERIC(12,2)"/>
+        <column name="opening_balance_date" type="DATE"/>
         <column name="last_sync_at" type="TIMESTAMP"/>
         <column name="is_active" type="BOOLEAN" default="true"/>
         <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
@@ -566,6 +569,22 @@
         <unique>connection_id, simplefin_transaction_id</unique>
       </constraints>
       <status>BACKEND ONLY - No frontend UI</status>
+    </table>
+
+    <!-- Business Expense Rules (Migration 018) -->
+    <table name="business_expense_category_rules">
+      <description>Keyword-based categorization rules for business transactions</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="user_id" type="INTEGER" references="users(id)" on-delete="CASCADE" description="ADMIN only"/>
+        <column name="keyword" type="VARCHAR(120)" required="true"/>
+        <column name="category" type="VARCHAR(120)" required="true"/>
+        <column name="match_field" type="VARCHAR(20)" default="description"/>
+        <column name="transaction_type" type="VARCHAR(20)" default="expense"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+      <status>ADMIN UI - Managed in BankAccountsPage</status>
     </table>
 
   </database-schema>
@@ -870,25 +889,31 @@
       </page>
 
       <page file="BankAccountsPage.js">
-        <description>Business expense tracking via SimpleFIN/Firefly</description>
+        <description>Business income and expense tracking via SimpleFIN/Firefly</description>
         <api-calls>
           <call endpoint="/business-expenses/connections"/>
+          <call endpoint="/business-expenses/connections/:id" method="PATCH"/>
           <call endpoint="/business-expenses/simplefin/claim"/>
           <call endpoint="/business-expenses/sync/:connectionId"/>
           <call endpoint="/business-expenses/connections/:id" method="DELETE"/>
           <call endpoint="/business-expenses"/>
+          <call endpoint="/business-expenses/rules"/>
+          <call endpoint="/business-expenses/rules/:id" method="PATCH"/>
+          <call endpoint="/business-expenses/rules/:id" method="DELETE"/>
         </api-calls>
         <features>
           <feature>Connect account via SimpleFIN setup token</feature>
           <feature>Manual sync per connection</feature>
           <feature>Disconnect connections</feature>
           <feature>Last sync timestamp display</feature>
-          <feature>Expense summary and recent expenses table (if backend feed available)</feature>
+          <feature>Account settings for credit/debit and opening balance</feature>
+          <feature>Income and expense totals with net cash flow</feature>
+          <feature>Cash flow snapshot by month or term</feature>
+          <feature>Reporting year controls and multi-account filters</feature>
+          <feature>Transaction table with search, filters, and uncategorized toggle</feature>
+          <feature>Auto-categorization rules by keyword for income or expenses</feature>
         </features>
-        <limitations>
-          <limitation>/business-expenses expenses feed endpoint not found in backend; UI shows "Expense feed unavailable"</limitation>
-        </limitations>
-        <status>PARTIAL - Connections wired, expenses feed pending backend</status>
+        <status>COMPLETE - Connections, transactions feed, and auto-categorization rules wired</status>
       </page>
 
       <page file="PaperworkPage.js">

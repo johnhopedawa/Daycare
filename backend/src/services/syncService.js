@@ -13,6 +13,8 @@ const { decrypt } = require('../utils/encryption');
 const simplefinService = require('./simplefinService');
 const fireflyService = require('./fireflyService');
 
+const DEFAULT_SYNC_DAYS = 30;
+
 /**
  * Sync transactions for a single SimpleFIN connection
  *
@@ -26,8 +28,10 @@ async function syncConnection(connectionId) {
     // Fetch connection details
     const connResult = await pool.query(
       `SELECT sc.id, sc.user_id, sc.access_url, sc.simplefin_account_id,
-              sc.firefly_account_id, sc.last_sync_at, sc.account_name
+              sc.firefly_account_id, sc.last_sync_at, sc.account_name,
+              u.first_name, u.last_name
        FROM simplefin_connections sc
+       JOIN users u ON u.id = sc.user_id
        WHERE sc.id = $1 AND sc.is_active = true`,
       [connectionId]
     );
@@ -48,19 +52,48 @@ async function syncConnection(connectionId) {
       throw new Error('Failed to decrypt connection credentials');
     }
 
-    // Determine start date (last sync or 30 days ago), as UNIX timestamp seconds
+    const ownerName = `${connection.first_name || ''} ${connection.last_name || ''}`.trim();
+    const fireflyAccountName = ownerName
+      ? `${ownerName} - ${connection.account_name}`
+      : connection.account_name;
+
+    try {
+      const assetAccount = await fireflyService.ensureAssetAccount(
+        connection.firefly_account_id,
+        fireflyAccountName
+      );
+
+      if (assetAccount && assetAccount.id && assetAccount.id !== connection.firefly_account_id) {
+        await pool.query(
+          'UPDATE simplefin_connections SET firefly_account_id = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [connectionId, assetAccount.id]
+        );
+        connection.firefly_account_id = assetAccount.id;
+      }
+    } catch (error) {
+      console.error('[Sync] Firefly account validation failed:', error.message);
+      throw new Error('Failed to verify Firefly III account');
+    }
+
+    const syncHistoryResult = await pool.query(
+      'SELECT 1 FROM transaction_sync_log WHERE connection_id = $1 LIMIT 1',
+      [connectionId]
+    );
+    const hasSyncHistory = syncHistoryResult.rows.length > 0;
+
+    // Determine start date (last sync with history or fallback window), as UNIX timestamp seconds
     let startDate;
     let startDateUnix;
-    if (connection.last_sync_at) {
+    if (connection.last_sync_at && hasSyncHistory) {
       const lastSync = new Date(connection.last_sync_at);
       startDate = lastSync.toISOString().split('T')[0];
       startDateUnix = Math.floor(lastSync.getTime() / 1000);
     } else {
-      // First sync: get last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      startDate = thirtyDaysAgo.toISOString().split('T')[0];
-      startDateUnix = Math.floor(thirtyDaysAgo.getTime() / 1000);
+      // First sync or no history: get last N days
+      const fallbackDate = new Date();
+      fallbackDate.setDate(fallbackDate.getDate() - DEFAULT_SYNC_DAYS);
+      startDate = fallbackDate.toISOString().split('T')[0];
+      startDateUnix = Math.floor(fallbackDate.getTime() / 1000);
     }
 
     console.log(`[Sync] Fetching transactions since ${startDate} for "${connection.account_name}"`);
@@ -82,9 +115,16 @@ async function syncConnection(connectionId) {
 
     let imported = 0;
     let skipped = 0;
+    let latestPosted = null;
 
     for (const txn of transactions) {
       try {
+        if (Number.isFinite(txn.posted)) {
+          latestPosted = latestPosted === null
+            ? txn.posted
+            : Math.max(latestPosted, txn.posted);
+        }
+
         // SimpleFIN transaction ID (for deduplication)
         const simplefinTxnId = txn.id;
 
@@ -117,8 +157,15 @@ async function syncConnection(connectionId) {
         // Convert Unix timestamp to YYYY-MM-DD
         const transactionDate = new Date(txn.posted * 1000).toISOString().split('T')[0];
 
-        // Amount (SimpleFIN: negative for debits/expenses)
-        const amount = Math.abs(txn.amount || 0);
+        // Amount (SimpleFIN: negative for debits/expenses, positive for credits)
+        const rawAmount = Number(txn.amount || 0);
+        if (!Number.isFinite(rawAmount) || rawAmount === 0) {
+          console.warn('[Sync] Transaction amount missing or zero, skipping');
+          skipped++;
+          continue;
+        }
+        const amount = Math.abs(rawAmount);
+        const direction = rawAmount < 0 ? 'withdrawal' : 'deposit';
 
         // Description (use payee or description)
         const description = txn.payee || txn.description || 'Business expense';
@@ -136,8 +183,9 @@ async function syncConnection(connectionId) {
           date: transactionDate,
           amount: amount,
           description: description,
-          sourceAccountId: connection.firefly_account_id,
+          assetAccountId: connection.firefly_account_id,
           externalId: simplefinTxnId,
+          direction,
           notes: notes
         });
 
@@ -162,11 +210,14 @@ async function syncConnection(connectionId) {
       }
     }
 
-    // Update last sync timestamp
-    await pool.query(
-      'UPDATE simplefin_connections SET last_sync_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [connectionId]
-    );
+    // Update last sync timestamp based on latest posted transaction
+    if (latestPosted !== null) {
+      const latestPostedDate = new Date(latestPosted * 1000);
+      await pool.query(
+        'UPDATE simplefin_connections SET last_sync_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [connectionId, latestPostedDate]
+      );
+    }
 
     console.log(`[Sync] Completed for connection ${connectionId}: ${imported} imported, ${skipped} skipped`);
 
