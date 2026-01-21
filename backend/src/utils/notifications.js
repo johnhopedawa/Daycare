@@ -1,4 +1,5 @@
 const pool = require('../db/pool');
+const { sendEmail } = require('../services/emailService');
 
 // Queue a notification
 async function queueNotification({ type, recipientType, recipientId, email, phone, subject, message }) {
@@ -82,7 +83,7 @@ Daycare Management`;
   }
 }
 
-// Process pending notifications (stub for now - would integrate with email service)
+// Process pending notifications
 async function processPendingNotifications() {
   try {
     const pending = await pool.query(
@@ -90,23 +91,45 @@ async function processPendingNotifications() {
        WHERE status = 'PENDING'
          AND retry_count < 3
        ORDER BY created_at ASC
-       LIMIT 10`
+       LIMIT 20`
     );
 
-    // In production, this would send actual emails using nodemailer or similar
-    // For now, just log and mark as sent
     for (const notification of pending.rows) {
-      console.log(`[NOTIFICATION] ${notification.notification_type} to ${notification.recipient_email || notification.recipient_phone}`);
-      console.log(`Subject: ${notification.subject}`);
-      console.log(`Message: ${notification.message.substring(0, 100)}...`);
+      try {
+        if (notification.notification_type === 'EMAIL') {
+          if (!notification.recipient_email) {
+            throw new Error('Missing recipient email');
+          }
 
-      await pool.query(
-        `UPDATE notifications
-         SET status = 'SENT',
-             sent_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [notification.id]
-      );
+          await sendEmail({
+            to: notification.recipient_email,
+            subject: notification.subject || 'Daycare Notification',
+            text: notification.message,
+          });
+        } else {
+          throw new Error(`Unsupported notification type: ${notification.notification_type}`);
+        }
+
+        await pool.query(
+          `UPDATE notifications
+           SET status = 'SENT',
+               sent_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [notification.id]
+        );
+      } catch (error) {
+        const nextRetryCount = notification.retry_count + 1;
+        const nextStatus = nextRetryCount >= 3 ? 'FAILED' : 'PENDING';
+
+        await pool.query(
+          `UPDATE notifications
+           SET status = $1,
+               retry_count = $2,
+               error_message = $3
+           WHERE id = $4`,
+          [nextStatus, nextRetryCount, error.message, notification.id]
+        );
+      }
     }
 
     return pending.rows.length;

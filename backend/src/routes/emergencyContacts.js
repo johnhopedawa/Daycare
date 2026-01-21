@@ -1,12 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireStaff } = require('../middleware/auth');
+const { getOwnerId } = require('../utils/owner');
 
 // Get all emergency contacts for a child
-router.get('/children/:childId/emergency-contacts', requireAuth, async (req, res) => {
+router.get('/children/:childId/emergency-contacts', requireAuth, requireStaff, async (req, res) => {
   try {
     const { childId } = req.params;
+    const ownerId = getOwnerId(req.user);
+
+    const childCheck = await pool.query(
+      'SELECT id FROM children WHERE id = $1 AND created_by = $2',
+      [childId, ownerId]
+    );
+
+    if (childCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
 
     const result = await pool.query(
       `SELECT * FROM emergency_contacts
@@ -23,13 +34,23 @@ router.get('/children/:childId/emergency-contacts', requireAuth, async (req, res
 });
 
 // Add emergency contact
-router.post('/children/:childId/emergency-contacts', requireAuth, async (req, res) => {
+router.post('/children/:childId/emergency-contacts', requireAuth, requireStaff, async (req, res) => {
   try {
     const { childId } = req.params;
     const { name, phone, relationship, is_primary } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const ownerId = getOwnerId(req.user);
+    const childCheck = await pool.query(
+      'SELECT id FROM children WHERE id = $1 AND created_by = $2',
+      [childId, ownerId]
+    );
+
+    if (childCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
     }
 
     // If this is being set as primary, unset any other primary contacts
@@ -55,15 +76,19 @@ router.post('/children/:childId/emergency-contacts', requireAuth, async (req, re
 });
 
 // Update emergency contact
-router.patch('/emergency-contacts/:id', requireAuth, async (req, res) => {
+router.patch('/emergency-contacts/:id', requireAuth, requireStaff, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, phone, relationship, is_primary } = req.body;
 
     // Get the child_id for this contact
+    const ownerId = getOwnerId(req.user);
     const contactResult = await pool.query(
-      'SELECT child_id FROM emergency_contacts WHERE id = $1',
-      [id]
+      `SELECT ec.child_id
+       FROM emergency_contacts ec
+       JOIN children c ON ec.child_id = c.id
+       WHERE ec.id = $1 AND c.created_by = $2`,
+      [id, ownerId]
     );
 
     if (contactResult.rows.length === 0) {
@@ -100,11 +125,23 @@ router.patch('/emergency-contacts/:id', requireAuth, async (req, res) => {
 });
 
 // Delete emergency contact
-router.delete('/emergency-contacts/:id', requireAuth, async (req, res) => {
+router.delete('/emergency-contacts/:id', requireAuth, requireStaff, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await pool.query('DELETE FROM emergency_contacts WHERE id = $1', [id]);
+    const ownerId = getOwnerId(req.user);
+    const result = await pool.query(
+      `DELETE FROM emergency_contacts
+       WHERE id = $1
+       AND child_id IN (
+         SELECT id FROM children WHERE created_by = $2
+       )`,
+      [id, ownerId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Emergency contact not found' });
+    }
 
     res.json({ message: 'Emergency contact deleted' });
   } catch (error) {

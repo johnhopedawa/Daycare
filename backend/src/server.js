@@ -20,6 +20,8 @@ const emergencyContactsRoutes = require('./routes/emergencyContacts');
 const businessExpensesRoutes = require('./routes/businessExpenses');
 const settingsRoutes = require('./routes/settings');
 const themesRoutes = require('./routes/themes');
+const messagesRoutes = require('./routes/messages');
+const eventsRoutes = require('./routes/events');
 
 // Parent portal routes
 const parentDashboardRoutes = require('./routes/parentDashboard');
@@ -30,7 +32,26 @@ const parentMessagesRoutes = require('./routes/parentMessages');
 const app = express();
 
 // Middleware
-app.use(cors());
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.set('trust proxy', 1);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || !isProduction) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  }
+}));
 app.use(express.json());
 
 // Health check
@@ -57,6 +78,8 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/business-expenses', businessExpensesRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/themes', themesRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/events', eventsRoutes);
 
 // Parent portal routes (unified auth via /api/auth/login)
 app.use('/api/parent', parentDashboardRoutes);

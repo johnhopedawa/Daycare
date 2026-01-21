@@ -77,8 +77,8 @@ export function SettingsPage() {
 
     try {
       await api.post('/auth/change-password', {
-        current_password: currentPassword,
-        new_password: newPassword,
+        currentPassword,
+        newPassword,
       });
       setMessage({ type: 'success', text: 'Password updated successfully' });
       e.target.reset();

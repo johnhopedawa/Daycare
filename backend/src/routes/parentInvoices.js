@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireParent } = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
 const { generatePdfToken } = require('../utils/jwt');
 const { generateReceipt } = require('../services/pdfGenerator');
@@ -26,7 +26,7 @@ const formatYearMonth = (dateValue) => {
 };
 
 // All routes require authentication
-router.use(requireAuth);
+router.use(requireAuth, requireParent);
 
 // Get all invoices for parent
 router.get('/', async (req, res) => {

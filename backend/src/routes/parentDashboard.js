@@ -1,11 +1,11 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireParent } = require('../middleware/auth');
 
 const router = express.Router();
 
 // All routes require authentication (middleware will attach req.parent for PARENT users)
-router.use(requireAuth);
+router.use(requireAuth, requireParent);
 
 // Get parent dashboard summary
 router.get('/dashboard', async (req, res) => {
@@ -61,12 +61,18 @@ router.get('/dashboard', async (req, res) => {
       [parentId]
     );
 
+    const creditResult = await pool.query(
+      'SELECT credit_balance FROM parents WHERE id = $1',
+      [parentId]
+    );
+
     res.json({
       children_count: parseInt(childrenResult.rows[0].count),
       outstanding_balance: parseFloat(balanceResult.rows[0].outstanding_balance),
       upcoming_invoices_count: parseInt(upcomingResult.rows[0].count),
       recent_invoices: recentInvoicesResult.rows,
-      unread_messages_count: parseInt(unreadMessagesResult.rows[0].count)
+      unread_messages_count: parseInt(unreadMessagesResult.rows[0].count),
+      credit_balance: parseFloat(creditResult.rows[0]?.credit_balance || 0)
     });
   } catch (error) {
     console.error('Get dashboard error:', error);

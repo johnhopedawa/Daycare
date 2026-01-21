@@ -7,6 +7,7 @@
 
 const cron = require('node-cron');
 const syncService = require('./syncService');
+const { processPendingNotifications } = require('../utils/notifications');
 
 const SYNC_TIMEZONE = process.env.SYNC_TIMEZONE || 'UTC';
 
@@ -47,6 +48,22 @@ function initScheduler() {
   });
 
   console.log('[Scheduler] Daily sync scheduled for 2:00 AM');
+
+  // Process notification queue every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const processed = await processPendingNotifications();
+      if (processed > 0) {
+        console.log(`[Scheduler] Notifications processed: ${processed}`);
+      }
+    } catch (error) {
+      console.error('[Scheduler] Notification processing failed:', error);
+    }
+  }, {
+    timezone: SYNC_TIMEZONE
+  });
+
+  console.log('[Scheduler] Notification processing scheduled every 5 minutes');
 }
 
 module.exports = { initScheduler };

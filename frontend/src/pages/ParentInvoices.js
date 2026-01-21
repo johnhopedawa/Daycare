@@ -10,11 +10,13 @@ function ParentInvoices() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [creditBalance, setCreditBalance] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadInvoices();
     loadPayments();
+    loadCreditBalance();
   }, []);
 
   const loadInvoices = async () => {
@@ -36,6 +38,15 @@ function ParentInvoices() {
       console.error('Load payments error:', error);
     } finally {
       setPaymentsLoading(false);
+    }
+  };
+
+  const loadCreditBalance = async () => {
+    try {
+      const response = await api.get('/parent/dashboard');
+      setCreditBalance(parseFloat(response.data.credit_balance || 0));
+    } catch (error) {
+      console.error('Load credit balance error:', error);
     }
   };
 
@@ -91,6 +102,16 @@ function ParentInvoices() {
 
   return (
     <ParentLayout title="My Invoices" subtitle="Review and download your invoices">
+      <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 mb-6">
+        <h3 className="text-lg font-semibold text-stone-800 mb-2">Credit Balance</h3>
+        <p className="text-sm text-stone-500">
+          Available credits are applied by your daycare to future invoices.
+        </p>
+        <p className="mt-3 text-2xl font-quicksand font-bold text-stone-800">
+          ${creditBalance.toFixed(2)}
+        </p>
+      </div>
+
       {invoices.length === 0 ? (
         <div className="bg-white p-8 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center text-stone-500">
           No invoices found.

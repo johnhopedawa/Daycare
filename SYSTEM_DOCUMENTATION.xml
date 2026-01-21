@@ -10,15 +10,15 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-01-18</last-updated>
-    <documentation-status>Updated to reflect current routing, auth gating, and document PDF flows</documentation-status>
+    <last-updated>2026-01-21</last-updated>
+    <documentation-status>Updated to reflect migrations through 020, unified auth, notifications, events, and CORS allowlist</documentation-status>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>17</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 017_*.sql)</migration-pattern>
+    <total-migrations>21</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 020_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -30,8 +30,8 @@
         <column name="first_name" type="VARCHAR(100)" required="true"/>
         <column name="last_name" type="VARCHAR(100)" required="true"/>
         <column name="role" type="VARCHAR(20)" required="true">
-          <constraints>CHECK IN ('EDUCATOR', 'ADMIN')</constraints>
-          <note>PARENT role removed - parents now use separate parents table</note>
+          <constraints>CHECK IN ('EDUCATOR', 'ADMIN', 'PARENT')</constraints>
+          <note>Parents are stored in users with role PARENT and linked to parents via parents.user_id</note>
         </column>
         <column name="hourly_rate" type="DECIMAL(10,2)" description="Educator hourly pay rate"/>
         <column name="is_active" type="BOOLEAN" default="true"/>
@@ -54,7 +54,7 @@
     </table>
 
     <table name="parents">
-      <description>Parent/guardian records with separate authentication system</description>
+      <description>Parent/guardian records linked to user accounts for portal access</description>
       <columns>
         <column name="id" type="SERIAL" primary-key="true"/>
         <column name="first_name" type="VARCHAR(100)" required="true"/>
@@ -69,7 +69,9 @@
         <column name="child_names" type="TEXT" description="Legacy field - now computed from parent_children relationship"/>
         <column name="notes" type="TEXT"/>
         <column name="is_active" type="BOOLEAN" default="true"/>
-        <column name="password_hash" type="VARCHAR(255)" description="Separate authentication for parent portal"/>
+        <column name="password_hash" type="VARCHAR(255)" description="Legacy field; parent auth uses users table"/>
+        <column name="user_id" type="INTEGER" references="users(id)" description="Linked user account for unified auth"/>
+        <column name="credit_balance" type="DECIMAL(10,2)" default="0" description="Parent credit balance for overpayments"/>
         <column name="role" type="VARCHAR(20)" default="PARENT">
           <constraints>CHECK IN ('PARENT')</constraints>
         </column>
@@ -300,6 +302,23 @@
       </columns>
     </table>
 
+    <table name="parent_credits">
+      <description>Credits applied to parent accounts (Migration 012)</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="parent_id" type="INTEGER" references="parents(id)" on-delete="CASCADE"/>
+        <column name="payment_id" type="INTEGER" references="parent_payments(id)" on-delete="SET NULL"/>
+        <column name="invoice_id" type="INTEGER" references="parent_invoices(id)" on-delete="SET NULL"/>
+        <column name="amount" type="DECIMAL(10,2)" required="true"/>
+        <column name="credit_type" type="VARCHAR(20)" required="true">
+          <constraints>CHECK IN ('EARNED', 'APPLIED', 'ADJUSTMENT')</constraints>
+        </column>
+        <column name="memo" type="TEXT"/>
+        <column name="created_by" type="INTEGER" references="users(id)"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+    </table>
+
     <table name="billing_templates">
       <description>Recurring billing automation templates (Migration 007)</description>
       <columns>
@@ -368,6 +387,26 @@
         <check>from must be either user OR parent (not both)</check>
         <check>to must be either user OR parent (not both)</check>
       </constraints>
+    </table>
+
+    <table name="events">
+      <description>Calendar events for parents, staff, or children (Migration 020)</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="created_by" type="INTEGER" references="users(id)" required="true"/>
+        <column name="title" type="VARCHAR(255)" required="true"/>
+        <column name="event_date" type="DATE" required="true"/>
+        <column name="start_time" type="TIME"/>
+        <column name="end_time" type="TIME"/>
+        <column name="location" type="VARCHAR(255)"/>
+        <column name="audience" type="VARCHAR(50)" default="ALL">
+          <constraints>CHECK IN ('ALL', 'PARENTS', 'STAFF', 'CHILDREN')</constraints>
+        </column>
+        <column name="description" type="TEXT"/>
+        <column name="requires_rsvp" type="BOOLEAN" default="false"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
     </table>
 
     <!-- Documents -->
@@ -607,7 +646,12 @@
       <route path="/educators" component="EducatorsPage"/>
       <route path="/pay" component="PayPeriodsPage"/>
       <route path="/time-entries" component="TimeEntriesApprovalPage"/>
-      <route path="/banking" component="BankAccountsPage"/>
+      <route path="/finance" component="FinanceDashboardPage"/>
+      <route path="/finance/transactions" component="FinanceTransactionsPage"/>
+      <route path="/finance/accounts" component="FinanceAccountsPage"/>
+      <route path="/finance/categories" component="FinanceCategoriesPage"/>
+      <route path="/banking" redirect-to="/finance/accounts"/>
+      <route path="/finance/reports" redirect-to="/reporting"/>
       <route path="/paperwork" component="PaperworkPage"/>
       <route path="/reporting" component="ReportingPage"/>
       <route path="/settings" component="SettingsPage"/>
@@ -889,7 +933,7 @@
       </page>
 
       <page file="BankAccountsPage.js">
-        <description>Business income and expense tracking via SimpleFIN/Firefly</description>
+        <description>Shared finance data loader + section renderer for Finance* pages</description>
         <api-calls>
           <call endpoint="/business-expenses/connections"/>
           <call endpoint="/business-expenses/connections/:id" method="PATCH"/>
@@ -913,7 +957,45 @@
           <feature>Transaction table with search, filters, and uncategorized toggle</feature>
           <feature>Auto-categorization rules by keyword for income or expenses</feature>
         </features>
-        <status>COMPLETE - Connections, transactions feed, and auto-categorization rules wired</status>
+        <status>COMPLETE - Shared finance data + UI sections</status>
+      </page>
+
+      <page file="FinanceDashboardPage.js">
+        <description>Finance landing page with KPIs, cash flow, and category insights</description>
+        <features>
+          <feature>Overview stats (income, expenses, net, uncategorized)</feature>
+          <feature>Cash flow snapshot chart</feature>
+          <feature>Top categories summary</feature>
+        </features>
+        <status>ROUTED - /finance</status>
+      </page>
+
+      <page file="FinanceTransactionsPage.js">
+        <description>Transaction list with filters and search</description>
+        <features>
+          <feature>Reporting year controls + account focus filters</feature>
+          <feature>Search + type filters + uncategorized toggle</feature>
+        </features>
+        <status>ROUTED - /finance/transactions</status>
+      </page>
+
+      <page file="FinanceAccountsPage.js">
+        <description>Connected bank feeds, sync controls, and account settings</description>
+        <features>
+          <feature>Connect/disconnect SimpleFIN accounts</feature>
+          <feature>Manual sync and last sync status</feature>
+          <feature>Account type + opening balance settings</feature>
+        </features>
+        <status>ROUTED - /finance/accounts</status>
+      </page>
+
+      <page file="FinanceCategoriesPage.js">
+        <description>Category insights and auto-categorization rules</description>
+        <features>
+          <feature>Top category rollups</feature>
+          <feature>Keyword-based rules management</feature>
+        </features>
+        <status>ROUTED - /finance/categories</status>
       </page>
 
       <page file="PaperworkPage.js">
@@ -1140,35 +1222,39 @@
       </component>
 
       <component file="Sidebar.js">
-        <description>Collapsible left navigation sidebar with mobile drawer</description>
+        <description>Collapsible Operations/Finance sidebar with pinned dashboards</description>
         <props>
           <prop name="isOpen" type="boolean" description="Controls sidebar visibility on mobile"/>
           <prop name="onClose" type="function" description="Callback to close mobile sidebar"/>
         </props>
         <features>
+          <feature>Operations + Finance sections with chevron toggles</feature>
+          <feature>Dashboards remain visible even when sections are collapsed</feature>
+          <feature>Grouped sub-links for Payroll &amp; Time and Billing &amp; Payments</feature>
           <feature>Active route highlighting with animated indicator</feature>
-          <feature>Lucide icons for each menu item</feature>
-          <feature>13 navigation links</feature>
-          <feature>Mobile drawer with overlay backdrop</feature>
-          <feature>Close button visible on mobile only</feature>
-          <feature>Smooth slide-in/out animation using CSS transforms</feature>
+          <feature>Mobile drawer with overlay backdrop + close button</feature>
         </features>
         <responsive-behavior>
           <mobile>Hidden by default, slides in from left when opened, overlay backdrop</mobile>
           <desktop>Always visible, fixed position, no overlay</desktop>
         </responsive-behavior>
         <menu-items>
-          <item path="/dashboard" icon="LayoutDashboard">Dashboard</item>
-          <item path="/attendance" icon="ClipboardCheck">Attendance</item>
-          <item path="/families" icon="Users">Families</item>
-          <item path="/billing" icon="Receipt">Billing</item>
-          <item path="/scheduling" icon="Calendar">Scheduling</item>
-          <item path="/educators" icon="GraduationCap">Educators</item>
-          <item path="/pay" icon="DollarSign">Pay Periods</item>
-          <item path="/banking" icon="Building2">Bank Accounts</item>
-          <item path="/paperwork" icon="FileText">Paperwork</item>
-          <item path="/reporting" icon="BarChart3">Reporting</item>
-          <item path="/settings" icon="Settings">Settings</item>
+          <item path="/dashboard" icon="LayoutDashboard">Daycare Dashboard</item>
+          <item section="Operations" path="/attendance" icon="ClipboardCheck">Attendance</item>
+          <item section="Operations" path="/families" icon="Users">Families</item>
+          <item section="Operations" path="/educators" icon="GraduationCap">Staff</item>
+          <item section="Operations" path="/scheduling" icon="Calendar">Scheduling</item>
+          <item section="Operations" path="/paperwork" icon="FileText">Paperwork</item>
+          <item section="Operations" path="/pay" icon="DollarSign">Pay Periods</item>
+          <item section="Operations" path="/time-entries" icon="Clock">Time Entries</item>
+          <item section="Operations" path="/settings" icon="Settings">Settings</item>
+          <item path="/finance" icon="LayoutDashboard">Finance Dashboard</item>
+          <item section="Finance" path="/finance/transactions" icon="Wallet">Transactions</item>
+          <item section="Finance" path="/finance/accounts" icon="Landmark">Bank Accounts</item>
+          <item section="Finance" path="/finance/categories" icon="Tag">Categories</item>
+          <item section="Finance" path="/reporting" icon="BarChart3">Reports</item>
+          <item section="Finance" path="/billing" icon="CreditCard">Billing</item>
+          <item section="Finance" path="/payments" icon="DollarSign">Payments</item>
         </menu-items>
       </component>
 
@@ -1420,16 +1506,17 @@
     <entry-point>backend/src/server.js</entry-point>
     <port>5000 (default, configurable via PORT env var)</port>
     <framework>Express.js</framework>
-    <cors>Enabled for all origins</cors>
+    <cors>Allowlist in production via ALLOWED_ORIGINS or FRONTEND_URL; permissive in development</cors>
 
     <middleware>
       <middleware-file>backend/src/middleware/auth.js</middleware-file>
       <function name="requireAuth">
-        <description>Verifies JWT token and attaches req.user</description>
+        <description>Verifies JWT token and attaches req.user (and req.parent for PARENT users)</description>
         <behavior>
           <step>Extract token from Authorization header</step>
           <step>Verify token with JWT_SECRET</step>
-          <step>Attach decoded user to req.user</step>
+          <step>Load user from users table and attach to req.user</step>
+          <step>If role is PARENT, load parent profile by user_id and attach to req.parent</step>
           <step>Return 401 if token invalid or missing</step>
         </behavior>
       </function>
@@ -1442,7 +1529,31 @@
           <step>Return 403 if not admin</step>
         </behavior>
       </function>
+
+      <function name="requireStaff">
+        <description>Checks if user has ADMIN or EDUCATOR role</description>
+        <behavior>
+          <step>Requires requireAuth to run first</step>
+          <step>Check if req.user.role is in ('ADMIN', 'EDUCATOR')</step>
+          <step>Return 403 if not staff</step>
+        </behavior>
+      </function>
+
+      <function name="requireParent">
+        <description>Checks if user has PARENT role and active parent profile</description>
+        <behavior>
+          <step>Requires requireAuth to run first</step>
+          <step>Check if req.user.role === 'PARENT' and req.parent exists</step>
+          <step>Return 403 if parent account is inactive</step>
+        </behavior>
+      </function>
     </middleware>
+
+    <auth>
+      <registration>Bootstrap-only: /auth/register creates the first ADMIN, then disables registration</registration>
+      <rate-limiting>Auth endpoints (/auth/register, /auth/login, /auth/parent-reset-password) are rate-limited</rate-limiting>
+      <parent-auth>Parents authenticate via unified /auth/login and receive tokens with parentId</parent-auth>
+    </auth>
 
     <routes-directory>backend/src/routes/</routes-directory>
     <route-files>
@@ -1464,6 +1575,8 @@
       <route-file>businessExpenses.js</route-file>
       <route-file>settings.js</route-file>
       <route-file>themes.js</route-file>
+      <route-file>messages.js</route-file>
+      <route-file>events.js</route-file>
       <route-file>parentDashboard.js</route-file>
       <route-file>parentInvoices.js</route-file>
       <route-file>parentDocuments.js</route-file>
@@ -1479,6 +1592,7 @@
       <service-file>syncService.js</service-file>
       <service-file>scheduler.js</service-file>
       <service-file>themesService.js</service-file>
+      <service-file>emailService.js</service-file>
     </service-files>
 
     <utilities-directory>backend/src/utils/</utilities-directory>
@@ -1486,6 +1600,7 @@
       <utility-file>jwt.js</utility-file>
       <utility-file>encryption.js</utility-file>
       <utility-file>notifications.js</utility-file>
+      <utility-file>owner.js</utility-file>
     </utility-files>
 
     <scheduler>
@@ -1495,6 +1610,7 @@
       <tasks>
         <task>Recurring invoice generation from billing templates</task>
         <task>Automatic SimpleFIN transaction sync</task>
+        <task>Notification queue processing every 5 minutes</task>
       </tasks>
     </scheduler>
   </backend-architecture>
@@ -1549,9 +1665,9 @@
       <status>BACKEND COMPLETE - Frontend buttons open PDFs (Billing/Payments/MyPaystubs)</status>
       <delivery>
         <method>Signed URL for direct browser open</method>
-        <admin-receipts>POST /documents/parent-payments/:id/receipt-link → /documents/receipt-open?token=...</admin-receipts>
-        <admin-invoices>POST /invoices/:id/pdf-link → /invoices/pdf-open?token=...</admin-invoices>
-        <parent-invoices>POST /parent/invoices/:id/pdf-link → /invoices/pdf-open?token=...</parent-invoices>
+        <admin-receipts>POST /documents/parent-payments/:id/receipt-link -> /documents/receipt-open?token=...</admin-receipts>
+        <admin-invoices>POST /invoices/:id/pdf-link -> /invoices/pdf-open?token=...</admin-invoices>
+        <parent-invoices>POST /parent/invoices/:id/pdf-link -> /invoices/pdf-open?token=...</parent-invoices>
         <note>Signed tokens are short-lived and allow correct filename in PDF viewer</note>
       </delivery>
     </integration>
@@ -1568,14 +1684,19 @@
 
     <integration name="Email Notifications">
       <description>Send email notifications to parents and staff</description>
-      <status>NOT IMPLEMENTED - notifications table exists but no email service</status>
+      <status>IMPLEMENTED - SMTP via Nodemailer</status>
+      <service-file>backend/src/services/emailService.js</service-file>
+      <processor>backend/src/utils/notifications.js (processPendingNotifications)</processor>
       <table-ready>YES - notifications table with EMAIL/SMS/IN_APP types</table-ready>
-      <next-steps>
-        <step>Choose email provider (SendGrid, Mailgun, AWS SES)</step>
-        <step>Create email service in backend/src/services/emailService.js</step>
-        <step>Implement notification processor to send pending notifications</step>
-        <step>Add templates for common notifications</step>
-      </next-steps>
+      <environment-variables>
+        <var name="SMTP_HOST" required="true">SMTP host</var>
+        <var name="SMTP_PORT" required="true">SMTP port</var>
+        <var name="SMTP_USER" required="true">SMTP username</var>
+        <var name="SMTP_PASS" required="true">SMTP password</var>
+        <var name="SMTP_FROM" required="true">Default from address</var>
+        <var name="SMTP_SECURE" required="false">true for SMTPS, false for STARTTLS</var>
+      </environment-variables>
+      <notes>EMAIL notifications are sent; SMS and IN_APP delivery remain future work</notes>
     </integration>
 
   </external-integrations>
@@ -1592,9 +1713,18 @@
       <optional>
         <var name="PORT">Backend server port (default: 5000)</var>
         <var name="NODE_ENV">Environment (development/production)</var>
+        <var name="ALLOWED_ORIGINS">Comma-separated CORS allowlist for production</var>
+        <var name="FRONTEND_URL">Single frontend origin (fallback for CORS allowlist)</var>
         <var name="FIREFLY_API_URL">Firefly III instance URL (for business expenses)</var>
         <var name="FIREFLY_SERVICE_PAT">Firefly III Personal Access Token</var>
         <var name="REACT_APP_API_URL">Frontend API base URL (default: http://localhost:5000/api)</var>
+        <var name="SMTP_HOST">SMTP host</var>
+        <var name="SMTP_PORT">SMTP port</var>
+        <var name="SMTP_USER">SMTP username</var>
+        <var name="SMTP_PASS">SMTP password</var>
+        <var name="SMTP_FROM">Default from address</var>
+        <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
+        <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
       </optional>
     </environment-variables>
 
@@ -1605,20 +1735,20 @@
       <allowed-types>PDF, JPG, PNG, DOCX, DOC</allowed-types>
     </file-storage>
 
-    <database-setup>
-      <migration-command>node backend/src/db/migrate.js</migration-command>
-      <migrations-directory>backend/migrations/</migrations-directory>
-      <naming-pattern>000_*.sql, 001_*.sql, etc. (sequential)</naming-pattern>
-      <total-migrations>17</total-migrations>
-    </database-setup>
+      <database-setup>
+        <migration-command>node backend/src/db/migrate.js</migration-command>
+        <migrations-directory>backend/migrations/</migrations-directory>
+        <naming-pattern>000_*.sql through 020_*.sql (sequential)</naming-pattern>
+        <total-migrations>21</total-migrations>
+      </database-setup>
 
-    <backend-server>
-      <framework>Express.js</framework>
-      <port>5000 (default)</port>
-      <entry-point>backend/src/server.js</entry-point>
-      <cors>Enabled for all origins</cors>
-      <health-check>GET /health</health-check>
-    </backend-server>
+      <backend-server>
+        <framework>Express.js</framework>
+        <port>5000 (default)</port>
+        <entry-point>backend/src/server.js</entry-point>
+        <cors>Allowlist in production via ALLOWED_ORIGINS or FRONTEND_URL</cors>
+        <health-check>GET /health</health-check>
+      </backend-server>
 
     <frontend-server>
       <framework>Create React App</framework>
@@ -1633,10 +1763,10 @@
   <current-state-assessment>
 
     <strengths>
-      <strength>Complete database schema with 20+ tables and 17 migrations</strength>
+      <strength>Complete database schema with 20+ tables and 21 migrations</strength>
       <strength>Comprehensive backend API with 100+ endpoints</strength>
       <strength>Clean MagicPattern UI design with Tailwind CSS</strength>
-      <strength>Robust authentication with separate staff/parent systems</strength>
+      <strength>Robust authentication with unified user table and parent profiles</strength>
       <strength>Advanced features: SimpleFIN/Firefly business expense tracking</strength>
       <strength>PDF generation for paystubs, invoices, receipts</strength>
       <strength>Functional modals for adding families and educators</strength>
@@ -1650,7 +1780,7 @@
       <weakness>Many modals exist but unclear which are wired to pages</weakness>
       <weakness>Billing templates feature has no frontend</weakness>
       <weakness>Many reports available in backend but not shown in UI</weakness>
-      <weakness>No email/SMS notifications despite table infrastructure</weakness>
+      <weakness>SMS and in-app notifications not implemented</weakness>
       <weakness>No automated tests</weakness>
       <weakness>No API documentation</weakness>
       <weakness>Legacy/deprecated code not cleaned up (document_categories)</weakness>
@@ -1662,7 +1792,7 @@
       <priority rank="3">Clarify which Admin* pages remain as reference vs remove/redirect</priority>
       <priority rank="4">Harden notification workflows (email/SMS) and delivery status tracking</priority>
       <priority rank="5">Add edit/delete functionality to existing pages</priority>
-      <priority rank="6">Implement email notifications</priority>
+      <priority rank="6">Add notification templates and SMS/in-app delivery paths</priority>
     </immediate-priorities>
 
     <technical-debt>
@@ -1695,10 +1825,10 @@
       </issue>
 
       <issue category="Features">
-        <title>Notifications System Not Implemented</title>
-        <description>notifications table exists but no email/SMS service</description>
-        <impact>Cannot notify parents of invoices, attendance, etc.</impact>
-        <recommendation>Integrate email provider (SendGrid, Mailgun) and build notification processor</recommendation>
+        <title>Notification Delivery Gaps</title>
+        <description>Email notifications are implemented, but SMS/in-app delivery and templates are limited</description>
+        <impact>Communication is email-only and lacks multi-channel coverage</impact>
+        <recommendation>Add SMS provider, build in-app inbox feed, and standardize templates with tracking</recommendation>
       </issue>
 
       <issue category="Testing">
@@ -1722,13 +1852,13 @@
   <summary>
 
     <overview>
-      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 17 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, and business expense tracking via SimpleFIN/Firefly III.
+      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 21 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, messaging, events, and business expense tracking via SimpleFIN/Firefly III.
     </overview>
 
     <key-architectural-decisions>
-      <decision>Separate authentication systems for staff (JWT in users table) and parents (JWT + sessions in parents table)</decision>
+      <decision>Unified authentication via users table; parents are linked via parents.user_id and tokens include parentId</decision>
       <decision>Many-to-many parent-child relationships via parent_children junction table</decision>
-      <decision>Migration-based schema evolution (17 migrations applied)</decision>
+      <decision>Migration-based schema evolution (21 migrations applied)</decision>
       <decision>Scheduled tasks only run in production mode</decision>
       <decision>Document categories hardcoded in code, not database-driven</decision>
       <decision>Modular route structure with separate parent portal routes</decision>
@@ -1751,3 +1881,4 @@
   </summary>
 
 </daycare-management-system>
+

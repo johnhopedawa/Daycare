@@ -3,16 +3,31 @@ const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { generateToken } = require('../utils/jwt');
 const { requireAuth } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Register (for initial setup - can be restricted later)
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role } = req.body;
+    const { email, password, firstName, lastName } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const existingCount = await pool.query('SELECT COUNT(*) FROM users');
+    const isBootstrap = parseInt(existingCount.rows[0].count, 10) === 0;
+
+    if (!isBootstrap) {
+      return res.status(403).json({ error: 'Registration is disabled' });
     }
 
     // Check if user exists
@@ -28,12 +43,13 @@ router.post('/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user (default to EDUCATOR if role not specified)
+    // Create first user as ADMIN only
+    const assignedRole = isBootstrap ? 'ADMIN' : 'EDUCATOR';
     const result = await pool.query(
       `INSERT INTO users (email, password_hash, first_name, last_name, role)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, email, first_name, last_name, role`,
-      [email, passwordHash, firstName, lastName, role || 'EDUCATOR']
+      [email, passwordHash, firstName, lastName, assignedRole]
     );
 
     const user = result.rows[0];
@@ -47,7 +63,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -203,7 +219,7 @@ router.post('/admin/reset-password', requireAuth, async (req, res) => {
 });
 
 // Parent password reset via token
-router.post('/parent-reset-password', async (req, res) => {
+router.post('/parent-reset-password', authLimiter, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 

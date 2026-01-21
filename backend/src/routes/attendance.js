@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireStaff } = require('../middleware/auth');
+const { getOwnerId } = require('../utils/owner');
 
 // GET /api/attendance
 // Get attendance records with filters
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requireStaff, async (req, res) => {
   try {
     const { child_id, start_date, end_date, status } = req.query;
 
@@ -19,10 +20,11 @@ router.get('/', requireAuth, async (req, res) => {
       JOIN children c ON a.child_id = c.id
       LEFT JOIN users u1 ON a.checked_in_by = u1.id
       LEFT JOIN users u2 ON a.checked_out_by = u2.id
-      WHERE 1=1
+      WHERE c.created_by = $1
     `;
-    const params = [];
-    let paramCount = 1;
+    const ownerId = getOwnerId(req.user);
+    const params = [ownerId];
+    let paramCount = 2;
 
     if (child_id) {
       query += ` AND a.child_id = $${paramCount}`;
@@ -60,8 +62,9 @@ router.get('/', requireAuth, async (req, res) => {
 
 // GET /api/attendance/today
 // Get today's attendance
-router.get('/today', requireAuth, async (req, res) => {
+router.get('/today', requireAuth, requireStaff, async (req, res) => {
   try {
+    const ownerId = getOwnerId(req.user);
     const result = await pool.query(
       `SELECT
         a.*,
@@ -70,7 +73,9 @@ router.get('/today', requireAuth, async (req, res) => {
       FROM attendance a
       JOIN children c ON a.child_id = c.id
       WHERE a.attendance_date = CURRENT_DATE
-      ORDER BY a.check_in_time DESC NULLS LAST`
+        AND c.created_by = $1
+      ORDER BY a.check_in_time DESC NULLS LAST`,
+      [ownerId]
     );
 
     res.json({ attendance: result.rows });
@@ -82,11 +87,21 @@ router.get('/today', requireAuth, async (req, res) => {
 
 // POST /api/attendance/check-in
 // Check in a child (supports custom attendance_date for historical entries)
-router.post('/check-in', requireAuth, async (req, res) => {
+router.post('/check-in', requireAuth, requireStaff, async (req, res) => {
   try {
     const { child_id, parent_name, notes, check_in_time, attendance_date } = req.body;
     const checkInTime = check_in_time || new Date().toTimeString().split(' ')[0];
     const attendanceDate = attendance_date || null; // null will use CURRENT_DATE in SQL
+
+    const ownerId = getOwnerId(req.user);
+    const childCheck = await pool.query(
+      'SELECT id FROM children WHERE id = $1 AND created_by = $2',
+      [child_id, ownerId]
+    );
+
+    if (childCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
 
     // Check if attendance record exists for the specified date
     const existing = await pool.query(
@@ -129,11 +144,21 @@ router.post('/check-in', requireAuth, async (req, res) => {
 
 // POST /api/attendance/check-out
 // Check out a child (supports custom attendance_date for historical entries)
-router.post('/check-out', requireAuth, async (req, res) => {
+router.post('/check-out', requireAuth, requireStaff, async (req, res) => {
   try {
     const { child_id, parent_name, notes, check_out_time, attendance_date } = req.body;
     const checkOutTime = check_out_time || new Date().toTimeString().split(' ')[0];
     const attendanceDate = attendance_date || null; // null will use CURRENT_DATE in SQL
+
+    const ownerId = getOwnerId(req.user);
+    const childCheck = await pool.query(
+      'SELECT id FROM children WHERE id = $1 AND created_by = $2',
+      [child_id, ownerId]
+    );
+
+    if (childCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
 
     const result = await pool.query(
       `UPDATE attendance
@@ -160,10 +185,20 @@ router.post('/check-out', requireAuth, async (req, res) => {
 
 // POST /api/attendance/mark-absent
 // Mark a child as absent (or SICK/VACATION)
-router.post('/mark-absent', requireAuth, async (req, res) => {
+router.post('/mark-absent', requireAuth, requireStaff, async (req, res) => {
   try {
     const { child_id, attendance_date, status, notes } = req.body;
     const attendanceDate = attendance_date || null; // null will use CURRENT_DATE in SQL
+
+    const ownerId = getOwnerId(req.user);
+    const childCheck = await pool.query(
+      'SELECT id FROM children WHERE id = $1 AND created_by = $2',
+      [child_id, ownerId]
+    );
+
+    if (childCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
 
     const result = await pool.query(
       `INSERT INTO attendance
@@ -203,9 +238,10 @@ router.get('/report', requireAuth, requireAdmin, async (req, res) => {
         AND a.attendance_date >= COALESCE($1::date, CURRENT_DATE - 30)
         AND a.attendance_date <= COALESCE($2::date, CURRENT_DATE)
       WHERE c.status = 'ACTIVE'
+        AND c.created_by = $3
       GROUP BY c.id, c.first_name, c.last_name
       ORDER BY child_name`,
-      [start_date, end_date]
+      [start_date, end_date, req.user.id]
     );
 
     res.json({ report: result.rows });

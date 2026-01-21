@@ -11,7 +11,10 @@ import { PayPeriodsPage } from './pages/PayPeriodsPage';
 import { TimeEntriesApprovalPage } from './pages/TimeEntriesApprovalPage';
 import { StaffSchedulingPage } from './pages/StaffSchedulingPage';
 import { ReportingPage } from './pages/ReportingPage';
-import { BankAccountsPage } from './pages/BankAccountsPage';
+import { FinanceDashboardPage } from './pages/FinanceDashboardPage';
+import { FinanceTransactionsPage } from './pages/FinanceTransactionsPage';
+import { FinanceAccountsPage } from './pages/FinanceAccountsPage';
+import { FinanceCategoriesPage } from './pages/FinanceCategoriesPage';
 import { PaperworkPage } from './pages/PaperworkPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAuth } from './contexts/AuthContext';
@@ -131,13 +134,39 @@ export function App() {
           }
         />
         <Route
-          path="/banking"
+          path="/finance"
           element={
             <RequireRole roles={['ADMIN']}>
-              <BankAccountsPage />
+              <FinanceDashboardPage />
             </RequireRole>
           }
         />
+        <Route
+          path="/finance/transactions"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <FinanceTransactionsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/finance/accounts"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <FinanceAccountsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/finance/categories"
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <FinanceCategoriesPage />
+            </RequireRole>
+          }
+        />
+        <Route path="/banking" element={<Navigate to="/finance/accounts" replace />} />
+        <Route path="/finance/reports" element={<Navigate to="/reporting" replace />} />
         <Route
           path="/paperwork"
           element={

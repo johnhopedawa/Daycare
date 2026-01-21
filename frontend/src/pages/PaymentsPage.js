@@ -26,6 +26,13 @@ export function PaymentsPage() {
     loadData();
   }, []);
 
+  const selectedParent = parents.find((parent) => parent.id === parseInt(paymentForm.parentId, 10));
+  const selectedInvoice = invoices.find((inv) => inv.id === parseInt(paymentForm.invoiceId, 10));
+  const availableCredit = parseFloat(selectedParent?.credit_balance || 0);
+  const maxCredit = selectedInvoice
+    ? Math.min(availableCredit, parseFloat(selectedInvoice.balance_due || 0))
+    : 0;
+
   const loadData = async () => {
     try {
       const [paymentsRes, parentsRes, invoicesRes] = await Promise.all([
@@ -110,6 +117,18 @@ export function PaymentsPage() {
   const formatCurrency = (value) => {
     const amount = parseFloat(value || 0);
     return `$${amount.toFixed(2)}`;
+  };
+
+  const handleApplyCredit = () => {
+    if (!selectedInvoice || maxCredit <= 0) {
+      return;
+    }
+    setPaymentForm((prev) => ({
+      ...prev,
+      paymentMethod: 'Credit',
+      status: 'PAID',
+      amount: maxCredit.toFixed(2),
+    }));
   };
 
   const cardStyles = [
@@ -329,6 +348,26 @@ export function PaymentsPage() {
               ))}
             </select>
           </div>
+
+          {selectedParent && (
+            <div className="p-4 rounded-2xl bg-[#FFF8F3] border border-[#FFE5D9]/60 text-sm text-stone-600">
+              <div className="flex items-center justify-between">
+                <span>Available Credit</span>
+                <span className="font-bold text-stone-800">{formatCurrency(availableCredit)}</span>
+              </div>
+              <p className="mt-2 text-xs text-stone-500">
+                Credits can be applied only to a selected invoice.
+              </p>
+              <button
+                type="button"
+                onClick={handleApplyCredit}
+                disabled={!selectedInvoice || maxCredit <= 0}
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#2D6A4F] bg-[#B8E6D5] disabled:opacity-50"
+              >
+                Apply Credit
+              </button>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">

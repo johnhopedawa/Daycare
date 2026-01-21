@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, Mail, ArrowUpRight } from 'lucide-react';
+import { Users, CreditCard, Mail, ArrowUpRight, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ParentLayout } from '../components/ParentLayout';
 import api from '../utils/api';
@@ -39,7 +39,7 @@ function ParentDashboard() {
       title={`Welcome back, ${user.first_name}`}
       subtitle="Here is a snapshot of your family account"
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-[#E5D4ED] text-[#8E55A5] flex items-center justify-center">
@@ -63,6 +63,20 @@ function ParentDashboard() {
               <p className="text-stone-500 text-sm">Outstanding Balance</p>
               <p className="font-quicksand font-bold text-2xl text-stone-800">
                 ${dashboard?.outstanding_balance?.toFixed(2) || '0.00'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#B8E6D5] text-[#2D6A4F] flex items-center justify-center">
+              <Wallet size={20} />
+            </div>
+            <div>
+              <p className="text-stone-500 text-sm">Credit Balance</p>
+              <p className="font-quicksand font-bold text-2xl text-stone-800">
+                ${dashboard?.credit_balance?.toFixed(2) || '0.00'}
               </p>
             </div>
           </div>

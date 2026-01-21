@@ -62,4 +62,26 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+function requireStaff(req, res, next) {
+  if (!req.user || !['ADMIN', 'EDUCATOR'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Staff access required' });
+  }
+  next();
+}
+
+function requireParent(req, res, next) {
+  if (!req.user || req.user.role !== 'PARENT' || !req.parent) {
+    return res.status(403).json({ error: 'Parent access required' });
+  }
+  if (req.parent && req.parent.is_active === false) {
+    return res.status(403).json({ error: 'Parent account is inactive' });
+  }
+  next();
+}
+
+module.exports = {
+  requireAuth,
+  requireAdmin,
+  requireStaff,
+  requireParent
+};

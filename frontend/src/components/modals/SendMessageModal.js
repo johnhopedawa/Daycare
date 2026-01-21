@@ -1,32 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BaseModal } from './BaseModal';
 import { Users, Mail } from 'lucide-react';
+import api from '../../utils/api';
 
 export function SendMessageModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
-    recipients: '',
+    recipientType: 'all',
+    parentId: '',
     subject: '',
     message: '',
     sendEmail: true,
   });
   const [loading, setLoading] = useState(false);
+  const [loadingParents, setLoadingParents] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [parents, setParents] = useState([]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const loadParents = async () => {
+      setLoadingParents(true);
+      setError('');
+      try {
+        const response = await api.get('/parents');
+        setParents(response.data.parents || []);
+      } catch (err) {
+        console.error('Failed to load parents:', err);
+        setError('Failed to load parent list.');
+      } finally {
+        setLoadingParents(false);
+      }
+    };
+
+    loadParents();
+  }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Note: This is a placeholder since there's no messaging endpoint in the backend yet
-    // In a real implementation, this would call an API endpoint
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await api.post('/messages/send', {
+        recipientType: formData.recipientType,
+        parentId: formData.recipientType === 'parent' ? formData.parentId : null,
+        subject: formData.subject,
+        message: formData.message,
+        sendEmail: formData.sendEmail,
+      });
 
       setSuccess(true);
       setTimeout(() => {
         setFormData({
-          recipients: '',
+          recipientType: 'all',
+          parentId: '',
           subject: '',
           message: '',
           sendEmail: true,
@@ -35,7 +66,7 @@ export function SendMessageModal({ isOpen, onClose }) {
         onClose();
       }, 1500);
     } catch (err) {
-      setError('Failed to send message. Please try again.');
+      setError(err.response?.data?.error || 'Failed to send message. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -66,20 +97,44 @@ export function SendMessageModal({ isOpen, onClose }) {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
             />
             <select
-              value={formData.recipients}
-              onChange={(e) => setFormData({ ...formData, recipients: e.target.value })}
+              value={formData.recipientType}
+              onChange={(e) => setFormData({
+                ...formData,
+                recipientType: e.target.value,
+                parentId: e.target.value === 'parent' ? formData.parentId : '',
+              })}
               className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none"
               required
             >
-              <option value="">Select Recipients...</option>
               <option value="all">All Families</option>
-              <option value="room-turtles">Tiny Turtles Parents</option>
-              <option value="room-bees">Busy Bees Parents</option>
-              <option value="room-lions">Learning Lions Parents</option>
-              <option value="individual">Individual Family...</option>
+              <option value="parent">Single Family</option>
             </select>
           </div>
         </div>
+
+        {formData.recipientType === 'parent' && (
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Choose Family
+            </label>
+            <select
+              value={formData.parentId}
+              onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              required
+              disabled={loadingParents}
+            >
+              <option value="">
+                {loadingParents ? 'Loading families...' : 'Select a family'}
+              </option>
+              {parents.map((parent) => (
+                <option key={parent.id} value={parent.id}>
+                  {parent.first_name} {parent.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Subject */}
         <div>

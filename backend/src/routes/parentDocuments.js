@@ -1,12 +1,12 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireParent } = require('../middleware/auth');
 const path = require('path');
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(requireAuth);
+router.use(requireAuth, requireParent);
 
 // Get documents accessible to parent
 router.get('/', async (req, res) => {

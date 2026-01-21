@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { BaseModal } from './BaseModal';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
+import api from '../../utils/api';
 
-export function CreateEventModal({ isOpen, onClose }) {
+export function CreateEventModal({ isOpen, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     eventName: '',
     date: '',
@@ -21,10 +22,16 @@ export function CreateEventModal({ isOpen, onClose }) {
     setLoading(true);
     setError('');
 
-    // Note: This is a placeholder since there's no events endpoint in the backend yet
-    // In a real implementation, this would call an API endpoint
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await api.post('/events', {
+        title: formData.eventName,
+        eventDate: formData.date,
+        startTime: formData.time || null,
+        location: formData.location || null,
+        audience: formData.attendees.toUpperCase(),
+        description: formData.description || null,
+        requiresRsvp: formData.requireRsvp
+      });
 
       setSuccess(true);
       setTimeout(() => {
@@ -39,9 +46,12 @@ export function CreateEventModal({ isOpen, onClose }) {
         });
         setSuccess(false);
         onClose();
+        if (onSuccess) {
+          onSuccess();
+        }
       }, 1500);
     } catch (err) {
-      setError('Failed to create event. Please try again.');
+      setError(err.response?.data?.error || 'Failed to create event. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -153,9 +163,9 @@ export function CreateEventModal({ isOpen, onClose }) {
               className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white appearance-none"
             >
               <option value="all">All Families</option>
-              <option value="turtles">Tiny Turtles Only</option>
-              <option value="bees">Busy Bees Only</option>
-              <option value="lions">Learning Lions Only</option>
+              <option value="parents">Parents Only</option>
+              <option value="staff">Staff Only</option>
+              <option value="children">Children Only</option>
             </select>
           </div>
         </div>
