@@ -44,31 +44,6 @@ const ActionType = {
   MARK_ABSENT: 'MARK_ABSENT',
 };
 
-const PANEL_STYLE = {
-  backgroundColor: 'var(--surface)',
-  borderColor: 'var(--border)',
-  boxShadow: 'var(--panel-shadow)',
-  backgroundImage: 'linear-gradient(180deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(255, 255, 255, 0) 42%)',
-  borderRadius: 'var(--panel-radius)',
-  padding: 'var(--panel-padding)',
-};
-
-const HERO_PANEL_STYLE = {
-  ...PANEL_STYLE,
-  borderTopColor: 'var(--primary)',
-  borderTopWidth: '2px',
-};
-
-const ROW_STYLE = {
-  backgroundColor: 'var(--bubble-bg)',
-  borderColor: 'var(--bubble-border)',
-  boxShadow: 'var(--panel-shadow-soft)',
-};
-
-const OUTLINE_STYLE = {
-  borderColor: 'var(--border)',
-};
-
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -184,39 +159,6 @@ export function DashboardPage() {
     };
   }, [schedules]);
 
-  const actionBar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        onClick={() => setIsAddChildOpen(true)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
-      >
-        <Users size={16} style={{ color: 'var(--primary-dark)' }} />
-        Add Child
-      </button>
-      <button
-        onClick={() => setIsMessageOpen(true)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
-      >
-        <Mail size={16} style={{ color: 'var(--primary-dark)' }} />
-        Send Message
-      </button>
-      <button
-        onClick={() => navigate('/payments')}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
-      >
-        <ClipboardList size={16} style={{ color: 'var(--primary-dark)' }} />
-        Record Payment
-      </button>
-      <button
-        onClick={() => setIsEventOpen(true)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
-      >
-        <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
-        Create Event
-      </button>
-    </div>
-  );
-
   const openActionModal = (type, child) => {
     setActionForm({
       parentName: '',
@@ -298,12 +240,8 @@ export function DashboardPage() {
         month: 'long',
         day: 'numeric',
       })}
-      actionBar={actionBar}
     >
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
-        style={{ gap: 'var(--layout-gap)', marginBottom: 'var(--layout-gap)' }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="Present Today"
           value={`${summary.presentCount}/${summary.expectedCount}`}
@@ -334,40 +272,35 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3" style={{ gap: 'var(--layout-gap)' }}>
-        <div className="xl:col-span-2 flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
-          <section className="border bg-[var(--surface)]" style={HERO_PANEL_STYLE}>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8">
+        <div className="xl:col-span-2 space-y-6 md:space-y-8">
+          <section className="themed-surface rounded-3xl p-6">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <div>
-                <h3 className="section-title font-quicksand font-bold text-xl">Arrivals</h3>
+                <h3 className="font-quicksand font-bold text-xl text-stone-800">Arrivals</h3>
                 <p className="text-sm text-stone-500">Track today's check-ins and absences.</p>
               </div>
               <button
                 onClick={() => navigate('/attendance')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
-                style={OUTLINE_STYLE}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold text-[#E07A5F] bg-[#FFF8F3] hover:bg-[#FFE5D9] transition-colors"
               >
-                <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
+                <CalendarCheck size={16} />
                 Full Attendance
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--layout-gap)' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                <h4 className="section-title font-semibold">Not Checked In</h4>
+                  <h4 className="font-semibold text-stone-800">Not Checked In</h4>
                   <span className="text-xs font-bold text-stone-500">{summary.notCheckedIn.length}</span>
                 </div>
                 {summary.notCheckedIn.length === 0 ? (
-                  <p className="text-xs text-stone-500 italic">All children have checked in.</p>
+                  <p className="text-sm text-stone-500">All children have checked in.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {summary.notCheckedIn.slice(0, 6).map((child) => (
-                      <div
-                        key={child.id}
-                        className="flex items-center justify-between p-3 rounded-xl border"
-                        style={ROW_STYLE}
-                      >
+                      <div key={child.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                         <div>
                           <p className="text-sm font-semibold text-stone-800">{child.first_name} {child.last_name}</p>
                           <p className="text-xs text-stone-500">
@@ -377,14 +310,13 @@ export function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => openActionModal(ActionType.CHECK_IN, child)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[var(--primary)] hover:opacity-90"
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#E07A5F] hover:opacity-90"
                           >
                             Check In
                           </button>
                           <button
                             onClick={() => openActionModal(ActionType.MARK_ABSENT, child)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-600 border hover:bg-[var(--background)]"
-                            style={OUTLINE_STYLE}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#C4554D] bg-[#FFE5D9]"
                           >
                             Mark Absent
                           </button>
@@ -397,19 +329,15 @@ export function DashboardPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                <h4 className="section-title font-semibold">Checked In</h4>
+                  <h4 className="font-semibold text-stone-800">Checked In</h4>
                   <span className="text-xs font-bold text-stone-500">{summary.checkedIn.length}</span>
                 </div>
                 {summary.checkedIn.length === 0 ? (
-                  <p className="text-xs text-stone-500 italic">No active check-ins yet.</p>
+                  <p className="text-sm text-stone-500">No active check-ins yet.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {summary.checkedIn.slice(0, 6).map((record) => (
-                      <div
-                        key={record.id}
-                        className="flex items-center justify-between p-3 rounded-xl border"
-                        style={ROW_STYLE}
-                      >
+                      <div key={record.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                         <div>
                           <p className="text-sm font-semibold text-stone-800">{record.child_name}</p>
                           <p className="text-xs text-stone-500">
@@ -418,8 +346,7 @@ export function DashboardPage() {
                         </div>
                         <button
                           onClick={() => openActionModal(ActionType.CHECK_OUT, { id: record.child_id, name: record.child_name })}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-600 border hover:bg-[var(--background)]"
-                          style={OUTLINE_STYLE}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#2D6A4F] bg-[#B8E6D5]"
                         >
                           Check Out
                         </button>
@@ -431,32 +358,27 @@ export function DashboardPage() {
             </div>
           </section>
 
-          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
+          <section className="themed-surface rounded-3xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="section-title font-quicksand font-bold text-xl">Absences Logged</h3>
+                <h3 className="font-quicksand font-bold text-xl text-stone-800">Absences Logged</h3>
                 <p className="text-sm text-stone-500">Children marked absent or out today.</p>
               </div>
-              <AlertTriangle size={18} style={{ color: 'var(--primary-dark)' }} />
+              <AlertTriangle size={18} className="text-[#E07A5F]" />
             </div>
             {summary.absent.length === 0 ? (
-              <p className="text-xs text-stone-500 italic">No absences recorded today.</p>
+              <p className="text-sm text-stone-500">No absences recorded today.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {summary.absent.map((record) => (
-                  <div
-                    key={record.id}
-                    className="flex items-center justify-between p-3 rounded-xl border"
-                    style={ROW_STYLE}
-                  >
+                  <div key={record.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                     <div>
                       <p className="text-sm font-semibold text-stone-800">{record.child_name}</p>
                       <p className="text-xs text-stone-500">{record.status} - {record.notes || 'No notes'}</p>
                     </div>
                     <button
                       onClick={() => openActionModal(ActionType.CHECK_IN, { id: record.child_id })}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border hover:bg-[var(--background)]"
-                      style={{ ...OUTLINE_STYLE, color: 'var(--primary-dark)' }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#E07A5F] hover:opacity-90"
                     >
                       Reverse
                     </button>
@@ -467,58 +389,92 @@ export function DashboardPage() {
           </section>
         </div>
 
-        <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
-          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Staff Coverage</h3>
-              <Briefcase size={18} style={{ color: 'var(--primary-dark)' }} />
+        <div className="space-y-6 md:space-y-8">
+          <section className="themed-surface rounded-3xl p-6">
+            <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => setIsAddChildOpen(true)}
+                className="inline-flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFF8F3] text-[#E07A5F] font-semibold hover:bg-[#FFE5D9] transition-colors"
+              >
+                Add Child
+                <Users size={16} />
+              </button>
+              <button
+                onClick={() => setIsMessageOpen(true)}
+                className="inline-flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFF8F3] text-[#E07A5F] font-semibold hover:bg-[#FFE5D9] transition-colors"
+              >
+                Send Message
+                <Mail size={16} />
+              </button>
+              <button
+                onClick={() => navigate('/payments')}
+                className="inline-flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFF8F3] text-[#E07A5F] font-semibold hover:bg-[#FFE5D9] transition-colors"
+              >
+                Record Payment
+                <ClipboardList size={16} />
+              </button>
+              <button
+                onClick={() => setIsEventOpen(true)}
+                className="inline-flex items-center justify-between px-4 py-3 rounded-2xl bg-[#FFF8F3] text-[#E07A5F] font-semibold hover:bg-[#FFE5D9] transition-colors"
+              >
+                Create Event
+                <CalendarCheck size={16} />
+              </button>
             </div>
-            <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-stone-600">
-              <span className="font-semibold">Accepted</span>
-              <span className="px-2 py-0.5 rounded-full border" style={OUTLINE_STYLE}>{scheduleSummary.accepted}</span>
-              <span className="font-semibold">Pending</span>
-              <span className="px-2 py-0.5 rounded-full border" style={OUTLINE_STYLE}>{scheduleSummary.pending}</span>
-              <span className="font-semibold">Declined</span>
-              <span className="px-2 py-0.5 rounded-full border" style={OUTLINE_STYLE}>{scheduleSummary.declined}</span>
+          </section>
+
+          <section className="themed-surface rounded-3xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Staff Coverage</h3>
+              <Briefcase size={18} className="text-[#E07A5F]" />
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm font-semibold text-stone-700">Accepted</span>
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#B8E6D5] text-[#2D6A4F]">{scheduleSummary.accepted}</span>
+              <span className="text-sm font-semibold text-stone-700">Pending</span>
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#FFF4CC] text-[#B45309]">{scheduleSummary.pending}</span>
+              <span className="text-sm font-semibold text-stone-700">Declined</span>
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#FFE5D9] text-[#C4554D]">{scheduleSummary.declined}</span>
             </div>
             {schedules.length === 0 ? (
-              <p className="text-xs text-stone-500 italic">No shifts scheduled today.</p>
+              <p className="text-sm text-stone-500">No shifts scheduled today.</p>
             ) : (
-              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2">
                 {schedules.map((schedule) => (
-                  <div
-                    key={schedule.id}
-                    className="flex items-center justify-between p-3 rounded-xl border"
-                    style={ROW_STYLE}
-                  >
+                  <div key={schedule.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                     <div>
                       <p className="text-sm font-semibold text-stone-800">{schedule.first_name} {schedule.last_name}</p>
                       <p className="text-xs text-stone-500">
                         {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
                       </p>
                     </div>
-                    <span className="text-xs font-semibold text-stone-500">{schedule.status}</span>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      schedule.status === 'ACCEPTED'
+                        ? 'bg-[#B8E6D5] text-[#2D6A4F]'
+                        : schedule.status === 'DECLINED'
+                        ? 'bg-[#FFE5D9] text-[#C4554D]'
+                        : 'bg-[#FFF4CC] text-[#B45309]'
+                    }`}>
+                      {schedule.status}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
           </section>
 
-          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
+          <section className="themed-surface rounded-3xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Today's Events</h3>
-              <CalendarCheck size={18} style={{ color: 'var(--primary-dark)' }} />
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Today's Events</h3>
+              <CalendarCheck size={18} className="text-[#E07A5F]" />
             </div>
             {events.length === 0 ? (
-              <p className="text-xs text-stone-500 italic">No events scheduled for today.</p>
+              <p className="text-sm text-stone-500">No events scheduled for today.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {events.map((eventItem) => (
-                  <div
-                    key={eventItem.id}
-                    className="p-3 rounded-xl border"
-                    style={ROW_STYLE}
-                  >
+                  <div key={eventItem.id} className="p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                     <p className="text-sm font-semibold text-stone-800">{eventItem.title}</p>
                     <p className="text-xs text-stone-500">
                       {eventItem.start_time ? `${formatTime(eventItem.start_time)} - ` : ''}
@@ -530,20 +486,20 @@ export function DashboardPage() {
             )}
           </section>
 
-          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
+          <section className="themed-surface rounded-3xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Financial Alerts</h3>
-              <ClipboardList size={18} style={{ color: 'var(--primary-dark)' }} />
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Financial Alerts</h3>
+              <ClipboardList size={18} className="text-[#E07A5F]" />
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 rounded-xl border" style={ROW_STYLE}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                 <div>
                   <p className="text-sm font-semibold text-stone-800">Overdue Invoices</p>
                   <p className="text-xs text-stone-500">Follow up with families today.</p>
                 </div>
                 <span className="text-sm font-bold text-[#C4554D]">{summary.overdueCount}</span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl border" style={ROW_STYLE}>
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 border border-[#FFE5D9]/60">
                 <div>
                   <p className="text-sm font-semibold text-stone-800">Due Today</p>
                   <p className="text-xs text-stone-500">Invoices due end of day.</p>
@@ -552,10 +508,9 @@ export function DashboardPage() {
               </div>
               <button
                 onClick={() => navigate('/billing')}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
-                style={OUTLINE_STYLE}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold text-[#E07A5F] bg-[#FFF8F3] hover:bg-[#FFE5D9] transition-colors"
               >
-                <LogIn size={16} style={{ color: 'var(--primary-dark)' }} />
+                <LogIn size={16} />
                 Go to Billing
               </button>
             </div>
@@ -584,7 +539,7 @@ export function DashboardPage() {
                 type="text"
                 value={actionForm.parentName}
                 onChange={(event) => setActionForm({ ...actionForm, parentName: event.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
                 placeholder="Enter parent or guardian name"
                 required
               />
@@ -597,7 +552,7 @@ export function DashboardPage() {
               <select
                 value={actionForm.status}
                 onChange={(event) => setActionForm({ ...actionForm, status: event.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
               >
                 <option value="ABSENT">Absent</option>
                 <option value="SICK">Sick</option>
@@ -614,7 +569,7 @@ export function DashboardPage() {
               rows={3}
               value={actionForm.notes}
               onChange={(event) => setActionForm({ ...actionForm, notes: event.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
               placeholder="Add notes for today"
             />
           </div>
@@ -624,7 +579,7 @@ export function DashboardPage() {
               type="button"
               onClick={closeActionModal}
               disabled={actionLoading}
-              className="flex-1 px-5 py-3 rounded-2xl border themed-border themed-hover text-stone-600 font-bold transition-colors disabled:opacity-50"
+              className="flex-1 px-5 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

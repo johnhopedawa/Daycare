@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
   Building2,
   Calendar,
+  ChevronDown,
   DollarSign,
   Filter,
   Search,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import { BaseModal } from '../components/modals/BaseModal';
+import { DatePickerModal } from '../components/modals/DatePickerModal';
 
 const DEFAULT_REPORTING_YEAR = new Date().getFullYear();
 const DEFAULT_LIMIT = 1000;
@@ -48,6 +50,7 @@ const RANGE_OPTIONS = [
   { value: '90', label: 'Last 90 days' },
   { value: '365', label: 'Last 12 months' },
   { value: 'year', label: 'Reporting year' },
+  { value: 'custom', label: 'From date' },
 ];
 
 const ACCOUNT_TYPES = [
@@ -124,6 +127,20 @@ const parseAmount = (value) => {
 
 const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
 
+const normalizeCategoryName = (value) => {
+  if (!value) {
+    return '';
+  }
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((word) => (
+      word ? `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}` : ''
+    ))
+    .join(' ');
+};
+
 const formatDateInput = (value) => {
   if (!value) {
     return '';
@@ -133,6 +150,39 @@ const formatDateInput = (value) => {
     return '';
   }
   return parsed.toISOString().split('T')[0];
+};
+
+const formatDateKeyLabel = (value) => {
+  if (!value) {
+    return '';
+  }
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+const toDateKey = (value) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
+  }
+  return value.toISOString().split('T')[0];
+};
+
+const parseDateValue = (value) => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
 };
 
 const buildYearRange = (year) => ({
@@ -145,6 +195,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [transactions, setTransactions] = useState([]);
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncLimit, setSyncLimit] = useState(null);
   const [reportingYear, setReportingYear] = useState(DEFAULT_REPORTING_YEAR);
   const [periodView, setPeriodView] = useState('month');
   const [tableRange, setTableRange] = useState('year');
@@ -159,6 +210,13 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [syncingId, setSyncingId] = useState(null);
   const [editingConnection, setEditingConnection] = useState(null);
   const [savingConnection, setSavingConnection] = useState(false);
+  const [categorizeTransaction, setCategorizeTransaction] = useState(null);
+  const [categorizeCategory, setCategorizeCategory] = useState('');
+  const [categorizeMode, setCategorizeMode] = useState('existing');
+  const [categorizeNewCategory, setCategorizeNewCategory] = useState('');
+  const [categorizeDropdownOpen, setCategorizeDropdownOpen] = useState(false);
+  const [categorizeSubmitting, setCategorizeSubmitting] = useState(false);
+  const [categorizeError, setCategorizeError] = useState('');
   const [editForm, setEditForm] = useState({
     accountName: '',
     accountType: 'credit',
@@ -172,12 +230,17 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showUncategorizedOnly, setShowUncategorizedOnly] = useState(false);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState([]);
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [newRule, setNewRule] = useState({
     keyword: '',
     category: '',
     matchField: 'description',
     transactionType: 'expense',
   });
+  const categorizeDropdownRef = useRef(null);
+  const selectAllRef = useRef(null);
 
   const viewConfig = VIEW_CONFIG[view] || VIEW_CONFIG.dashboard;
   const { title, subtitle, sections } = viewConfig;
@@ -217,10 +280,13 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       ]);
 
       if (connectionsRes.status === 'fulfilled') {
-        setConnections(connectionsRes.value.data.connections || []);
+        const payload = connectionsRes.value.data || {};
+        setConnections(payload.connections || []);
+        setSyncLimit(payload.syncLimit || null);
       } else {
         console.error('Failed to load connections:', connectionsRes.reason);
         setConnections([]);
+        setSyncLimit(null);
         setError('Failed to load connected accounts.');
       }
 
@@ -259,6 +325,35 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       (id) => connections.some((connection) => connection.id === id)
     ));
   }, [connections]);
+
+  useEffect(() => {
+    if (!categorizeDropdownOpen) {
+      return;
+    }
+
+    const handleClick = (event) => {
+      if (!categorizeDropdownRef.current) {
+        return;
+      }
+      if (!categorizeDropdownRef.current.contains(event.target)) {
+        setCategorizeDropdownOpen(false);
+      }
+    };
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setCategorizeDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [categorizeDropdownOpen]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -318,18 +413,43 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     return transactions.filter((txn) => selectedAccountIds.includes(txn.connection_id));
   }, [transactions, selectedAccountIds]);
 
-  const reportingRange = useMemo(() => buildYearRange(reportingYear), [reportingYear]);
+  const availableCategories = useMemo(() => {
+    const categorySet = new Set();
+    rules.forEach((rule) => {
+      if (rule.category) {
+        categorySet.add(normalizeCategoryName(rule.category));
+      }
+    });
+    transactions.forEach((txn) => {
+      if (txn.category) {
+        categorySet.add(normalizeCategoryName(txn.category));
+      }
+    });
+    return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+  }, [rules, transactions]);
+
+  const reportingRange = useMemo(() => {
+    const range = buildYearRange(reportingYear);
+    return {
+      ...range,
+      startKey: range.start.toISOString().split('T')[0],
+      endKey: range.end.toISOString().split('T')[0],
+    };
+  }, [reportingYear]);
 
   const reportingTransactions = useMemo(() => (
     scopedTransactions.filter((txn) => {
-      if (!txn.transaction_date) {
+      const dateKey = txn.transaction_date;
+      if (!dateKey) {
         return false;
       }
-      const date = new Date(txn.transaction_date);
-      if (Number.isNaN(date.getTime())) {
+      if (reportingRange.startKey && dateKey < reportingRange.startKey) {
         return false;
       }
-      return date >= reportingRange.start && date <= reportingRange.end;
+      if (reportingRange.endKey && dateKey > reportingRange.endKey) {
+        return false;
+      }
+      return true;
     })
   ), [scopedTransactions, reportingRange]);
 
@@ -366,6 +486,17 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     if (tableRange === 'year') {
       return reportingTransactions;
     }
+    if (tableRange === 'custom') {
+      if (!customStartDate) {
+        return reportingTransactions;
+      }
+      return scopedTransactions.filter((txn) => {
+        if (!txn.transaction_date) {
+          return false;
+        }
+        return txn.transaction_date >= customStartDate;
+      });
+    }
     const days = Number.parseInt(tableRange, 10);
     if (!Number.isFinite(days)) {
       return reportingTransactions;
@@ -382,7 +513,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       }
       return date >= startDate;
     });
-  }, [reportingTransactions, scopedTransactions, tableRange]);
+  }, [reportingTransactions, scopedTransactions, tableRange, customStartDate]);
 
   const filteredTransactions = useMemo(() => {
     let data = [...rangeFilteredTransactions];
@@ -407,6 +538,124 @@ export function BankAccountsPage({ view = 'dashboard' }) {
 
     return data;
   }, [rangeFilteredTransactions, filterType, showUncategorizedOnly, searchTerm]);
+
+  const visibleTransactionIds = useMemo(
+    () => filteredTransactions.map((txn) => txn.id),
+    [filteredTransactions]
+  );
+  const selectedIdSet = useMemo(
+    () => new Set(selectedTransactionIds),
+    [selectedTransactionIds]
+  );
+  const allVisibleSelected = visibleTransactionIds.length > 0
+    && visibleTransactionIds.every((id) => selectedIdSet.has(id));
+  const someVisibleSelected = visibleTransactionIds.some((id) => selectedIdSet.has(id));
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return;
+    }
+    selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }, [someVisibleSelected, allVisibleSelected]);
+
+  useEffect(() => {
+    setSelectedTransactionIds((prev) => prev.filter((id) => visibleTransactionIds.includes(id)));
+  }, [visibleTransactionIds]);
+
+  const toggleTransactionSelection = (transactionId) => {
+    setSelectedTransactionIds((prev) => (
+      prev.includes(transactionId)
+        ? prev.filter((id) => id !== transactionId)
+        : [...prev, transactionId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedTransactionIds((prev) => {
+      const next = new Set(prev);
+      const shouldClear = visibleTransactionIds.length > 0
+        && visibleTransactionIds.every((id) => next.has(id));
+      if (shouldClear) {
+        visibleTransactionIds.forEach((id) => next.delete(id));
+      } else {
+        visibleTransactionIds.forEach((id) => next.add(id));
+      }
+      return Array.from(next);
+    });
+  };
+
+  const handleQuickYearSelect = (year) => {
+    setReportingYear(year);
+    setTableRange('year');
+    setCustomStartDate(null);
+  };
+
+  const selectedTotals = useMemo(() => {
+    return filteredTransactions.reduce(
+      (acc, txn) => {
+        if (!selectedIdSet.has(txn.id)) {
+          return acc;
+        }
+        const amount = parseAmount(txn.amount);
+        if (txn.direction === 'income') {
+          acc.income += amount;
+          acc.net += amount;
+        } else if (txn.direction === 'expense') {
+          acc.expenses += amount;
+          acc.net -= amount;
+        }
+        return acc;
+      },
+      { income: 0, expenses: 0, net: 0 }
+    );
+  }, [filteredTransactions, selectedIdSet]);
+
+  const selectedTotalLabel = useMemo(() => {
+    if (!selectedTotals.net) {
+      return formatCurrency(0);
+    }
+    const absValue = Math.abs(selectedTotals.net);
+    const sign = selectedTotals.net < 0 ? '-' : '+';
+    return `${sign}${formatCurrency(absValue)}`;
+  }, [selectedTotals.net]);
+
+  const rangeLabel = useMemo(() => {
+    if (tableRange === 'custom' && customStartDate) {
+      return `From ${formatDateKeyLabel(customStartDate)} to today`;
+    }
+    if (tableRange === 'year') {
+      return `Reporting year ${reportingYear}`;
+    }
+    const days = Number.parseInt(tableRange, 10);
+    if (Number.isFinite(days)) {
+      return `Last ${days} days`;
+    }
+    return `Reporting year ${reportingYear}`;
+  }, [tableRange, customStartDate, reportingYear]);
+
+  const datePickerInitialDate = useMemo(() => {
+    if (customStartDate) {
+      const parsed = new Date(`${customStartDate}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date(reportingYear, 0, 1);
+  }, [customStartDate, reportingYear]);
+
+  useEffect(() => {
+    if (!customStartDate) {
+      return;
+    }
+    const yearStart = `${reportingYear}-01-01`;
+    const yearEnd = `${reportingYear}-12-31`;
+    if (customStartDate < yearStart || customStartDate > yearEnd) {
+      setCustomStartDate(null);
+      if (tableRange === 'custom') {
+        setTableRange('year');
+      }
+    }
+  }, [customStartDate, reportingYear, tableRange]);
 
   const monthlySummary = useMemo(() => {
     const buckets = periodView === 'term'
@@ -491,11 +740,72 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     return Array.from(yearSet).sort((a, b) => b - a);
   }, [transactions, reportingYear]);
 
+  const balanceByConnection = useMemo(() => {
+    const balances = new Map();
+
+    connections.forEach((connection) => {
+      if (connection.opening_balance === null || connection.opening_balance === undefined) {
+        return;
+      }
+
+      const openingBalance = parseAmount(connection.opening_balance);
+      const openingDate = parseDateValue(connection.opening_balance_date);
+      let delta = 0;
+
+      transactions.forEach((txn) => {
+        if (txn.connection_id !== connection.id) {
+          return;
+        }
+
+        if (!txn.transaction_date) {
+          return;
+        }
+
+        const txnDate = parseDateValue(txn.transaction_date);
+        if (!txnDate) {
+          return;
+        }
+
+        if (openingDate && txnDate < openingDate) {
+          return;
+        }
+
+        const amount = parseAmount(txn.amount);
+        if (!amount) {
+          return;
+        }
+
+        if (connection.account_type === 'credit') {
+          if (txn.direction === 'income') {
+            delta -= amount;
+          } else if (txn.direction === 'expense') {
+            delta += amount;
+          }
+          return;
+        }
+
+        if (txn.direction === 'income') {
+          delta += amount;
+        } else if (txn.direction === 'expense') {
+          delta -= amount;
+        }
+      });
+
+      balances.set(connection.id, openingBalance + delta);
+    });
+
+    return balances;
+  }, [connections, transactions]);
+
   const showChart = sections.chart;
   const showTopCategories = sections.topCategories;
   const showSummaryGrid = showChart || showTopCategories;
   const summaryGridClass = showChart && showTopCategories ? 'lg:grid-cols-3' : '';
   const chartSpanClass = showChart && showTopCategories ? 'lg:col-span-2' : '';
+  const syncLimitReached = syncLimit && syncLimit.remaining <= 0;
+  const syncLimitText = syncLimit
+    ? `Daily sync limit: ${syncLimit.remaining} of ${syncLimit.limit} remaining today.`
+    : '';
 
   const toggleAccountFilter = (connectionId) => {
     setSelectedAccountIds((prev) => {
@@ -530,6 +840,30 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       openingBalance: '',
       openingBalanceDate: '',
     });
+  };
+
+  const openCategorizeModal = (transaction) => {
+    const normalized = normalizeCategoryName(transaction?.category || '');
+    setCategorizeTransaction(transaction);
+    setCategorizeCategory(normalized);
+    if (normalized) {
+      setCategorizeMode('existing');
+      setCategorizeNewCategory('');
+    } else {
+      setCategorizeMode('new');
+      setCategorizeNewCategory('');
+    }
+    setCategorizeDropdownOpen(false);
+    setCategorizeError('');
+  };
+
+  const closeCategorizeModal = () => {
+    setCategorizeTransaction(null);
+    setCategorizeCategory('');
+    setCategorizeMode('existing');
+    setCategorizeNewCategory('');
+    setCategorizeDropdownOpen(false);
+    setCategorizeError('');
   };
 
   const handleConnectAccount = async (e) => {
@@ -586,11 +920,35 @@ export function BankAccountsPage({ view = 'dashboard' }) {
 
     try {
       const res = await api.post(`/business-expenses/sync/${connectionId}`);
-      setSuccess(`Sync complete. Imported ${res.data.imported} transaction(s).`);
+      const limitInfo = res.data?.syncLimit || null;
+      if (limitInfo) {
+        setSyncLimit(limitInfo);
+      }
+      const imported = Number(res.data?.imported || 0);
+      const skipped = Number(res.data?.skipped || 0);
+      const total = Number.isFinite(res.data?.total) ? res.data.total : imported + skipped;
+      const remainingText = limitInfo
+        ? ` (${limitInfo.remaining} of ${limitInfo.limit} left today)`
+        : '';
+
+      if (total === 0) {
+        setSuccess(`Sync complete. No transactions returned.${remainingText}`);
+      } else if (imported === 0) {
+        setSuccess(`Sync complete. No new transactions (${skipped} already synced).${remainingText}`);
+      } else {
+        setSuccess(`Sync complete. Imported ${imported} transaction(s), skipped ${skipped}.${remainingText}`);
+      }
       loadBankingData(false);
     } catch (err) {
+      const limitInfo = err.response?.data?.syncLimit || null;
+      if (limitInfo) {
+        setSyncLimit(limitInfo);
+      }
       const message = err.response?.data?.error || 'Sync failed.';
-      setError(message);
+      const remainingText = limitInfo
+        ? ` (${limitInfo.remaining} of ${limitInfo.limit} left today)`
+        : '';
+      setError(`${message}${remainingText}`);
     } finally {
       setSyncingId(null);
     }
@@ -648,9 +1006,14 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     setSuccess('');
 
     try {
+      const normalizedCategory = normalizeCategoryName(newRule.category);
+      if (!normalizedCategory) {
+        setRulesError('Category is required.');
+        return;
+      }
       const payload = {
         keyword: newRule.keyword.trim(),
-        category: newRule.category.trim(),
+        category: normalizedCategory,
         matchField: newRule.matchField,
         transactionType: newRule.transactionType,
       };
@@ -667,6 +1030,59 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     } catch (err) {
       const message = err.response?.data?.error || 'Failed to create rule.';
       setRulesError(message);
+    }
+  };
+
+  const handleCategorizeSave = async (event) => {
+    event.preventDefault();
+    if (!categorizeTransaction) {
+      return;
+    }
+
+    const rawCategory = categorizeMode === 'new'
+      ? categorizeNewCategory
+      : categorizeCategory;
+    const category = normalizeCategoryName(rawCategory);
+    if (!category) {
+      setCategorizeError('Please choose or enter a category.');
+      return;
+    }
+
+    const description = (categorizeTransaction.description || '').trim();
+    const vendor = (categorizeTransaction.vendor || '').trim();
+    let keyword = description;
+    let matchField = 'description';
+
+    if (!keyword) {
+      keyword = vendor;
+      matchField = 'vendor';
+    }
+
+    if (!keyword) {
+      setCategorizeError('This transaction does not have a description or vendor to match on.');
+      return;
+    }
+
+    const transactionType = categorizeTransaction.direction === 'income' ? 'income' : 'expense';
+
+    setCategorizeSubmitting(true);
+    setCategorizeError('');
+
+    try {
+      await api.post('/business-expenses/rules', {
+        keyword,
+        category,
+        matchField,
+        transactionType,
+      });
+      setSuccess(`Category saved. "${keyword}" will map to ${category}.`);
+      closeCategorizeModal();
+      loadBankingData(false);
+    } catch (err) {
+      const message = err.response?.data?.error || 'Failed to save category.';
+      setCategorizeError(message);
+    } finally {
+      setCategorizeSubmitting(false);
     }
   };
 
@@ -1029,6 +1445,12 @@ export function BankAccountsPage({ view = 'dashboard' }) {
               </button>
             </div>
 
+            {syncLimit && (
+              <div className="mb-4 p-3 bg-sky-50 border border-sky-200 rounded-2xl text-sky-700 text-sm">
+                {syncLimitText}
+              </div>
+            )}
+
             {connections.length === 0 ? (
               <div className="themed-surface rounded-3xl p-12 text-center">
                 <Building2 size={48} className="mx-auto mb-4 text-stone-300" />
@@ -1084,18 +1506,26 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm mt-2">
-                      <span className="text-stone-500">Balance amount:</span>
+                      <span className="text-stone-500">Current balance:</span>
                       <span className="font-medium text-stone-700">
                         {connection.opening_balance !== null && connection.opening_balance !== undefined
-                          ? formatCurrency(connection.opening_balance)
+                          ? formatCurrency(balanceByConnection.get(connection.id))
                           : 'Not set'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm mt-2">
-                      <span className="text-stone-500">Balance date:</span>
+                      <span className="text-stone-500">Balance as of:</span>
                       <span className="font-medium text-stone-700">
                         {connection.opening_balance_date
                           ? formatDate(connection.opening_balance_date)
+                          : 'Not set'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-2">
+                      <span className="text-stone-500">Opening balance:</span>
+                      <span className="font-medium text-stone-700">
+                        {connection.opening_balance !== null && connection.opening_balance !== undefined
+                          ? formatCurrency(connection.opening_balance)
                           : 'Not set'}
                       </span>
                     </div>
@@ -1104,10 +1534,13 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                         ? 'Debit balances reflect cash on hand.'
                         : 'Credit balances reflect amount owed.'}
                     </p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      Current balance is estimated from transactions shown in this dashboard.
+                    </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => handleSync(connection.id)}
-                        disabled={syncingId === connection.id || !connection.is_active}
+                        disabled={syncingId === connection.id || !connection.is_active || syncLimitReached}
                         className="flex-1 px-3 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
                         style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
                       >
@@ -1142,10 +1575,17 @@ export function BankAccountsPage({ view = 'dashboard' }) {
             transition={{ delay: 0.35 }}
           >
             <div className="flex flex-col gap-4 mb-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <h3 className="font-quicksand font-bold text-xl text-stone-800">
-                  Transactions
-                </h3>
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by description, vendor, category, or account"
+                  className="w-full pl-10 pr-4 py-2 rounded-2xl border themed-border bg-white text-sm focus:outline-none focus:ring-2"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="flex items-center gap-2 text-xs text-stone-500">
                     <Filter size={14} />
@@ -1153,7 +1593,13 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   </span>
                   <select
                     value={tableRange}
-                    onChange={(event) => setTableRange(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTableRange(value);
+                      if (value === 'custom') {
+                        setShowDatePicker(true);
+                      }
+                    }}
                     className="px-3 py-1 rounded-full text-xs font-semibold border themed-border bg-white text-stone-600"
                   >
                     {RANGE_OPTIONS.map((option) => (
@@ -1162,6 +1608,38 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => {
+                      setTableRange('custom');
+                      setShowDatePicker(true);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors flex items-center gap-1 ${
+                      tableRange === 'custom'
+                        ? 'bg-stone-800 text-white'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    <Calendar size={12} />
+                    From date
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wide">
+                      Year
+                    </span>
+                    {availableYears.map((year) => (
+                      <button
+                        key={year}
+                        onClick={() => handleQuickYearSelect(year)}
+                        className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          reportingYear === year && tableRange === 'year'
+                            ? 'bg-stone-800 text-white'
+                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
                   {FILTER_TYPES.map((type) => (
                     <button
                       key={type.value}
@@ -1185,17 +1663,23 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   >
                     Uncategorized only
                   </button>
+                  <span className="text-xs text-stone-500">
+                    Range: {rangeLabel}
+                  </span>
+                  {tableRange === 'custom' && customStartDate && (
+                    <span className="text-xs text-stone-500">
+                      {formatDateKeyLabel(customStartDate)} to today
+                    </span>
+                  )}
                 </div>
-              </div>
-              <div className="relative">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search by description, vendor, category, or account"
-                  className="w-full pl-10 pr-4 py-2 rounded-2xl border themed-border bg-white text-sm focus:outline-none focus:ring-2"
-                />
+                {selectedTransactionIds.length > 0 && (
+                  <div className="text-xs text-stone-500">
+                    Selected {selectedTransactionIds.length} • Total{' '}
+                    <span className={selectedTotals.net < 0 ? 'text-rose-600 font-semibold' : 'text-emerald-700 font-semibold'}>
+                      {selectedTotalLabel}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1216,6 +1700,15 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   <table className="w-full">
                     <thead style={{ backgroundColor: 'var(--background)' }}>
                       <tr>
+                        <th className="px-4 py-4 text-left text-sm font-bold text-stone-700 w-10">
+                          <input
+                            ref={selectAllRef}
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={toggleSelectAllVisible}
+                            aria-label="Select all transactions"
+                          />
+                        </th>
                         <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">
                           Date
                         </th>
@@ -1236,6 +1729,14 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                     <tbody className="divide-y themed-border">
                       {filteredTransactions.map((txn) => (
                         <tr key={txn.id} className="themed-row transition-colors">
+                          <td className="px-4 py-4 text-sm text-stone-600">
+                            <input
+                              type="checkbox"
+                              checked={selectedIdSet.has(txn.id)}
+                              onChange={() => toggleTransactionSelection(txn.id)}
+                              aria-label={`Select transaction ${txn.description || txn.id}`}
+                            />
+                          </td>
                           <td className="px-6 py-4 text-sm text-stone-600">
                             {formatDate(txn.transaction_date)}
                           </td>
@@ -1262,17 +1763,18 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openCategorizeModal(txn)}
+                              className="group"
+                            >
                               <span
-                                className="px-3 py-1 rounded-full text-xs font-bold"
-                                style={getCategoryStyle(txn.category)}
+                                className="inline-flex items-center justify-center w-36 px-2 py-1 rounded-full text-xs font-bold truncate transition-colors group-hover:opacity-90"
+                                style={getCategoryStyle(normalizeCategoryName(txn.category))}
                               >
-                                {txn.category || 'Uncategorized'}
+                                {normalizeCategoryName(txn.category) || 'Uncategorized'}
                               </span>
-                              {txn.category_source === 'rule' && (
-                                <span className="text-xs text-emerald-600 font-semibold">Auto</span>
-                              )}
-                            </div>
+                            </button>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <span
@@ -1377,6 +1879,10 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                       type="text"
                       value={newRule.category}
                       onChange={(event) => setNewRule((prev) => ({ ...prev, category: event.target.value }))}
+                      onBlur={(event) => setNewRule((prev) => ({
+                        ...prev,
+                        category: normalizeCategoryName(event.target.value),
+                      }))}
                       placeholder="Supplies"
                       required
                       className="w-full px-4 py-2 rounded-2xl border themed-border bg-white text-sm focus:outline-none focus:ring-2"
@@ -1429,6 +1935,29 @@ export function BankAccountsPage({ view = 'dashboard' }) {
           </motion.section>
         )}
       </div>
+
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        initialDate={datePickerInitialDate}
+        onConfirm={(date) => {
+          const dateKey = toDateKey(date);
+          if (dateKey) {
+            setCustomStartDate(dateKey);
+            setTableRange('custom');
+          }
+          setShowDatePicker(false);
+        }}
+        onClear={() => {
+          setCustomStartDate(null);
+          setTableRange('year');
+          setShowDatePicker(false);
+        }}
+        title="Select start date"
+        subtitle="Filters transactions from this date to today"
+        confirmLabel="Apply date"
+        clearLabel="Clear date"
+      />
 
       <BaseModal
         isOpen={showConnectModal}
@@ -1615,6 +2144,151 @@ export function BankAccountsPage({ view = 'dashboard' }) {
               style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
             >
               {savingConnection ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </form>
+      </BaseModal>
+
+      <BaseModal
+        isOpen={!!categorizeTransaction}
+        onClose={closeCategorizeModal}
+        title="Categorize Transaction"
+      >
+        <form onSubmit={handleCategorizeSave} className="space-y-5">
+          {categorizeTransaction && (
+            <div className="rounded-2xl border themed-border bg-white p-4 text-sm">
+              <div className="font-semibold text-stone-800">
+                {categorizeTransaction.description || 'Transaction'}
+              </div>
+              {categorizeTransaction.vendor && (
+                <div className="text-xs text-stone-500">{categorizeTransaction.vendor}</div>
+              )}
+              <div className="mt-2 text-xs text-stone-500">
+                Rule will match on {categorizeTransaction.description ? 'description' : 'vendor'}:
+                <span className="ml-1 font-semibold text-stone-700">
+                  {categorizeTransaction.description || categorizeTransaction.vendor || 'Unknown'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Category
+            </label>
+            <div className="space-y-3">
+              <div ref={categorizeDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategorizeDropdownOpen((prev) => !prev)}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border text-sm font-semibold flex items-center justify-between themed-ring"
+                  style={{ backgroundColor: 'var(--surface)', color: 'var(--text)' }}
+                  aria-expanded={categorizeDropdownOpen}
+                >
+                  <span style={{ color: categorizeMode === 'new' ? 'var(--muted)' : 'var(--text)' }}>
+                    {categorizeMode === 'new'
+                      ? 'Create a new category...'
+                      : (categorizeCategory || 'Choose a category')}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${categorizeDropdownOpen ? 'rotate-180' : ''}`}
+                    style={{ color: 'var(--muted)' }}
+                  />
+                </button>
+
+                {categorizeDropdownOpen && (
+                  <div
+                    className="absolute z-20 mt-2 w-full rounded-2xl border themed-border"
+                    style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--panel-shadow-soft)' }}
+                  >
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                      {availableCategories.length === 0 && (
+                        <div className="text-xs px-2 py-2" style={{ color: 'var(--muted)' }}>
+                          No categories yet.
+                        </div>
+                      )}
+                      {availableCategories.map((category) => {
+                        const isSelected = categorizeMode === 'existing' && category === categorizeCategory;
+                        return (
+                          <button
+                            key={category}
+                            type="button"
+                            onClick={() => {
+                              setCategorizeMode('existing');
+                              setCategorizeCategory(category);
+                              setCategorizeDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors themed-hover"
+                            style={{
+                              color: isSelected ? 'var(--on-accent)' : 'var(--text)',
+                              backgroundColor: isSelected ? 'var(--accent)' : 'transparent',
+                            }}
+                          >
+                            {category}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t themed-border p-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategorizeMode('new');
+                          setCategorizeCategory('');
+                          setCategorizeDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-sm font-semibold themed-hover"
+                        style={{ color: 'var(--text)' }}
+                      >
+                        Create a new category...
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {categorizeMode === 'new' && (
+                <input
+                  type="text"
+                  value={categorizeNewCategory}
+                  onChange={(event) => setCategorizeNewCategory(event.target.value)}
+                  onBlur={(event) => setCategorizeNewCategory(normalizeCategoryName(event.target.value))}
+                  placeholder="Type a new category"
+                  className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 themed-ring"
+                  style={{ backgroundColor: 'var(--surface)', color: 'var(--text)' }}
+                  maxLength={120}
+                  required
+                />
+              )}
+              <div className="text-xs text-stone-500">
+                Category names are saved with capitalization (e.g., Food, Office Supplies).
+              </div>
+            </div>
+          </div>
+
+          {categorizeError && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm">
+              {categorizeError}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={closeCategorizeModal}
+              disabled={categorizeSubmitting}
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={categorizeSubmitting}
+              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg transition-all disabled:opacity-60"
+              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
+            >
+              {categorizeSubmitting ? 'Saving...' : 'Save Category'}
             </button>
           </div>
         </form>

@@ -756,9 +756,9 @@ export function FamiliesPage() {
                       <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {getSortedChildren().map((child) => (
-                      <tr key={child.id} className="hover:bg-[var(--background)] transition-colors">
+                      <tr key={child.id} className="themed-row transition-colors">
                         <td className="px-6 py-4">
                           <div className="font-medium text-stone-800">
                             {child.first_name} {child.last_name}
@@ -883,11 +883,11 @@ export function FamiliesPage() {
                       <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y themed-border">
                     {getFilteredParents().map((parent) => {
                       const outstanding = parseFloat(parent.total_outstanding || 0);
                       return (
-                        <tr key={parent.id} className="hover:bg-[var(--background)] transition-colors">
+                        <tr key={parent.id} className="themed-row transition-colors">
                           <td className="px-6 py-4">
                             <div className="font-medium text-stone-800">
                               {parent.first_name} {parent.last_name}

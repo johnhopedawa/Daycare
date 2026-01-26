@@ -1647,7 +1647,7 @@
         <operation>Link to SimpleFIN accounts</operation>
       </operations>
       <environment-variables>
-        <var name="FIREFLY_API_URL" required="true">Firefly III instance URL</var>
+        <var name="FIREFLY_BASE_URL" required="true">Firefly III instance URL</var>
         <var name="FIREFLY_SERVICE_PAT" required="true">Personal Access Token</var>
       </environment-variables>
       <status>BACKEND COMPLETE</status>
@@ -1715,7 +1715,7 @@
         <var name="NODE_ENV">Environment (development/production)</var>
         <var name="ALLOWED_ORIGINS">Comma-separated CORS allowlist for production</var>
         <var name="FRONTEND_URL">Single frontend origin (fallback for CORS allowlist)</var>
-        <var name="FIREFLY_API_URL">Firefly III instance URL (for business expenses)</var>
+        <var name="FIREFLY_BASE_URL">Firefly III instance URL (for business expenses)</var>
         <var name="FIREFLY_SERVICE_PAT">Firefly III Personal Access Token</var>
         <var name="REACT_APP_API_URL">Frontend API base URL (default: http://localhost:5000/api)</var>
         <var name="SMTP_HOST">SMTP host</var>
@@ -1725,6 +1725,7 @@
         <var name="SMTP_FROM">Default from address</var>
         <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
         <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
+        <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 2)</var>
       </optional>
     </environment-variables>
 

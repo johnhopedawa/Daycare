@@ -152,18 +152,16 @@ const applyTheme = (theme) => {
   const surface = palette.surface || defaultTheme.palette.surface;
   const accent = palette.accent || defaultTheme.palette.accent;
   const border = palette.border || defaultTheme.palette.border;
-  const warmedBackground = mixHexColors(background, accent, 0.16) || background;
-  const warmedBorder = mixHexColors(border, accent, 0.18) || border;
   const backdrop = palette.app_backdrop || 'rgba(0, 0, 0, 0)';
 
   root.style.setProperty('--primary', palette.primary);
   root.style.setProperty('--primary-dark', palette.primary_dark);
   root.style.setProperty('--accent', accent);
-  root.style.setProperty('--background', warmedBackground);
+  root.style.setProperty('--background', background);
   root.style.setProperty('--surface', surface);
   root.style.setProperty('--text', palette.text);
   root.style.setProperty('--muted', palette.muted);
-  root.style.setProperty('--border', warmedBorder);
+  root.style.setProperty('--border', border);
   root.style.setProperty('--on-primary', palette.on_primary);
   root.style.setProperty('--on-accent', palette.on_accent);
   root.style.setProperty('--app-backdrop', backdrop);
@@ -171,14 +169,6 @@ const applyTheme = (theme) => {
   const primaryRgb = hexToRgb(palette.primary);
   if (primaryRgb) {
     root.style.setProperty('--primary-rgb', primaryRgb);
-  }
-  const accentRgb = hexToRgb(palette.accent) || primaryRgb;
-  if (accentRgb) {
-    root.style.setProperty('--accent-rgb', accentRgb);
-    root.style.setProperty('--bubble-bg', `rgba(${accentRgb}, 0.16)`);
-    root.style.setProperty('--bubble-border', `rgba(${accentRgb}, 0.32)`);
-    root.style.setProperty('--bubble-bg-strong', `rgba(${accentRgb}, 0.24)`);
-    root.style.setProperty('--card-tint', `rgba(${accentRgb}, 0.12)`);
   }
 
   const menuBg = theme?.id === 1

@@ -133,9 +133,9 @@ function ParentInvoices() {
                   <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100">
+              <tbody className="divide-y themed-border">
                 {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-[#FFF8F3] transition-colors">
+                  <tr key={inv.id} className="themed-row transition-colors">
                     <td className="px-6 py-4 text-sm font-semibold text-stone-800">
                       {inv.invoice_number}
                     </td>
@@ -198,9 +198,9 @@ function ParentInvoices() {
                   <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100">
+              <tbody className="divide-y themed-border">
                 {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-[#FFF8F3] transition-colors">
+                  <tr key={payment.id} className="themed-row transition-colors">
                     <td className="px-6 py-4 text-sm text-stone-600">
                       {payment.receipt_number || '-'}
                     </td>

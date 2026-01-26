@@ -6,6 +6,7 @@ function AdminBusinessExpenses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [syncLimit, setSyncLimit] = useState(null);
 
   // Form state
   const [setupToken, setSetupToken] = useState('');
@@ -20,9 +21,11 @@ function AdminBusinessExpenses() {
   const loadConnections = async () => {
     try {
       const res = await api.get('/business-expenses/connections');
-      setConnections(res.data.connections);
+      setConnections(res.data.connections || []);
+      setSyncLimit(res.data.syncLimit || null);
     } catch (err) {
       setError('Failed to load connections');
+      setSyncLimit(null);
       console.error(err);
     } finally {
       setLoading(false);
@@ -60,10 +63,35 @@ function AdminBusinessExpenses() {
 
     try {
       const res = await api.post(`/business-expenses/sync/${connectionId}`);
-      setSuccess(`Synced ${res.data.imported} new transaction(s)`);
+      const limitInfo = res.data?.syncLimit || null;
+      if (limitInfo) {
+        setSyncLimit(limitInfo);
+      }
+      const imported = Number(res.data?.imported || 0);
+      const skipped = Number(res.data?.skipped || 0);
+      const total = Number.isFinite(res.data?.total) ? res.data.total : imported + skipped;
+      const remainingText = limitInfo
+        ? ` (${limitInfo.remaining} of ${limitInfo.limit} left today)`
+        : '';
+
+      if (total === 0) {
+        setSuccess(`Sync complete. No transactions returned.${remainingText}`);
+      } else if (imported === 0) {
+        setSuccess(`Sync complete. No new transactions (${skipped} already synced).${remainingText}`);
+      } else {
+        setSuccess(`Sync complete. Imported ${imported} transaction(s), skipped ${skipped}.${remainingText}`);
+      }
       loadConnections();
     } catch (err) {
-      setError(err.response?.data?.error || 'Sync failed');
+      const limitInfo = err.response?.data?.syncLimit || null;
+      if (limitInfo) {
+        setSyncLimit(limitInfo);
+      }
+      const message = err.response?.data?.error || 'Sync failed';
+      const remainingText = limitInfo
+        ? ` (${limitInfo.remaining} of ${limitInfo.limit} left today)`
+        : '';
+      setError(`${message}${remainingText}`);
     } finally {
       setSyncing(null);
     }
@@ -102,6 +130,12 @@ function AdminBusinessExpenses() {
 
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
+      {syncLimit && (
+        <div className="card" style={{ padding: '0.75rem 1rem' }}>
+          <strong>Daily sync limit:</strong>{' '}
+          {syncLimit.remaining} of {syncLimit.limit} remaining today.
+        </div>
+      )}
 
       {/* Instructions Card */}
       <div className="card">
@@ -206,7 +240,7 @@ function AdminBusinessExpenses() {
                     <div className="actions">
                       <button
                         onClick={() => handleSync(conn.id)}
-                        disabled={syncing === conn.id || !conn.is_active}
+                        disabled={syncing === conn.id || !conn.is_active || (syncLimit && syncLimit.remaining <= 0)}
                         className="btn small"
                       >
                         {syncing === conn.id ? 'Syncing...' : 'Sync Now'}

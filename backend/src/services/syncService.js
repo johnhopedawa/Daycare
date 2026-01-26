@@ -14,6 +14,15 @@ const simplefinService = require('./simplefinService');
 const fireflyService = require('./fireflyService');
 
 const DEFAULT_SYNC_DAYS = 30;
+const DEFAULT_LOOKBACK_DAYS = 2;
+
+function getLookbackDays() {
+  const raw = Number.parseInt(process.env.SYNC_LOOKBACK_DAYS, 10);
+  if (Number.isFinite(raw) && raw >= 0) {
+    return raw;
+  }
+  return DEFAULT_LOOKBACK_DAYS;
+}
 
 /**
  * Sync transactions for a single SimpleFIN connection
@@ -82,15 +91,33 @@ async function syncConnection(connectionId) {
     const hasSyncHistory = syncHistoryResult.rows.length > 0;
 
     // Determine start date (last sync with history or fallback window), as UNIX timestamp seconds
+    const now = new Date();
+    const lookbackDays = getLookbackDays();
+    let lastSync = null;
+
+    if (connection.last_sync_at && hasSyncHistory) {
+      const parsed = new Date(connection.last_sync_at);
+      if (Number.isNaN(parsed.getTime())) {
+        console.warn(`[Sync] Invalid last_sync_at for connection ${connectionId}, falling back to default window`);
+      } else if (parsed > now) {
+        console.warn(`[Sync] last_sync_at is in the future for connection ${connectionId}, falling back to default window`);
+      } else {
+        lastSync = parsed;
+      }
+    }
+
     let startDate;
     let startDateUnix;
-    if (connection.last_sync_at && hasSyncHistory) {
-      const lastSync = new Date(connection.last_sync_at);
-      startDate = lastSync.toISOString().split('T')[0];
-      startDateUnix = Math.floor(lastSync.getTime() / 1000);
+    if (lastSync) {
+      const lookbackDate = new Date(lastSync);
+      if (lookbackDays > 0) {
+        lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
+      }
+      startDate = lookbackDate.toISOString().split('T')[0];
+      startDateUnix = Math.floor(lookbackDate.getTime() / 1000);
     } else {
       // First sync or no history: get last N days
-      const fallbackDate = new Date();
+      const fallbackDate = new Date(now);
       fallbackDate.setDate(fallbackDate.getDate() - DEFAULT_SYNC_DAYS);
       startDate = fallbackDate.toISOString().split('T')[0];
       startDateUnix = Math.floor(fallbackDate.getTime() / 1000);
@@ -210,14 +237,11 @@ async function syncConnection(connectionId) {
       }
     }
 
-    // Update last sync timestamp based on latest posted transaction
-    if (latestPosted !== null) {
-      const latestPostedDate = new Date(latestPosted * 1000);
-      await pool.query(
-        'UPDATE simplefin_connections SET last_sync_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [connectionId, latestPostedDate]
-      );
-    }
+    const syncCompletedAt = new Date();
+    await pool.query(
+      'UPDATE simplefin_connections SET last_sync_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [connectionId, syncCompletedAt]
+    );
 
     console.log(`[Sync] Completed for connection ${connectionId}: ${imported} imported, ${skipped} skipped`);
 

@@ -19,6 +19,8 @@ const CLAIM_TTL_MINUTES = 10;
 const DEFAULT_EXPENSE_DAYS = 30;
 const DEFAULT_EXPENSE_LIMIT = 50;
 const MAX_EXPENSE_LIMIT = 1000;
+const SYNC_LIMIT_PER_DAY = 10;
+const SYNC_TIMEZONE = process.env.SYNC_TIMEZONE || 'UTC';
 const RULE_MATCH_FIELDS = new Set(['description', 'vendor', 'both']);
 const RULE_TRANSACTION_TYPES = new Set(['expense', 'income', 'both']);
 const ACCOUNT_TYPES = new Set(['credit', 'debit']);
@@ -90,6 +92,19 @@ function normalizeDateParam(value) {
   return parsed;
 }
 
+function isDateInRange(dateKey, startKey, endKey) {
+  if (!dateKey) {
+    return false;
+  }
+  if (startKey && dateKey < startKey) {
+    return false;
+  }
+  if (endKey && dateKey > endKey) {
+    return false;
+  }
+  return true;
+}
+
 function normalizeDirection(type) {
   if (type === 'deposit') {
     return 'income';
@@ -106,10 +121,12 @@ function toExpenseRecord(transaction, connection, fallbackId) {
 
   const transactionDate = normalizeTransactionDate(transaction.date || transaction.transaction_date);
   const vendor =
-    transaction.destination_name
-    || transaction.opposing_name
+    transaction.opposing_name
     || transaction.payee_name
+    || transaction.payee
+    || transaction.description
     || transaction.source_name
+    || transaction.destination_name
     || null;
   const description =
     transaction.description
@@ -184,6 +201,23 @@ function applyCategoryRules(records, rules) {
       record.category_source = 'uncategorized';
     }
   });
+}
+
+async function getSyncLimitStatus(userId) {
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS used
+     FROM simplefin_sync_attempts
+     WHERE user_id = $1
+       AND (created_at AT TIME ZONE $2) >= DATE_TRUNC('day', NOW() AT TIME ZONE $2)`,
+    [userId, SYNC_TIMEZONE]
+  );
+  const used = result.rows[0]?.used || 0;
+  const remaining = Math.max(0, SYNC_LIMIT_PER_DAY - used);
+  return {
+    limit: SYNC_LIMIT_PER_DAY,
+    used,
+    remaining
+  };
 }
 
 // All routes require ADMIN role
@@ -280,9 +314,15 @@ router.get('/', async (req, res) => {
 
     applyCategoryRules(transactions, rulesResult.rows);
 
-    const filtered = typeFilter && typeFilter !== 'all'
-      ? transactions.filter((txn) => txn.direction === typeFilter)
+    const startKey = normalizeTransactionDate(startDate);
+    const endKey = normalizeTransactionDate(endDate);
+    const dateFiltered = startKey || endKey
+      ? transactions.filter((txn) => isDateInRange(txn.transaction_date, startKey, endKey))
       : transactions;
+
+    const filtered = typeFilter && typeFilter !== 'all'
+      ? dateFiltered.filter((txn) => txn.direction === typeFilter)
+      : dateFiltered;
 
     filtered.sort((a, b) => {
       const dateA = a.transaction_date ? new Date(a.transaction_date).getTime() : 0;
@@ -640,7 +680,8 @@ router.get('/connections', async (req, res) => {
       [req.user.id]
     );
 
-    res.json({ connections: result.rows });
+    const syncLimit = await getSyncLimitStatus(req.user.id);
+    res.json({ connections: result.rows, syncLimit });
   } catch (error) {
     console.error('[BusinessExpenses] Get connections error:', error);
     res.status(500).json({ error: 'Failed to fetch connections' });
@@ -813,18 +854,35 @@ router.post('/sync/:connectionId', async (req, res) => {
       return res.status(404).json({ error: 'Connection not found' });
     }
 
+    const syncLimit = await getSyncLimitStatus(req.user.id);
+    if (syncLimit.remaining <= 0) {
+      return res.status(429).json({
+        error: `Daily sync limit reached (${syncLimit.limit} per day).`,
+        syncLimit
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO simplefin_sync_attempts
+       (user_id, connection_id)
+       VALUES ($1, $2)`,
+      [req.user.id, connectionId]
+    );
+
     console.log(`[BusinessExpenses] Manual sync requested for connection ${connectionId}`);
 
     // Import sync service here to avoid circular dependencies
     const syncService = require('../services/syncService');
 
     const result = await syncService.syncConnection(parseInt(connectionId));
+    const updatedSyncLimit = await getSyncLimitStatus(req.user.id);
 
     res.json({
       message: 'Sync completed',
       imported: result.imported,
       skipped: result.skipped,
-      total: result.total
+      total: result.total,
+      syncLimit: updatedSyncLimit
     });
   } catch (error) {
     console.error('[BusinessExpenses] Manual sync error:', error);
@@ -854,10 +912,12 @@ router.get('/status', async (req, res) => {
     );
 
     const connectionCount = parseInt(result.rows[0].count);
+    const syncLimit = await getSyncLimitStatus(req.user.id);
 
     res.json({
       configured: fireflyConfigured,
-      connectionCount: connectionCount
+      connectionCount: connectionCount,
+      syncLimit
     });
   } catch (error) {
     console.error('[BusinessExpenses] Status check error:', error);

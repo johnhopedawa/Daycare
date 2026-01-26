@@ -183,7 +183,7 @@ async function fetchAccounts(accessUrl) {
  *
  * @param {string} accessUrl - SimpleFIN Access URL
  * @param {string} accountId - SimpleFIN account ID
- * @param {string} startDate - ISO date (YYYY-MM-DD) for transaction start
+ * @param {number} startDate - Unix timestamp in seconds for transaction start
  * @returns {Promise<Array>} - Array of transaction objects
  * @throws {Error} - If fetch fails
  */

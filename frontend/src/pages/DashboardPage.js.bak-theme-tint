@@ -46,9 +46,8 @@ const ActionType = {
 
 const PANEL_STYLE = {
   backgroundColor: 'var(--surface)',
-  borderColor: 'var(--border)',
+  borderColor: 'rgba(15, 23, 42, 0.08)',
   boxShadow: 'var(--panel-shadow)',
-  backgroundImage: 'linear-gradient(180deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(255, 255, 255, 0) 42%)',
   borderRadius: 'var(--panel-radius)',
   padding: 'var(--panel-padding)',
 };
@@ -60,13 +59,13 @@ const HERO_PANEL_STYLE = {
 };
 
 const ROW_STYLE = {
-  backgroundColor: 'var(--bubble-bg)',
-  borderColor: 'var(--bubble-border)',
+  backgroundColor: 'var(--surface)',
+  borderColor: 'rgba(15, 23, 42, 0.08)',
   boxShadow: 'var(--panel-shadow-soft)',
 };
 
 const OUTLINE_STYLE = {
-  borderColor: 'var(--border)',
+  borderColor: 'rgba(15, 23, 42, 0.12)',
 };
 
 export function DashboardPage() {
@@ -339,7 +338,7 @@ export function DashboardPage() {
           <section className="border bg-[var(--surface)]" style={HERO_PANEL_STYLE}>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <div>
-                <h3 className="section-title font-quicksand font-bold text-xl">Arrivals</h3>
+                <h3 className="font-quicksand font-bold text-xl text-stone-800">Arrivals</h3>
                 <p className="text-sm text-stone-500">Track today's check-ins and absences.</p>
               </div>
               <button
@@ -355,7 +354,7 @@ export function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--layout-gap)' }}>
               <div>
                 <div className="flex items-center justify-between mb-3">
-                <h4 className="section-title font-semibold">Not Checked In</h4>
+                  <h4 className="font-semibold text-stone-800">Not Checked In</h4>
                   <span className="text-xs font-bold text-stone-500">{summary.notCheckedIn.length}</span>
                 </div>
                 {summary.notCheckedIn.length === 0 ? (
@@ -397,7 +396,7 @@ export function DashboardPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                <h4 className="section-title font-semibold">Checked In</h4>
+                  <h4 className="font-semibold text-stone-800">Checked In</h4>
                   <span className="text-xs font-bold text-stone-500">{summary.checkedIn.length}</span>
                 </div>
                 {summary.checkedIn.length === 0 ? (
@@ -434,7 +433,7 @@ export function DashboardPage() {
           <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="section-title font-quicksand font-bold text-xl">Absences Logged</h3>
+                <h3 className="font-quicksand font-bold text-xl text-stone-800">Absences Logged</h3>
                 <p className="text-sm text-stone-500">Children marked absent or out today.</p>
               </div>
               <AlertTriangle size={18} style={{ color: 'var(--primary-dark)' }} />
@@ -470,7 +469,7 @@ export function DashboardPage() {
         <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
           <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Staff Coverage</h3>
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Staff Coverage</h3>
               <Briefcase size={18} style={{ color: 'var(--primary-dark)' }} />
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-stone-600">
@@ -506,7 +505,7 @@ export function DashboardPage() {
 
           <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Today's Events</h3>
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Today's Events</h3>
               <CalendarCheck size={18} style={{ color: 'var(--primary-dark)' }} />
             </div>
             {events.length === 0 ? (
@@ -532,7 +531,7 @@ export function DashboardPage() {
 
           <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Financial Alerts</h3>
+              <h3 className="font-quicksand font-bold text-xl text-stone-800">Financial Alerts</h3>
               <ClipboardList size={18} style={{ color: 'var(--primary-dark)' }} />
             </div>
             <div className="space-y-2">
@@ -584,7 +583,7 @@ export function DashboardPage() {
                 type="text"
                 value={actionForm.parentName}
                 onChange={(event) => setActionForm({ ...actionForm, parentName: event.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
                 placeholder="Enter parent or guardian name"
                 required
               />
@@ -597,7 +596,7 @@ export function DashboardPage() {
               <select
                 value={actionForm.status}
                 onChange={(event) => setActionForm({ ...actionForm, status: event.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
               >
                 <option value="ABSENT">Absent</option>
                 <option value="SICK">Sick</option>
@@ -614,7 +613,7 @@ export function DashboardPage() {
               rows={3}
               value={actionForm.notes}
               onChange={(event) => setActionForm({ ...actionForm, notes: event.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
               placeholder="Add notes for today"
             />
           </div>
@@ -624,7 +623,7 @@ export function DashboardPage() {
               type="button"
               onClick={closeActionModal}
               disabled={actionLoading}
-              className="flex-1 px-5 py-3 rounded-2xl border themed-border themed-hover text-stone-600 font-bold transition-colors disabled:opacity-50"
+              className="flex-1 px-5 py-3 rounded-2xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

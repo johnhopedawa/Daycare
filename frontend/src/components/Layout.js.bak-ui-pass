@@ -15,35 +15,16 @@ export function Layout({ children, title, subtitle, actionBar }) {
 
   return (
     <div
-      className="min-h-screen font-sans relative"
-      style={{
-        backgroundColor: 'var(--background)',
-        backgroundImage: 'var(--app-gradient)',
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: 'cover',
-        backgroundAttachment: 'fixed',
-        color: 'var(--text)',
-      }}
+      className="min-h-screen font-sans"
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text)' }}
     >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ backgroundColor: 'var(--app-backdrop)' }}
-        aria-hidden="true"
-      />
 
-      <div className="relative z-10">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <main className="lg:pl-64 min-h-screen transition-all duration-300">
-          <div
-            className="max-w-7xl mx-auto"
-            style={{ padding: 'var(--layout-padding)' }}
-          >
+      <main className="lg:pl-64 min-h-screen transition-all duration-300">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 lg:p-10">
           {/* Header */}
-          <header
-            className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-            style={{ marginBottom: 'var(--layout-gap)' }}
-          >
+          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-10">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               {/* Mobile Hamburger Menu */}
               <button
@@ -122,7 +103,7 @@ export function Layout({ children, title, subtitle, actionBar }) {
           </header>
 
           {actionBar ? (
-            <div style={{ marginBottom: 'var(--layout-gap)' }}>
+            <div className="mb-6 md:mb-8">
               {actionBar}
             </div>
           ) : null}
@@ -134,9 +115,8 @@ export function Layout({ children, title, subtitle, actionBar }) {
           >
             {children}
           </motion.div>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

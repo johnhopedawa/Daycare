@@ -73,7 +73,7 @@ services:
     volumes:
       - firefly-upload:/var/www/html/storage/upload
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5

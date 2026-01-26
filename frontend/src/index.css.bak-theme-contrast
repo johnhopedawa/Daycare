@@ -48,10 +48,9 @@
   --panel-radius: 1.25rem;
   --panel-shadow: 0 22px 46px -30px rgba(15, 23, 42, 0.5);
   --panel-shadow-soft: 0 14px 30px -26px rgba(15, 23, 42, 0.4);
-  --bubble-bg: rgba(var(--accent-rgb), 0.16);
-  --bubble-border: rgba(var(--accent-rgb), 0.32);
-  --bubble-bg-strong: rgba(var(--accent-rgb), 0.24);
-  --card-tint: rgba(var(--accent-rgb), 0.12);
+  --bubble-bg: rgba(var(--primary-rgb), 0.08);
+  --bubble-border: rgba(var(--primary-rgb), 0.22);
+  --bubble-bg-strong: rgba(var(--accent-rgb), 0.22);
 }
 
 :root[data-density="compact"] {
@@ -74,20 +73,10 @@
   font-family: var(--font-body);
 }
 
-.section-title {
-  color: var(--text);
-  letter-spacing: 0.01em;
-}
-
 .themed-surface {
   background-color: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--panel-shadow);
-  background-image: linear-gradient(
-    180deg,
-    rgba(var(--accent-rgb), 0.12) 0%,
-    rgba(255, 255, 255, 0) 52%
-  );
   transition: box-shadow 180ms ease;
 }
 
@@ -95,22 +84,7 @@
   border-color: var(--border);
 }
 
-.themed-row {
-  background-color: var(--bubble-bg);
-  border-color: var(--border);
-}
-
-.themed-row > td,
-.themed-row > th {
-  background-color: var(--bubble-bg);
-}
-
 .themed-row:hover {
-  background-color: var(--bubble-bg-strong);
-}
-
-.themed-row:hover > td,
-.themed-row:hover > th {
   background-color: var(--bubble-bg-strong);
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -38,16 +38,13 @@ const FINANCE_DASHBOARD = {
 const OPERATIONS_ITEMS = [
   { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
   { icon: Users, label: 'Families', path: '/families' },
-  { icon: GraduationCap, label: 'Staff', path: '/educators' },
-  { icon: Calendar, label: 'Scheduling', path: '/scheduling' },
   { icon: FileText, label: 'Paperwork', path: '/paperwork' },
 ];
 
-const OPERATIONS_SETTINGS_ITEM = {
-  icon: Settings,
-  label: 'Settings',
-  path: '/settings',
-};
+const OPERATIONS_STAFFING_ITEMS = [
+  { icon: GraduationCap, label: 'Staff', path: '/educators' },
+  { icon: Calendar, label: 'Scheduling', path: '/scheduling' },
+];
 
 const OPERATIONS_PAYROLL_ITEMS = [
   { icon: DollarSign, label: 'Pay Periods', path: '/pay' },
@@ -58,7 +55,6 @@ const FINANCE_ITEMS = [
   { icon: Wallet, label: 'Transactions', path: '/finance/transactions' },
   { icon: Landmark, label: 'Bank Accounts', path: '/finance/accounts' },
   { icon: Tag, label: 'Categories', path: '/finance/categories' },
-  { icon: BarChart, label: 'Reports', path: '/reporting' },
 ];
 
 const FINANCE_BILLING_ITEMS = [
@@ -66,12 +62,159 @@ const FINANCE_BILLING_ITEMS = [
   { icon: DollarSign, label: 'Payments', path: '/payments' },
 ];
 
+const REPORTS_ITEM = {
+  icon: BarChart,
+  label: 'Reports',
+  path: '/reporting',
+};
+
+const SETTINGS_ITEM = {
+  icon: Settings,
+  label: 'Settings',
+  path: '/settings',
+};
+
+const STORAGE_KEYS = {
+  operationsOpen: 'sidebar.operationsOpen',
+  financeOpen: 'sidebar.financeOpen',
+  staffingOpen: 'sidebar.staffingOpen',
+  payrollOpen: 'sidebar.payrollOpen',
+  billingOpen: 'sidebar.billingOpen',
+  navScroll: 'sidebar.navScroll',
+};
+
+const readStoredBoolean = (key, fallback) => {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) {
+      return fallback;
+    }
+    return raw === 'true';
+  } catch (error) {
+    return fallback;
+  }
+};
+
 export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const [operationsOpen, setOperationsOpen] = useState(true);
-  const [financeOpen, setFinanceOpen] = useState(true);
+  const navRef = useRef(null);
+  const navScrollRef = useRef(0);
+  const [operationsOpen, setOperationsOpen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.operationsOpen, true)
+  );
+  const [financeOpen, setFinanceOpen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.financeOpen, true)
+  );
+  const [staffingOpen, setStaffingOpen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.staffingOpen, true)
+  );
+  const [payrollOpen, setPayrollOpen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.payrollOpen, true)
+  );
+  const [billingOpen, setBillingOpen] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.billingOpen, true)
+  );
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.operationsOpen, String(operationsOpen));
+    } catch (error) {
+      // Ignore storage failures (private mode or blocked storage).
+    }
+  }, [operationsOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.financeOpen, String(financeOpen));
+    } catch (error) {
+      // Ignore storage failures (private mode or blocked storage).
+    }
+  }, [financeOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.staffingOpen, String(staffingOpen));
+    } catch (error) {
+      // Ignore storage failures (private mode or blocked storage).
+    }
+  }, [staffingOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.payrollOpen, String(payrollOpen));
+    } catch (error) {
+      // Ignore storage failures (private mode or blocked storage).
+    }
+  }, [payrollOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.billingOpen, String(billingOpen));
+    } catch (error) {
+      // Ignore storage failures (private mode or blocked storage).
+    }
+  }, [billingOpen]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return undefined;
+    }
+    try {
+      const stored = window.sessionStorage.getItem(STORAGE_KEYS.navScroll);
+      const value = stored ? Number.parseInt(stored, 10) : 0;
+      if (Number.isFinite(value)) {
+        nav.scrollTop = value;
+        navScrollRef.current = value;
+      }
+    } catch (error) {
+      // Ignore storage failures.
+    }
+
+    const handleScroll = () => {
+      navScrollRef.current = nav.scrollTop;
+      try {
+        window.sessionStorage.setItem(STORAGE_KEYS.navScroll, String(nav.scrollTop));
+      } catch (error) {
+        // Ignore storage failures.
+      }
+    };
+
+    nav.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      nav.removeEventListener('scroll', handleScroll);
+      try {
+        window.sessionStorage.setItem(STORAGE_KEYS.navScroll, String(navScrollRef.current));
+      } catch (error) {
+        // Ignore storage failures.
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      try {
+        const stored = window.sessionStorage.getItem(STORAGE_KEYS.navScroll);
+        const value = stored ? Number.parseInt(stored, 10) : 0;
+        if (Number.isFinite(value)) {
+          nav.scrollTop = value;
+          navScrollRef.current = value;
+        }
+      } catch (error) {
+        // Ignore storage failures.
+      }
+    });
+  }, [location.pathname]);
 
   const renderNavLink = (item, options = {}) => {
     const { compact = false, indent = false } = options;
@@ -195,79 +338,138 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-6 custom-scrollbar">
-        <div className="space-y-2">
+      <nav
+        ref={navRef}
+        className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar"
+      >
+        <div className="space-y-2 pt-4">
+          {renderNavLink(OPERATIONS_DASHBOARD)}
+          {renderNavLink(FINANCE_DASHBOARD)}
+        </div>
+
+        <div className="space-y-2 mt-2">
           <button
             type="button"
             onClick={() => setOperationsOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70"
+            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em]"
             style={{ color: 'var(--menu-text)' }}
             aria-expanded={operationsOpen}
           >
-            Operations
+            <span className="opacity-70">Operations</span>
             <ChevronDown
               size={14}
               className={`transition-transform ${operationsOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
-          {renderNavLink(OPERATIONS_DASHBOARD)}
-
           {operationsOpen && (
-            <div className="space-y-1">
+            <div
+              className="space-y-2 ml-2 pl-3 border-l"
+              style={{ borderColor: 'var(--menu-border)' }}
+            >
               {OPERATIONS_ITEMS.map((item) => renderNavLink(item))}
 
-              <p
-                className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60"
-                style={{ color: 'var(--menu-text)' }}
-              >
-                Payroll &amp; Time
-              </p>
               <div className="space-y-1">
-                {OPERATIONS_PAYROLL_ITEMS.map((item) => renderNavLink(item, { compact: true, indent: true }))}
+                <button
+                  type="button"
+                  onClick={() => setStaffingOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  style={{ color: 'var(--menu-text)' }}
+                  aria-expanded={staffingOpen}
+                >
+                  <span className="opacity-60">Staff &amp; Scheduling</span>
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${staffingOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {staffingOpen && (
+                  <div className="space-y-1">
+                    {OPERATIONS_STAFFING_ITEMS.map((item) => renderNavLink(item))}
+                  </div>
+                )}
               </div>
 
-              {renderNavLink(OPERATIONS_SETTINGS_ITEM)}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setPayrollOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  style={{ color: 'var(--menu-text)' }}
+                  aria-expanded={payrollOpen}
+                >
+                  <span className="opacity-60">Payroll &amp; Time</span>
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${payrollOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {payrollOpen && (
+                  <div className="space-y-1">
+                    {OPERATIONS_PAYROLL_ITEMS.map((item) => renderNavLink(item))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 mt-4">
           <button
             type="button"
             onClick={() => setFinanceOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70"
+            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em]"
             style={{ color: 'var(--menu-text)' }}
             aria-expanded={financeOpen}
           >
-            Finance
+            <span className="opacity-70">Finance</span>
             <ChevronDown
               size={14}
               className={`transition-transform ${financeOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
-          {renderNavLink(FINANCE_DASHBOARD)}
-
           {financeOpen && (
-            <div className="space-y-1">
+            <div
+              className="space-y-2 ml-2 pl-3 border-l"
+              style={{ borderColor: 'var(--menu-border)' }}
+            >
               {FINANCE_ITEMS.map((item) => renderNavLink(item))}
 
-              <p
-                className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-60"
-                style={{ color: 'var(--menu-text)' }}
-              >
-                Billing &amp; Payments
-              </p>
               <div className="space-y-1">
-                {FINANCE_BILLING_ITEMS.map((item) => renderNavLink(item, { compact: true, indent: true }))}
+                <button
+                  type="button"
+                  onClick={() => setBillingOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  style={{ color: 'var(--menu-text)' }}
+                  aria-expanded={billingOpen}
+                >
+                  <span className="opacity-60">Billing &amp; Payments</span>
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${billingOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {billingOpen && (
+                  <div className="space-y-1">
+                    {FINANCE_BILLING_ITEMS.map((item) => renderNavLink(item))}
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </nav>
 
-      <div className="p-4 border-t" style={{ borderColor: 'var(--menu-border)' }}>
+      <div className="p-4 border-t space-y-2" style={{ borderColor: 'var(--menu-border)' }}>
+        <div
+          className="px-4 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70"
+          style={{ color: 'var(--menu-text)' }}
+        >
+          General
+        </div>
+        {renderNavLink(REPORTS_ITEM)}
+        {renderNavLink(SETTINGS_ITEM)}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors"

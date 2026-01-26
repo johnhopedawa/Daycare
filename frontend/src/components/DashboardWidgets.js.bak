@@ -9,49 +9,7 @@ import {
 } from 'lucide-react';
 
 // --- Metric Card Component ---
-export function MetricCard({
-  title,
-  value,
-  icon: Icon,
-  color,
-  delay = 0,
-  themeIndex,
-  variant = 'accent',
-}) {
-  if (variant === 'neutral') {
-    return (
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay, duration: 0.5 }}
-        className="border bg-[var(--surface)] shadow-sm"
-        style={{
-          borderColor: 'var(--border)',
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
-          borderRadius: 'var(--panel-radius)',
-          padding: 'var(--panel-padding)',
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-stone-500 font-semibold mb-1">
-              {title}
-            </p>
-            <h3 className="text-2xl font-semibold text-stone-900">
-              {value}
-            </h3>
-          </div>
-          <div
-            className="p-2 rounded-xl border bg-[var(--surface)]"
-            style={{ borderColor: 'var(--border)', color: 'var(--primary-dark)' }}
-          >
-            <Icon size={20} />
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
+export function MetricCard({ title, value, icon: Icon, color, delay = 0, themeIndex }) {
   const themeBackground = themeIndex ? `var(--card-${themeIndex})` : null;
   const cardStyle = themeIndex
     ? { backgroundColor: themeBackground }
@@ -63,12 +21,10 @@ export function MetricCard({
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay, duration: 0.5 }}
-      className={`p-6 rounded-3xl ${cardClass} relative overflow-hidden group transition-all duration-300 cursor-default border themed-border shadow-[0_14px_30px_-22px_rgba(15,23,42,0.45)] hover:shadow-[0_18px_36px_-24px_rgba(15,23,42,0.5)]`}
-      style={{
-        ...cardStyle,
-        backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 60%)',
-      }}
+      className={`p-6 rounded-3xl ${cardClass} relative overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-default`}
+      style={cardStyle}
     >
+      {/* Decorative background circle */}
       <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500" />
 
       <div className="relative z-10 flex justify-between items-start">
@@ -100,7 +56,7 @@ export function AttendanceWidget({ children = [] }) {
       className="themed-surface p-6 rounded-3xl h-full"
     >
       <div className="flex justify-between items-center mb-6">
-        <h3 className="section-title font-quicksand font-bold text-lg">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
           Today's Attendance
         </h3>
         <button className="text-[#FF9B85] text-sm font-medium hover:bg-[#FFF8F3] px-3 py-1 rounded-full transition-colors">
@@ -193,13 +149,13 @@ export function TimelineWidget() {
       className="themed-surface p-6 rounded-3xl h-full"
     >
       <div className="flex justify-between items-center mb-6">
-        <h3 className="section-title font-quicksand font-bold text-lg">
+        <h3 className="font-quicksand font-bold text-lg text-stone-800">
           Timeline
         </h3>
         <Clock size={18} className="text-[#FF9B85]" />
       </div>
 
-      <div className="relative pl-4 border-l-2 themed-border space-y-6">
+      <div className="relative pl-4 border-l-2 border-[#FFF8F3] space-y-6">
         {events.map((event, i) => (
           <div key={i} className="relative">
             <div
@@ -265,7 +221,7 @@ export function QuickActions({ onAddChild, onSendMessage, onCreateEvent }) {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={action.onClick}
-          className="p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border themed-border"
+          className="p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-shadow hover:shadow-md border border-white/50"
           style={buttonStyle}
         >
           <action.icon size={20} />
