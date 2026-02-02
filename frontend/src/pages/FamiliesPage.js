@@ -36,6 +36,7 @@ export function FamiliesPage() {
   const [editEmergencyContacts, setEditEmergencyContacts] = useState([]);
   const [editEmergencyContactIds, setEditEmergencyContactIds] = useState([]);
   const [editForm, setEditForm] = useState({
+    familyName: '',
     parent1Id: null,
     parent1FirstName: '',
     parent1LastName: '',
@@ -72,9 +73,14 @@ export function FamiliesPage() {
     try {
       setLoading(true);
       const response = await api.get('/families');
-      const normalizedFamilies = (response.data.families || []).map((family) => ({
+      const normalizedFamilies = (response.data.families || []).map((family) => {
+        const derivedFamilyName = family.family_name
+          || (family.parents || []).map((parent) => parent.family_name).find(Boolean)
+          || null;
+        return ({
         ...family,
         id: family.family_id || family.id,
+        family_name: derivedFamilyName,
         parents: (family.parents || []).map((parent) => ({
           id: parent.parent_id ?? parent.id,
           first_name: parent.parent_first_name ?? parent.first_name ?? '',
@@ -86,12 +92,14 @@ export function FamiliesPage() {
           city: parent.parent_city ?? parent.city ?? '',
           province: parent.parent_province ?? parent.province ?? '',
           postal_code: parent.parent_postal_code ?? parent.postal_code ?? '',
+          family_name: parent.family_name ?? parent.familyName ?? null,
           user_id: parent.user_id ?? null,
           is_primary_contact: parent.is_primary_contact,
           has_billing_responsibility: parent.has_billing_responsibility,
           is_active: parent.is_active
         }))
-      }));
+        });
+      });
       setFamilies(normalizedFamilies);
     } catch (error) {
       console.error('Failed to load families:', error);
@@ -157,6 +165,7 @@ export function FamiliesPage() {
     const parent1 = family.parents && family.parents.length > 0 ? family.parents[0] : null;
     const parent2 = family.parents && family.parents.length > 1 ? family.parents[1] : null;
     const child = family.children && family.children.length > 0 ? family.children[0] : null;
+    const familyName = family.family_name || parent1?.family_name || parent2?.family_name || '';
 
     // Parse allergies
     let allergiesData = { common: [], other: '' };
@@ -167,10 +176,21 @@ export function FamiliesPage() {
           : child.allergies;
       } catch (e) {
         console.error('Error parsing allergies:', e);
+        allergiesData = { common: [], other: child.allergies };
+      }
+    }
+
+    // Format date for input[type="date"] (YYYY-MM-DD)
+    let formattedDob = '';
+    if (child?.date_of_birth) {
+      const dobDate = new Date(child.date_of_birth);
+      if (!Number.isNaN(dobDate.getTime())) {
+        formattedDob = dobDate.toISOString().split('T')[0];
       }
     }
 
     setEditForm({
+      familyName,
       parent1Id: parent1?.id || null,
       parent1FirstName: parent1?.first_name || '',
       parent1LastName: parent1?.last_name || '',
@@ -189,7 +209,7 @@ export function FamiliesPage() {
       childId: child?.id || null,
       childFirstName: child?.first_name || '',
       childLastName: child?.last_name || '',
-      childDob: child?.date_of_birth || '',
+      childDob: formattedDob,
       childStatus: child?.status || 'ACTIVE',
       childMonthlyRate: child?.monthly_rate || '',
       allergies: allergiesData,
@@ -284,7 +304,8 @@ export function FamiliesPage() {
           address_line2: editForm.parentAddressLine2,
           city: editForm.parentCity,
           province: editForm.parentProvince,
-          postal_code: editForm.parentPostalCode
+          postal_code: editForm.parentPostalCode,
+          family_name: editForm.familyName
         });
       }
 
@@ -299,7 +320,8 @@ export function FamiliesPage() {
           address_line2: editForm.parentAddressLine2,
           city: editForm.parentCity,
           province: editForm.parentProvince,
-          postal_code: editForm.parentPostalCode
+          postal_code: editForm.parentPostalCode,
+          family_name: editForm.familyName
         });
       }
 
@@ -379,6 +401,8 @@ export function FamiliesPage() {
 
   const getFamilyDisplayName = (family) => {
     if (family.family_name) return family.family_name;
+    const parentFamilyName = family.parents?.map((parent) => parent.family_name).find(Boolean);
+    if (parentFamilyName) return parentFamilyName;
     if (family.parents && family.parents.length > 0) {
       return `The ${family.parents[0].last_name} Family`;
     }
@@ -645,7 +669,16 @@ export function FamiliesPage() {
               {families.map((family, i) => (
                 <div
                   key={family.family_id || family.id || `family-${i}`}
-                  className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleViewProfile(family)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleViewProfile(family);
+                    }
+                  }}
+                  className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-full bg-[var(--card-4)] flex items-center justify-center text-[var(--primary-dark)] font-bold text-lg group-hover:bg-[var(--primary)] group-hover:text-white transition-colors">
@@ -729,22 +762,17 @@ export function FamiliesPage() {
                         {getMonthlyRate(family)}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+                    {family.parents && family.parents.length > 0 && (
                       <button
-                        onClick={() => handleViewProfile(family)}
-                        className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-sm font-bold themed-hover transition-colors"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleToggleFamilyStatus(family);
+                        }}
+                        className="text-xs font-bold text-stone-500 hover:text-[var(--primary-dark)]"
                       >
-                        View Profile
+                        {family.all_accounts_active ? 'Disable Logins' : 'Enable Logins'}
                       </button>
-                      {family.parents && family.parents.length > 0 && (
-                        <button
-                          onClick={() => handleToggleFamilyStatus(family)}
-                          className="text-xs font-bold text-stone-500 hover:text-[var(--primary-dark)]"
-                        >
-                          {family.all_accounts_active ? 'Disable Logins' : 'Enable Logins'}
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1067,8 +1095,20 @@ export function FamiliesPage() {
           setTempPasswordError('');
         }}
         title={`Edit ${selectedFamily ? getFamilyDisplayName(selectedFamily) : 'Family'}`}
+        contentClassName="pb-0"
       >
         <form onSubmit={handleEditSubmit} className="space-y-6">
+          <div>
+            <h4 className="font-bold text-stone-700 mb-3 font-quicksand">Family Details</h4>
+            <input
+              type="text"
+              placeholder="Family Name"
+              value={editForm.familyName}
+              onChange={(e) => setEditForm({ ...editForm, familyName: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+            />
+          </div>
+
           {/* Parent 1 */}
           <div>
             <h4 className="font-bold text-stone-700 mb-3 font-quicksand">Parent/Guardian 1</h4>
@@ -1432,7 +1472,7 @@ export function FamiliesPage() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t themed-border">
+          <div className="sticky bottom-0 z-10 flex gap-3 pt-4 pb-4 border-t themed-border bg-white -mx-4 sm:-mx-6 px-4 sm:px-6">
             <button
               type="button"
               onClick={() => setIsDeleteModalOpen(true)}

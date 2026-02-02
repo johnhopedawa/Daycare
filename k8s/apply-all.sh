@@ -6,9 +6,11 @@
 set -e
 
 K8S_DIR="$(cd "$(dirname "$0")" && pwd)"
+NAMESPACE="littlesparrows"
 
 echo "Applying all Kubernetes manifests..."
 
+kubectl apply -f "$K8S_DIR/namespace.yaml"
 kubectl apply -f "$K8S_DIR/secrets/"
 kubectl apply -f "$K8S_DIR/storage/"
 kubectl apply -f "$K8S_DIR/deployments/"
@@ -19,4 +21,4 @@ echo ""
 echo "All manifests applied!"
 echo ""
 echo "Check status with:"
-echo "  kubectl get all"
+echo "  kubectl -n $NAMESPACE get all"

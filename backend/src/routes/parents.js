@@ -319,7 +319,9 @@ router.patch('/:id', async (req, res) => {
       address_line2,
       city,
       province,
-      postal_code
+      postal_code,
+      family_name,
+      familyName
     } = req.body;
 
     const updates = [];
@@ -378,6 +380,12 @@ router.patch('/:id', async (req, res) => {
     if (postal_code !== undefined) {
       params.push(postal_code);
       updates.push(`postal_code = $${params.length}`);
+    }
+
+    const resolvedFamilyName = familyName !== undefined ? familyName : family_name;
+    if (resolvedFamilyName !== undefined) {
+      params.push(resolvedFamilyName || null);
+      updates.push(`family_name = $${params.length}`);
     }
 
     if (updates.length === 0) {

@@ -12,6 +12,7 @@ REGISTRY=${REGISTRY:-"localhost:5000"}
 BACKEND_IMAGE="$REGISTRY/daycare-backend:latest"
 FRONTEND_IMAGE="$REGISTRY/daycare-frontend:latest"
 K8S_DIR="$(cd "$(dirname "$0")" && pwd)"
+NAMESPACE="littlesparrows"
 
 # Parse command line arguments
 SKIP_BUILD=false
@@ -51,6 +52,9 @@ fi
 echo "Deploying to Kubernetes..."
 echo ""
 
+echo "0. Creating namespace..."
+kubectl apply -f "$K8S_DIR/namespace.yaml"
+
 echo "1. Creating secrets..."
 kubectl apply -f "$K8S_DIR/secrets/"
 
@@ -62,12 +66,12 @@ kubectl apply -f "$K8S_DIR/deployments/postgres.yaml"
 kubectl apply -f "$K8S_DIR/services/postgres-service.yaml"
 
 echo "Waiting for PostgreSQL to be ready..."
-kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=ready pod -l app=postgres --timeout=300s
 
 echo "4. Running database migrations..."
-kubectl delete job db-migration --ignore-not-found=true
+kubectl -n "$NAMESPACE" delete job db-migration --ignore-not-found=true
 kubectl apply -f "$K8S_DIR/jobs/db-migration.yaml"
-kubectl wait --for=condition=complete job/db-migration --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=complete job/db-migration --timeout=300s
 
 echo "5. Deploying backend..."
 kubectl apply -f "$K8S_DIR/deployments/backend.yaml"
@@ -78,8 +82,8 @@ kubectl apply -f "$K8S_DIR/deployments/frontend.yaml"
 kubectl apply -f "$K8S_DIR/services/frontend-service.yaml"
 
 echo "Waiting for deployments to be ready..."
-kubectl wait --for=condition=available deployment/backend --timeout=300s
-kubectl wait --for=condition=available deployment/frontend --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/backend --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/frontend --timeout=300s
 
 echo "7. Deploying ingress..."
 kubectl apply -f "$K8S_DIR/ingress/"
@@ -93,9 +97,9 @@ echo "Your application should now be accessible at:"
 echo "http://littlesparrowsacademy.com"
 echo ""
 echo "Useful commands:"
-echo "  kubectl get pods"
-echo "  kubectl logs -f deployment/backend"
-echo "  kubectl logs -f deployment/frontend"
+echo "  kubectl -n $NAMESPACE get pods"
+echo "  kubectl -n $NAMESPACE logs -f deployment/backend"
+echo "  kubectl -n $NAMESPACE logs -f deployment/frontend"
 echo ""
 echo "Don't forget to create your first admin user!"
 echo ""

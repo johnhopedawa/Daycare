@@ -18,8 +18,8 @@
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>28</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 027_*.sql)</migration-pattern>
+    <total-migrations>35</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 034_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -61,6 +61,7 @@
         <column name="id" type="SERIAL" primary-key="true"/>
         <column name="first_name" type="VARCHAR(100)" required="true"/>
         <column name="last_name" type="VARCHAR(100)" required="true"/>
+        <column name="family_name" type="VARCHAR(150)" description="Optional custom family display name"/>
         <column name="email" type="VARCHAR(255)"/>
         <column name="phone" type="VARCHAR(20)"/>
         <column name="address_line1" type="VARCHAR(255)"/>

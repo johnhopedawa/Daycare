@@ -8,6 +8,7 @@ export function BaseModal({
   title,
   children,
   maxWidth = 'max-w-2xl',
+  contentClassName = '',
 }) {
   return (
     <AnimatePresence>
@@ -67,7 +68,9 @@ export function BaseModal({
               </div>
 
               {/* Content */}
-              <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
+              <div className={`p-4 sm:p-6 overflow-y-auto ${contentClassName}`}>
+                {children}
+              </div>
             </motion.div>
           </div>
         </>

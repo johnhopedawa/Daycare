@@ -6,18 +6,18 @@ Organized k8s manifests for deploying the Daycare Management System.
 
 ```
 k8s/
-├── secrets/          # Secret configurations (passwords, JWT secret)
-├── storage/          # PersistentVolumeClaims
-├── deployments/      # Deployment manifests
-├── services/         # Service manifests
-├── ingress/          # Ingress configuration
-├── jobs/             # One-time jobs (migrations)
-├── deploy.sh         # Full deployment script
-├── apply-all.sh      # Quick apply all manifests
-└── delete-all.sh     # Delete all resources
+|- namespace.yaml           # Namespace for all resources
+|- secrets/                 # Secret configurations (passwords, JWT secret)
+|- storage/                 # PersistentVolumeClaims
+|- deployments/             # Deployment manifests
+|- services/                # Service manifests
+|- ingress/                 # Ingress configuration
+|- jobs/                    # One-time jobs (migrations)
+|- scripts/                 # Utility scripts (admin, backups)
+|- deploy.sh                # Full deployment script
+|- apply-all.sh             # Quick apply all manifests
+`- delete-all.sh            # Delete all resources
 ```
-
-Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
 
 ## Prerequisites
 
@@ -25,6 +25,7 @@ Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
 - kubectl configured
 - Docker registry accessible (default: localhost:5000)
 - Domain DNS pointing to your cluster IP
+- Namespace `littlesparrows` (lowercase required by Kubernetes) will be created by the scripts
 
 ## Quick Deployment
 
@@ -53,22 +54,23 @@ nano secrets/daycare-secrets.yaml
 ./apply-all.sh
 
 # 3. Wait for postgres to be ready
-kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+kubectl -n littlesparrows wait --for=condition=ready pod -l app=postgres --timeout=300s
 
 # 4. Run migrations
-kubectl apply -f jobs/db-migration.yaml
+kubectl -n littlesparrows apply -f jobs/db-migration.yaml
 
 # 5. Check everything is running
-kubectl get all
+kubectl -n littlesparrows get all
 ```
 
 ### Option 3: Apply Individual Components
 
 ```bash
-kubectl apply -f secrets/
-kubectl apply -f storage/
-kubectl apply -f deployments/postgres.yaml
-kubectl apply -f services/postgres-service.yaml
+kubectl -n littlesparrows apply -f namespace.yaml
+kubectl -n littlesparrows apply -f secrets/
+kubectl -n littlesparrows apply -f storage/
+kubectl -n littlesparrows apply -f deployments/postgres.yaml
+kubectl -n littlesparrows apply -f services/postgres-service.yaml
 # ... continue as needed
 ```
 
@@ -158,17 +160,17 @@ Check that everything is running:
 
 ```bash
 # Check all resources
-kubectl get all
+kubectl -n littlesparrows get all
 
 # Check pods are running
-kubectl get pods
+kubectl -n littlesparrows get pods
 # Should show: backend, frontend, postgres all Running
 
 # Check services
-kubectl get svc
+kubectl -n littlesparrows get svc
 
 # Check ingress
-kubectl get ingress
+kubectl -n littlesparrows get ingress
 ```
 
 ## Accessing the Application
@@ -180,18 +182,26 @@ Once deployed:
 
 2. **Via Port Forward** (for testing):
    ```bash
-   kubectl port-forward svc/frontend 8080:80
+   kubectl -n littlesparrows port-forward svc/frontend 8080:80
    # Access at http://localhost:8080
    ```
 
 ## Create First Admin User
 
+You can use the helper script:
+
+```bash
+./scripts/create-admin.sh admin@littlesparrowsacademy.com
+```
+
+Or run the one-liner directly:
+
 ```bash
 # Get backend pod name
-BACKEND_POD=$(kubectl get pods -l app=backend -o jsonpath='{.items[0].metadata.name}')
+BACKEND_POD=$(kubectl -n littlesparrows get pods -l app=backend -o jsonpath='{.items[0].metadata.name}')
 
 # Create admin user
-kubectl exec -it $BACKEND_POD -- node -e "
+kubectl -n littlesparrows exec -it $BACKEND_POD -- node -e "
 const bcrypt = require('bcryptjs');
 const pool = require('./src/db/pool');
 
@@ -220,12 +230,12 @@ docker push localhost:5000/daycare-backend:latest
 docker push localhost:5000/daycare-frontend:latest
 
 # Restart deployments to pull new images
-kubectl rollout restart deployment/backend
-kubectl rollout restart deployment/frontend
+kubectl -n littlesparrows rollout restart deployment/backend
+kubectl -n littlesparrows rollout restart deployment/frontend
 
 # Watch the rollout
-kubectl rollout status deployment/backend
-kubectl rollout status deployment/frontend
+kubectl -n littlesparrows rollout status deployment/backend
+kubectl -n littlesparrows rollout status deployment/frontend
 ```
 
 ## Troubleshooting
@@ -234,26 +244,26 @@ kubectl rollout status deployment/frontend
 
 ```bash
 # Backend logs
-kubectl logs -f deployment/backend
+kubectl -n littlesparrows logs -f deployment/backend
 
 # Frontend logs
-kubectl logs -f deployment/frontend
+kubectl -n littlesparrows logs -f deployment/frontend
 
 # Postgres logs
-kubectl logs -f statefulset/postgres
+kubectl -n littlesparrows logs -f statefulset/postgres
 
 # Migration job logs
-kubectl logs job/db-migration
+kubectl -n littlesparrows logs job/db-migration
 ```
 
 ### Check Pod Status
 
 ```bash
 # Describe a pod to see events
-kubectl describe pod <pod-name>
+kubectl -n littlesparrows describe pod <pod-name>
 
 # Get all events
-kubectl get events --sort-by='.lastTimestamp'
+kubectl -n littlesparrows get events --sort-by='.lastTimestamp'
 ```
 
 ### Images Not Pulling
@@ -268,13 +278,13 @@ If pods show `ImagePullBackOff`:
 
 ```bash
 # Test postgres is running
-kubectl get pods -l app=postgres
+kubectl -n littlesparrows get pods -l app=postgres
 
 # Check postgres service
-kubectl get svc postgres
+kubectl -n littlesparrows get svc postgres
 
 # Test connection from backend pod
-kubectl exec -it deployment/backend -- sh
+kubectl -n littlesparrows exec -it deployment/backend -- sh
 # Inside pod:
 psql $DATABASE_URL -c "SELECT 1"
 ```
@@ -286,7 +296,7 @@ psql $DATABASE_URL -c "SELECT 1"
 ./delete-all.sh
 
 # Delete including data
-kubectl delete pvc postgres-pvc
+kubectl -n littlesparrows delete pvc postgres-pvc
 
 # Redeploy
 ./deploy.sh
@@ -313,32 +323,47 @@ Adjust in deployment YAMLs under `resources:` section if needed.
 
 ## Backup Database
 
+You can use the helper scripts (encrypted, stored locally):
+
+```bash
+# Create encrypted backup in k8s/backups
+./scripts/backup-db.sh
+
+# Restore from an encrypted backup
+./scripts/restore-db.sh ./backups/daycare_YYYYMMDD_HHMMSS.sql.gz.enc
+```
+
+Or use the raw commands:
+
 ```bash
 # Backup
-kubectl exec -it postgres-0 -- pg_dump -U daycare daycare > backup_$(date +%Y%m%d).sql
+kubectl -n littlesparrows exec -it postgres-0 -- pg_dump -U daycare daycare > backup_$(date +%Y%m%d).sql
 
 # Restore
-kubectl exec -i postgres-0 -- psql -U daycare daycare < backup_20240301.sql
+kubectl -n littlesparrows exec -i postgres-0 -- psql -U daycare daycare < backup_20240301.sql
 ```
 
 ## Useful Commands
 
 ```bash
 # Watch all pods
-kubectl get pods -w
+kubectl -n littlesparrows get pods -w
 
 # Shell into backend pod
-kubectl exec -it deployment/backend -- sh
+kubectl -n littlesparrows exec -it deployment/backend -- sh
 
 # View resource usage
-kubectl top pods
+kubectl -n littlesparrows top pods
 
 # Scale deployments
-kubectl scale deployment/backend --replicas=3
+kubectl -n littlesparrows scale deployment/backend --replicas=3
 
 # Delete and redeploy single component
-kubectl delete -f deployments/backend.yaml
-kubectl apply -f deployments/backend.yaml
+kubectl -n littlesparrows delete -f deployments/backend.yaml
+kubectl -n littlesparrows apply -f deployments/backend.yaml
 ```
+
+
+
 
 

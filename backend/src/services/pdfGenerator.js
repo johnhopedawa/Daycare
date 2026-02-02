@@ -828,4 +828,318 @@ function generateReceipt(payment, parent, context = {}) {
   });
 }
 
-module.exports = { generatePaystub, generateReceipt };
+function generateInvoice(invoice, parent, context = {}) {
+  return new Promise((resolve, reject) => {
+    try {
+      const { settings, daycare } = context;
+      const doc = new PDFDocument({ size: 'LETTER', margin: 0 });
+      const chunks = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const colors = {
+        ink: '#3b3b2a',
+        muted: '#6a6a55',
+        accent: '#b15a1a',
+        rule: '#b7b27a',
+        panel: '#000000',
+        paid: '#3f7a4b',
+        unpaid: '#d44b3f'
+      };
+
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const left = 52;
+      const right = pageWidth - 52;
+      const top = 46;
+      const bottom = 44;
+      const contentWidth = right - left;
+      let y = top;
+
+      const daycareName = getField(daycare, ['name', 'daycare_name'], 'Daycare Management System');
+      const addressLine1 = getField(daycare, ['address_line1', 'addressLine1']);
+      const addressLine2 = getField(daycare, ['address_line2', 'addressLine2']);
+      const daycareCity = getField(daycare, ['city']);
+      const daycareProvince = getField(daycare, ['province', 'region']);
+      const daycarePostal = getField(daycare, ['postal_code', 'postalCode']);
+      const phone1 = getField(daycare, ['phone1', 'phone']);
+      const phone2 = getField(daycare, ['phone2']);
+      const contactName = getField(daycare, ['contact_name', 'contactName']);
+      const contactPhone = getField(daycare, ['contact_phone', 'contactPhone']);
+      const contactEmail = getField(daycare, ['contact_email', 'contactEmail']);
+
+      // Invoice number
+      doc.font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor(colors.muted)
+        .text(`INVOICE #${invoice.invoice_number || invoice.id || ''}`.trim(), left, y);
+      y += 20;
+
+      // Company name
+      doc.font('Times-Roman')
+        .fontSize(32)
+        .fillColor(colors.accent)
+        .text(daycareName, left, y, { width: contentWidth });
+      y += doc.currentLineHeight() + 6;
+
+      // Address
+      doc.font('Helvetica')
+        .fontSize(10)
+        .fillColor(colors.muted);
+      const addressLines = [];
+      if (addressLine1) addressLines.push(addressLine1);
+      if (addressLine2) addressLines.push(addressLine2);
+      const cityLine = [daycareCity, daycareProvince, daycarePostal].filter(Boolean).join(' ');
+      if (cityLine) addressLines.push(cityLine);
+      if (addressLines.length > 0) {
+        const addressText = addressLines.join('\n');
+        doc.text(addressText, left, y, { width: contentWidth, lineGap: 2 });
+        y += doc.heightOfString(addressText, { width: contentWidth, lineGap: 2 }) + 6;
+      }
+
+      // Phones
+      if (phone1 || phone2) {
+        const phones = [phone1, phone2].filter(Boolean).join(' | ');
+        doc.text(phones, left, y);
+        y += 14;
+      }
+      y += 10;
+
+      // Dates
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted);
+      doc.text('INVOICE DATE:', left, y);
+      doc.font('Helvetica').fontSize(10).fillColor(colors.muted);
+      doc.text(formatDate(invoice.invoice_date), left + 90, y);
+      y += 16;
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted);
+      doc.text('DUE DATE:', left, y);
+      doc.font('Helvetica').fontSize(10).fillColor(colors.muted);
+      doc.text(formatDate(invoice.due_date), left + 90, y);
+      y += 18;
+
+      // Bill To / For blocks
+      const blockGap = 40;
+      const blockWidth = (contentWidth - blockGap) / 2;
+      const billToX = left;
+      const forX = left + blockWidth + blockGap;
+      const blockTop = y + 6;
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted);
+      doc.text('BILL TO', billToX, blockTop);
+      doc.text('FOR', forX, blockTop);
+
+      const billToLines = [];
+      const parentName = `${parent.first_name || ''} ${parent.last_name || ''}`.trim();
+      if (parentName) billToLines.push(parentName);
+      if (parent.address_line1) billToLines.push(parent.address_line1);
+      if (parent.address_line2) billToLines.push(parent.address_line2);
+      const parentCityLine = [parent.city, parent.province, parent.postal_code]
+        .filter(Boolean)
+        .join(' ');
+      if (parentCityLine) billToLines.push(parentCityLine);
+      if (parent.phone) billToLines.push(parent.phone);
+
+      doc.font('Helvetica').fontSize(10).fillColor(colors.ink);
+      const billToText = billToLines.join('\n');
+      const billToY = blockTop + 14;
+      doc.text(billToText, billToX, billToY, { width: blockWidth });
+
+      const forLines = [];
+      if (invoice.invoice_number) {
+        forLines.push(`Invoice ${invoice.invoice_number}`);
+      }
+      if (invoice.child_name) {
+        forLines.push(invoice.child_name);
+      }
+      if (invoice.payment_terms) {
+        forLines.push(`Terms: ${invoice.payment_terms}`);
+      }
+      if (invoice.notes) {
+        forLines.push(invoice.notes);
+      }
+      if (forLines.length === 0) {
+        forLines.push('Daycare services');
+      }
+
+      const forText = forLines.join('\n');
+      const forY = blockTop + 14;
+      doc.fillColor(colors.muted).text(forText, forX, forY, { width: blockWidth });
+
+      const billToHeight = doc.heightOfString(billToText || ' ', { width: blockWidth });
+      const forHeight = doc.heightOfString(forText || ' ', { width: blockWidth });
+      y = Math.max(billToY + billToHeight, forY + forHeight) + 12;
+
+      // Table
+      const detailsWidth = Math.round(contentWidth * 0.62);
+      const panelX = left + detailsWidth;
+      const amountWidth = right - panelX;
+      const tableTop = y;
+      const headerHeight = 12;
+      const rowHeight = 22;
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted);
+      doc.text('Details', left + 2, tableTop);
+      doc.text('AMOUNT', panelX + 4, tableTop);
+
+      let items = invoice.line_items;
+      if (typeof items === 'string') {
+        try {
+          items = JSON.parse(items);
+        } catch (error) {
+          items = [];
+        }
+      }
+      if (!Array.isArray(items)) {
+        items = [];
+      }
+      items = items
+        .map((item) => ({
+          description: item.description || item.name || '',
+          amount: item.amount ?? item.total ?? item.value ?? item.line_total
+        }))
+        .filter((item) => item.description || item.amount !== undefined);
+
+      if (items.length === 0) {
+        items = [
+          {
+            description: invoice.child_name ? `Tuition for ${invoice.child_name}` : 'Daycare services',
+            amount: invoice.total_amount ?? invoice.subtotal ?? invoice.balance_due ?? 0
+          }
+        ];
+      }
+
+      const blankRows = 2;
+      const rowCount = items.length + blankRows;
+      const rowsStartY = tableTop + headerHeight;
+      const tableHeight = rowCount * rowHeight;
+
+      // Column panel behind amount
+      doc.save();
+      doc.fillColor(colors.panel, 0.045);
+      doc.rect(panelX, rowsStartY, amountWidth, tableHeight).fill();
+      doc.restore();
+
+      // Row rules
+      doc.save();
+      doc.strokeColor(colors.rule).lineWidth(1);
+      for (let i = 0; i <= rowCount; i += 1) {
+        const lineY = rowsStartY + i * rowHeight;
+        doc.moveTo(left, lineY).lineTo(right, lineY).stroke();
+      }
+      doc.restore();
+
+      // Row text
+      doc.font('Helvetica').fontSize(10).fillColor(colors.ink);
+      items.forEach((item, index) => {
+        const rowY = rowsStartY + index * rowHeight + 8;
+        doc.text(item.description, left + 2, rowY, { width: detailsWidth - 6 });
+        doc.text(formatCurrency(item.amount), panelX + 4, rowY, {
+          width: amountWidth - 4,
+          align: 'left'
+        });
+      });
+
+      y = rowsStartY + tableHeight;
+
+      // Totals panel
+      const totalsX = panelX;
+      const totalsWidth = amountWidth;
+      const totalsRowHeight = 16;
+      const totalsLabelX = left;
+      const totalsLabelWidth = detailsWidth - 12;
+
+      const subtotalValue = invoice?.subtotal ?? invoice.total_amount ?? invoice.balance_due ?? 0;
+      const taxAmount = invoice?.tax_amount ?? 0;
+      const taxRate = invoice?.tax_rate ?? settings?.tax_rate;
+      const totalValue = invoice?.total_amount ?? subtotalValue;
+
+      const totalsRows = [
+        { label: 'SUBTOTAL', value: formatCurrency(subtotalValue) }
+      ];
+
+      if (taxAmount > 0) {
+        const rateLabel = taxRate ? ` (${(Number(taxRate) * 100).toFixed(2)}%)` : '';
+        totalsRows.push({ label: `TAX${rateLabel}`, value: formatCurrency(taxAmount) });
+      } else {
+        totalsRows.push({ label: 'OTHER', value: formatCurrency(0) });
+      }
+
+      totalsRows.push({ label: 'TOTAL', value: formatCurrency(totalValue), isTotal: true });
+
+      const totalsHeight = totalsRows.length * totalsRowHeight + 10;
+      doc.save();
+      doc.fillColor(colors.panel, 0.045);
+      doc.rect(totalsX, y, totalsWidth, totalsHeight).fill();
+      doc.restore();
+
+      const isPaid =
+        String(invoice.status || '').toUpperCase() === 'PAID' ||
+        Number(invoice.balance_due) === 0;
+      const statusText = isPaid ? 'PAID' : 'UNPAID';
+      const statusColor = isPaid ? colors.paid : colors.unpaid;
+
+      let totalsY = y + 6;
+      totalsRows.forEach((row) => {
+        doc.font('Helvetica').fontSize(9).fillColor(colors.muted);
+        doc.text(row.label, totalsLabelX, totalsY, {
+          width: totalsLabelWidth,
+          align: 'right'
+        });
+        doc.font('Helvetica').fontSize(9).fillColor(colors.ink);
+        doc.text(row.value, totalsX + 4, totalsY, { align: 'left' });
+
+        if (row.isTotal) {
+          const valueX = totalsX + 4;
+          const valueWidth = doc.widthOfString(row.value, { fontSize: 9, font: 'Helvetica' });
+          doc.font('Helvetica')
+            .fontSize(9)
+            .fillColor(statusColor)
+            .text(statusText, valueX + valueWidth + 8, totalsY);
+        }
+
+        totalsY += totalsRowHeight;
+      });
+
+      y += totalsHeight + 26;
+
+      if (y + 60 > pageHeight - bottom) {
+        doc.addPage({ size: 'LETTER', margin: 0 });
+        y = top;
+      }
+
+      // Footer
+      doc.font('Helvetica').fontSize(9).fillColor(colors.muted);
+      doc.text(
+        'If you have any questions concerning this invoice, use the following contact information:',
+        left,
+        y,
+        { width: contentWidth }
+      );
+      y += 16;
+
+      if (contactName || contactPhone || contactEmail) {
+        const contactLine = [
+          contactName,
+          contactPhone ? `(${contactPhone})` : null,
+          contactEmail
+        ]
+          .filter(Boolean)
+          .join(' ');
+        doc.font('Helvetica').fontSize(9).fillColor(colors.muted);
+        doc.text(contactLine, left, y, { width: contentWidth });
+        y += 16;
+      }
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted);
+      doc.text('THANK YOU FOR YOUR BUSINESS!', left, y);
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generatePaystub, generateReceipt, generateInvoice };

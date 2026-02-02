@@ -6,6 +6,7 @@ The Kubernetes manifests are organized into separate folders for better manageme
 
 ```
 k8s/
+|- namespace.yaml               # Namespace for all resources
 |- secrets/
 |  `- daycare-secrets.yaml        # Passwords, JWT, encryption key
 |- storage/
@@ -22,7 +23,10 @@ k8s/
 |  `- daycare-ingress.yaml        # Traefik Ingress
 |- jobs/
 |  `- db-migration.yaml           # Database migration job
-|- legacy/                        # Old manifests (not applied)
+|- scripts/                       # Utility scripts (admin, backups)
+|  |- create-admin.sh             # Create an admin user
+|  |- backup-db.sh                # Encrypted database backup
+|  `- restore-db.sh               # Restore from encrypted backup
 |- deploy.sh                      # Full deployment automation
 |- apply-all.sh                   # Quick apply all
 |- delete-all.sh                  # Clean up all resources
@@ -30,11 +34,11 @@ k8s/
 `- STRUCTURE.md                   # This file
 ```
 
-Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
+Note: Namespace names must be lowercase in Kubernetes; this project uses `littlesparrows`.
 
 ## Key Changes from Original
 
-1. **No namespace** - Removed all `namespace: daycare` lines
+1. **Namespace isolation** - All resources live in the `littlesparrows` namespace
 2. **Organized folders** - Separated by resource type
 3. **Cleaner secrets** - Added encryption key and safer defaults
 4. **Helper scripts** - Added apply-all and delete-all
@@ -53,8 +57,8 @@ Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
 ./delete-all.sh
 
 # Apply specific component
-kubectl apply -f secrets/
-kubectl apply -f deployments/backend.yaml
+kubectl -n littlesparrows apply -f secrets/
+kubectl -n littlesparrows apply -f deployments/backend.yaml
 ```
 
 ## Important: Update Before Deploying
@@ -77,13 +81,14 @@ kubectl apply -f deployments/backend.yaml
 
 ## Deployment Order (if doing manually)
 
-1. secrets/
-2. storage/
-3. deployments/postgres.yaml + services/postgres-service.yaml
-4. Wait for postgres ready
-5. jobs/db-migration.yaml
-6. deployments/backend.yaml + services/backend-service.yaml
-7. deployments/frontend.yaml + services/frontend-service.yaml
-8. ingress/
+1. namespace.yaml
+2. secrets/
+3. storage/
+4. deployments/postgres.yaml + services/postgres-service.yaml
+5. Wait for postgres ready
+6. jobs/db-migration.yaml
+7. deployments/backend.yaml + services/backend-service.yaml
+8. deployments/frontend.yaml + services/frontend-service.yaml
+9. ingress/
 
 Or just use `./deploy.sh` - it handles the order automatically!

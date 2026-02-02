@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { MetricCard } from '../components/DashboardWidgets';
 import { BaseModal } from '../components/modals/BaseModal';
-import { DollarSign, Clock, AlertCircle, Download, Send, Wallet } from 'lucide-react';
+import { DollarSign, Clock, AlertCircle, Download, Send } from 'lucide-react';
 import api from '../utils/api';
-import { buildPdfFileName } from '../utils/fileName';
 import { CreateInvoiceModal } from '../components/modals/CreateInvoiceModal';
 
 export function BillingPage() {
   const [invoices, setInvoices] = useState([]);
-  const [parents, setParents] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     pending: 0,
@@ -18,29 +15,10 @@ export function BillingPage() {
   });
   const [loading, setLoading] = useState(true);
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [showClosedInvoices, setShowClosedInvoices] = useState(false);
-  const [isEditInvoiceOpen, setIsEditInvoiceOpen] = useState(false);
   const [isDeleteInvoiceOpen, setIsDeleteInvoiceOpen] = useState(false);
-  const [selectedInvoiceForEdit, setSelectedInvoiceForEdit] = useState(null);
   const [selectedInvoiceForDelete, setSelectedInvoiceForDelete] = useState(null);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [paymentForm, setPaymentForm] = useState({
-    parentId: '',
-    invoiceId: '',
-    amount: '',
-    paymentDate: new Date().toISOString().split('T')[0],
-    paymentMethod: '',
-    notes: '',
-  });
-  const [currentPaymentsPage, setCurrentPaymentsPage] = useState(1);
-  const paymentsPerPage = 10;
-  const [invoiceEditForm, setInvoiceEditForm] = useState({
-    due_date: '',
-    status: 'DRAFT',
-    notes: '',
-    payment_terms: '',
-  });
+  const [openInvoiceSort, setOpenInvoiceSort] = useState({ key: 'invoice_date', direction: 'desc' });
+  const [closedInvoiceSort, setClosedInvoiceSort] = useState({ key: 'invoice_date', direction: 'desc' });
 
   useEffect(() => {
     loadBillingData();
@@ -49,15 +27,11 @@ export function BillingPage() {
   const loadBillingData = async () => {
     try {
       setLoading(true);
-      const [invoicesResponse, parentsResponse, paymentsResponse] = await Promise.all([
+      const [invoicesResponse] = await Promise.all([
         api.get('/invoices'),
-        api.get('/parents'),
-        api.get('/parents/payments'),
       ]);
       const invoicesData = invoicesResponse.data.invoices || [];
       setInvoices(invoicesData);
-      setParents(parentsResponse.data.parents || []);
-      setPayments(paymentsResponse.data.payments || []);
 
       // Calculate stats
       const currentMonth = new Date().getMonth();
@@ -92,98 +66,6 @@ export function BillingPage() {
     }
   };
 
-  const resetPaymentForm = () => {
-    setPaymentForm({
-      parentId: '',
-      invoiceId: '',
-      amount: '',
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: '',
-      notes: '',
-    });
-  };
-
-  const openPaymentModal = (invoice = null) => {
-    if (invoice) {
-      setSelectedInvoice(invoice);
-      setPaymentForm({
-        parentId: invoice.parent_id ? String(invoice.parent_id) : '',
-        invoiceId: invoice.id ? String(invoice.id) : '',
-        amount: invoice.balance_due ? String(invoice.balance_due) : '',
-        paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethod: 'E-Transfer',
-        notes: 'Manual payment entry',
-      });
-    } else {
-      setSelectedInvoice(null);
-      resetPaymentForm();
-    }
-    setIsPaymentModalOpen(true);
-  };
-
-  const handlePaymentInvoiceChange = (invoiceId) => {
-    const selected = invoices.find((inv) => inv.id === parseInt(invoiceId, 10));
-    if (selected) {
-      setPaymentForm({
-        ...paymentForm,
-        invoiceId,
-        amount: selected.balance_due || '',
-      });
-    } else {
-      setPaymentForm({ ...paymentForm, invoiceId, amount: '' });
-    }
-  };
-
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        ...paymentForm,
-        status: 'PAID',
-      };
-      await api.post('/parents/payments', payload);
-
-      setIsPaymentModalOpen(false);
-      setSelectedInvoice(null);
-      resetPaymentForm();
-      loadBillingData();
-    } catch (error) {
-      console.error('Failed to record payment:', error);
-      alert(error.response?.data?.error || 'Failed to record payment');
-    }
-  };
-
-  const openEditInvoiceModal = (invoice) => {
-    setSelectedInvoiceForEdit(invoice);
-    setInvoiceEditForm({
-      due_date: invoice.due_date ? invoice.due_date.split('T')[0] : '',
-      status: invoice.status || 'DRAFT',
-      notes: invoice.notes || '',
-      payment_terms: invoice.payment_terms || '',
-    });
-    setIsEditInvoiceOpen(true);
-  };
-
-  const handleEditInvoiceSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedInvoiceForEdit) return;
-
-    if (['PAID', 'PARTIAL'].includes(invoiceEditForm.status)) {
-      alert('Record a payment to mark an invoice as paid or partial.');
-      return;
-    }
-
-    try {
-      await api.patch(`/invoices/${selectedInvoiceForEdit.id}`, invoiceEditForm);
-      setIsEditInvoiceOpen(false);
-      setSelectedInvoiceForEdit(null);
-      loadBillingData();
-    } catch (error) {
-      console.error('Failed to update invoice:', error);
-      alert(error.response?.data?.error || 'Failed to update invoice');
-    }
-  };
-
   const openDeleteInvoiceModal = (invoice) => {
     setSelectedInvoiceForDelete(invoice);
     setIsDeleteInvoiceOpen(true);
@@ -202,47 +84,15 @@ export function BillingPage() {
     }
   };
 
-  const downloadInvoice = async (invoice) => {
+  const openInvoicePdf = async (invoice) => {
     try {
-      const response = await api.get(`/invoices/${invoice.id}/pdf`, {
-        responseType: 'blob',
-      });
-
-      const childName = [invoice.child_first_name, invoice.child_last_name].filter(Boolean).join(' ').trim();
-      const nameFallback = invoice.parent_name || childName || 'Unknown';
-      const filename = buildPdfFileName('Invoice', invoice.invoice_date || invoice.due_date, childName || nameFallback);
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const response = await api.post(`/invoices/${invoice.id}/pdf-link`);
+      if (response.data?.url) {
+        window.open(response.data.url, '_blank', 'noopener,noreferrer');
+      }
     } catch (error) {
-      console.error('Failed to download invoice:', error);
-      alert(error.response?.data?.error || 'Failed to download invoice');
-    }
-  };
-
-  const handleMarkPaymentCompleted = async (paymentId) => {
-    try {
-      await api.patch(`/parents/payments/${paymentId}`, { status: 'PAID' });
-      await api.post(`/documents/parent-payments/${paymentId}/generate-receipt`);
-      loadBillingData();
-    } catch (error) {
-      console.error('Failed to mark payment completed:', error);
-      alert(error.response?.data?.error || 'Failed to mark payment completed');
-    }
-  };
-
-  const downloadReceipt = async (payment) => {
-    try {
-      await api.post(`/documents/parent-payments/${payment.id}/generate-receipt`);
-      const response = await api.post(`/documents/parent-payments/${payment.id}/receipt-link`);
-      window.open(response.data.url, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Failed to download receipt:', error);
-      alert(error.response?.data?.error || 'Failed to download receipt');
+      console.error('Failed to open invoice PDF:', error);
+      alert(error.response?.data?.error || 'Failed to open invoice PDF');
     }
   };
 
@@ -252,24 +102,6 @@ export function BillingPage() {
     { backgroundColor: 'var(--card-3)', color: 'var(--card-text-3)' },
     { backgroundColor: 'var(--card-4)', color: 'var(--card-text-4)' },
   ];
-
-  const getPaymentStatusBadge = (status) => {
-    const styles = {
-      PAID: cardStyles[1],
-      PENDING: cardStyles[2],
-    };
-    const style = styles[status] || { backgroundColor: 'var(--background)', color: 'var(--muted)' };
-    return (
-      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full" style={style}>
-        {status}
-      </span>
-    );
-  };
-
-  const indexOfLastPayment = currentPaymentsPage * paymentsPerPage;
-  const indexOfFirstPayment = indexOfLastPayment - paymentsPerPage;
-  const currentPayments = payments.slice(indexOfFirstPayment, indexOfLastPayment);
-  const totalPaymentPages = Math.ceil(payments.length / paymentsPerPage);
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -287,9 +119,76 @@ export function BillingPage() {
     );
   };
 
+  const getInvoiceFamilyLabel = (invoice) => {
+    if (invoice.family_name) return invoice.family_name;
+    const lastName = invoice.parent_last_name || (invoice.parent_name ? invoice.parent_name.split(' ').slice(-1)[0] : '');
+    if (lastName) return `${lastName} Family`;
+    return invoice.parent_name || 'Family';
+  };
+
+  const handleInvoiceSort = (setter, key) => {
+    setter((prev) => {
+      const isSameKey = prev.key === key;
+      const nextDirection = isSameKey
+        ? (prev.direction === 'asc' ? 'desc' : 'asc')
+        : (key === 'invoice_date' ? 'desc' : 'asc');
+      return { key, direction: nextDirection };
+    });
+  };
+
+  const getInvoiceSortValue = (invoice, key) => {
+    switch (key) {
+      case 'invoice_number':
+        return (invoice.invoice_number || '').toString().toLowerCase();
+      case 'family':
+        return getInvoiceFamilyLabel(invoice).toLowerCase();
+      case 'invoice_date':
+        return new Date(invoice.invoice_date).getTime();
+      case 'total_amount':
+        return parseFloat(invoice.total_amount || 0);
+      case 'balance_due':
+        return parseFloat(invoice.balance_due || 0);
+      case 'status':
+        return (invoice.status || '').toString().toLowerCase();
+      default:
+        return '';
+    }
+  };
+
+  const sortInvoices = (list, sortConfig) => {
+    const direction = sortConfig.direction === 'asc' ? 1 : -1;
+    const key = sortConfig.key;
+    return [...list].sort((a, b) => {
+      const valueA = getInvoiceSortValue(a, key);
+      const valueB = getInvoiceSortValue(b, key);
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return (valueA - valueB) * direction;
+      }
+      return String(valueA).localeCompare(String(valueB)) * direction;
+    });
+  };
+
+  const renderInvoiceHeader = (label, key, sortConfig, setSort) => {
+    const isActive = sortConfig.key === key;
+    const indicator = isActive ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '';
+    return (
+      <button
+        type="button"
+        onClick={() => handleInvoiceSort(setSort, key)}
+        className="inline-flex items-center gap-1 text-left"
+      >
+        <span>{label}</span>
+        <span className="text-[10px] text-stone-400">{indicator}</span>
+      </button>
+    );
+  };
+
+  const openInvoices = sortInvoices(invoices.filter((invoice) => invoice.status !== 'PAID'), openInvoiceSort);
+  const closedInvoices = sortInvoices(invoices.filter((invoice) => invoice.status === 'PAID'), closedInvoiceSort);
+
   if (loading) {
     return (
-      <Layout title="Billing & Invoices" subtitle="Manage payments and financial records">
+      <Layout title="Billing & Invoices" subtitle="Manage invoices and billing records">
         <div className="flex items-center justify-center h-64">
           <div className="text-stone-500">Loading...</div>
         </div>
@@ -298,7 +197,7 @@ export function BillingPage() {
   }
 
   return (
-    <Layout title="Billing & Invoices" subtitle="Manage payments and financial records">
+    <Layout title="Billing & Invoices" subtitle="Manage invoices and billing records">
       {/* Financial Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <MetricCard
@@ -328,41 +227,26 @@ export function BillingPage() {
       <div className="themed-surface rounded-3xl overflow-hidden">
         <div className="p-6 border-b themed-border flex flex-wrap justify-between items-center gap-3">
           <h3 className="font-quicksand font-bold text-xl text-stone-800">
-            Recent Invoices
+            Open Invoices
           </h3>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowClosedInvoices(!showClosedInvoices)}
-              className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium text-sm themed-hover transition-colors"
-            >
-              {showClosedInvoices ? 'Hide Closed' : 'Show Closed'}
-            </button>
-            <button
-              onClick={() => openPaymentModal()}
-              className="px-4 py-2 rounded-xl font-medium text-sm themed-hover transition-colors flex items-center gap-2"
-              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
-            >
-              <Wallet size={16} /> Record Payment
-            </button>
-            <button
-              className="px-4 py-2 rounded-xl font-medium text-sm themed-hover transition-colors flex items-center gap-2"
-              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors"
             >
               <Download size={16} /> Export
             </button>
             <button
               onClick={() => setIsCreateInvoiceOpen(true)}
-              className="px-4 py-2 rounded-xl text-white font-medium text-sm hover:opacity-90 transition-colors shadow-lg flex items-center gap-2"
-              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-2xl font-bold shadow-lg shadow-[0_12px_20px_-12px_var(--menu-shadow)] hover:opacity-90 transition-all hover:scale-105"
             >
               <Send size={16} /> Create Invoice
             </button>
           </div>
         </div>
 
-        {invoices.length === 0 ? (
+        {openInvoices.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-stone-500">No invoices found</p>
+            <p className="text-stone-500">No open invoices found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -370,22 +254,22 @@ export function BillingPage() {
               <thead style={{ backgroundColor: 'var(--background)' }}>
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Invoice #
+                    {renderInvoiceHeader('Invoice #', 'invoice_number', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Parent
+                    {renderInvoiceHeader('Family', 'family', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Date Issued
+                    {renderInvoiceHeader('Date Issued', 'invoice_date', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Amount
+                    {renderInvoiceHeader('Amount', 'total_amount', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Balance Due
+                    {renderInvoiceHeader('Balance Due', 'balance_due', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Status
+                    {renderInvoiceHeader('Status', 'status', openInvoiceSort, setOpenInvoiceSort)}
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                     Actions
@@ -393,18 +277,22 @@ export function BillingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y themed-border">
-                {invoices
-                  .filter((invoice) => (showClosedInvoices ? true : invoice.status !== 'PAID'))
-                  .map((invoice) => (
+                {openInvoices.map((invoice) => (
                   <tr
                     key={invoice.id}
                     className="themed-row transition-colors"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-600">
-                      {invoice.invoice_number}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        type="button"
+                        onClick={() => openInvoicePdf(invoice)}
+                        className="text-[var(--primary-dark)] hover:text-[var(--primary)] font-semibold"
+                      >
+                        {invoice.invoice_number}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
-                      {invoice.parent_name || 'N/A'}
+                      {getInvoiceFamilyLabel(invoice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
                       {new Date(invoice.invoice_date).toLocaleDateString()}
@@ -419,31 +307,9 @@ export function BillingPage() {
                       {getStatusBadge(invoice.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {invoice.status !== 'PAID' && parseFloat(invoice.balance_due || 0) > 0 && (
-                        <button
-                          onClick={() => openPaymentModal(invoice)}
-                          className="mr-4 hover:opacity-80 transition-opacity"
-                          style={{ color: 'var(--primary-dark)' }}
-                        >
-                          Mark Paid
-                        </button>
-                      )}
-                      <button
-                        onClick={() => openEditInvoiceModal(invoice)}
-                        className="mr-4 hover:opacity-80 transition-opacity"
-                        style={{ color: 'var(--primary)' }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => downloadInvoice(invoice)}
-                        className="text-stone-400 hover:text-stone-600 mr-4"
-                      >
-                        Download
-                      </button>
                       <button
                         onClick={() => openDeleteInvoiceModal(invoice)}
-                        className="text-red-500 hover:text-red-600"
+                        className="px-3 py-2 rounded-xl text-xs font-bold text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
                       >
                         Delete
                       </button>
@@ -456,330 +322,88 @@ export function BillingPage() {
         )}
       </div>
 
-      {/* Payment History */}
+      {/* Closed Invoices */}
       <div className="themed-surface rounded-3xl overflow-hidden mt-8">
         <div className="p-6 border-b themed-border">
           <h3 className="font-quicksand font-bold text-xl text-stone-800">
-            Payment History
+            Closed Invoices
           </h3>
         </div>
 
-        {payments.length === 0 ? (
+        {closedInvoices.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-stone-500">No payments recorded</p>
+            <p className="text-stone-500">No closed invoices</p>
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead style={{ backgroundColor: 'var(--background)' }}>
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Parent
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Invoice
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Amount
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Method
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                      Actions
-                    </th>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead style={{ backgroundColor: 'var(--background)' }}>
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Invoice #', 'invoice_number', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Family', 'family', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Date Issued', 'invoice_date', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Amount', 'total_amount', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Balance Due', 'balance_due', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    {renderInvoiceHeader('Status', 'status', closedInvoiceSort, setClosedInvoiceSort)}
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y themed-border">
+                {closedInvoices.map((invoice) => (
+                  <tr key={invoice.id} className="themed-row transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        type="button"
+                        onClick={() => openInvoicePdf(invoice)}
+                        className="text-[var(--primary-dark)] hover:text-[var(--primary)] font-semibold"
+                      >
+                        {invoice.invoice_number}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
+                      {getInvoiceFamilyLabel(invoice)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
+                      {new Date(invoice.invoice_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
+                      ${parseFloat(invoice.total_amount || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
+                      ${parseFloat(invoice.balance_due || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(invoice.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => openDeleteInvoiceModal(invoice)}
+                        className="px-3 py-2 rounded-xl text-xs font-bold text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y themed-border">
-                  {currentPayments.map((payment) => (
-                    <tr key={payment.id} className="themed-row transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
-                        {payment.first_name} {payment.last_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                        {payment.invoice_number || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-800">
-                        ${parseFloat(payment.amount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                        {new Date(payment.payment_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                        {payment.payment_method || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getPaymentStatusBadge(payment.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {payment.status === 'PENDING' ? (
-                          <button
-                            onClick={() => handleMarkPaymentCompleted(payment.id)}
-                            className="hover:opacity-80 transition-opacity"
-                            style={{ color: 'var(--primary-dark)' }}
-                          >
-                            Mark Completed
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => downloadReceipt(payment)}
-                            className="hover:opacity-80 transition-opacity"
-                            style={{ color: 'var(--primary)' }}
-                          >
-                            Receipt
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {totalPaymentPages > 1 && (
-              <div className="flex items-center justify-center gap-3 p-4">
-                <button
-                  onClick={() => setCurrentPaymentsPage(currentPaymentsPage - 1)}
-                  disabled={currentPaymentsPage === 1}
-                  className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium themed-hover disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-stone-500">
-                  Page {currentPaymentsPage} of {totalPaymentPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPaymentsPage(currentPaymentsPage + 1)}
-                  disabled={currentPaymentsPage === totalPaymentPages}
-                  className="px-4 py-2 rounded-xl border themed-border text-stone-600 font-medium themed-hover disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
-
-      {/* Record Payment Modal */}
-      <BaseModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => {
-          setIsPaymentModalOpen(false);
-          setSelectedInvoice(null);
-          resetPaymentForm();
-        }}
-        title={selectedInvoice ? `Record Payment - ${selectedInvoice.invoice_number}` : 'Record Payment'}
-      >
-        <form onSubmit={handlePaymentSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Parent *
-            </label>
-            <select
-              value={paymentForm.parentId}
-              onChange={(e) => setPaymentForm({ ...paymentForm, parentId: e.target.value, invoiceId: '', amount: '' })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            >
-              <option value="">Select parent</option>
-              {parents.map((parent) => (
-                <option key={parent.id} value={parent.id}>
-                  {parent.first_name} {parent.last_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Invoice (Optional)
-            </label>
-            <select
-              value={paymentForm.invoiceId}
-              onChange={(e) => handlePaymentInvoiceChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            >
-              <option value="">No invoice (general payment)</option>
-              {invoices
-                .filter((inv) => inv.status !== 'PAID' && parseFloat(inv.balance_due || 0) > 0)
-                .filter((inv) => !paymentForm.parentId || inv.parent_id === parseInt(paymentForm.parentId, 10))
-                .map((inv) => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.invoice_number} - ${parseFloat(inv.balance_due || 0).toFixed(2)} due
-                  </option>
-                ))}
-            </select>
-            <p className="text-xs text-stone-500 mt-1">
-              Selecting an invoice will auto-fill the current balance due.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Amount *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={paymentForm.amount}
-              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Payment Date *
-            </label>
-            <input
-              type="date"
-              value={paymentForm.paymentDate}
-              onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Payment Method
-            </label>
-            <select
-              value={paymentForm.paymentMethod}
-              onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            >
-              <option value="">Select method</option>
-              <option value="E-Transfer">E-Transfer</option>
-              <option value="Credit">Credit</option>
-              <option value="Cheque">Cheque</option>
-              <option value="Cash">Cash</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Notes
-            </label>
-            <textarea
-              rows={3}
-              value={paymentForm.notes}
-              onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t themed-border">
-            <button
-              type="button"
-              onClick={() => {
-                setIsPaymentModalOpen(false);
-                setSelectedInvoice(null);
-                resetPaymentForm();
-              }}
-              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
-              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
-            >
-              Record Payment
-            </button>
-          </div>
-        </form>
-      </BaseModal>
-
-      <BaseModal
-        isOpen={isEditInvoiceOpen}
-        onClose={() => {
-          setIsEditInvoiceOpen(false);
-          setSelectedInvoiceForEdit(null);
-        }}
-        title={selectedInvoiceForEdit ? `Edit Invoice ${selectedInvoiceForEdit.invoice_number}` : 'Edit Invoice'}
-      >
-        <form onSubmit={handleEditInvoiceSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={invoiceEditForm.due_date}
-              onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, due_date: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Status
-            </label>
-            <select
-              value={invoiceEditForm.status}
-              onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, status: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="SENT">Sent</option>
-              <option value="PARTIAL" disabled>Partial</option>
-              <option value="PAID" disabled>Paid</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Payment Terms
-            </label>
-            <input
-              type="text"
-              value={invoiceEditForm.payment_terms}
-              onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, payment_terms: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Notes
-            </label>
-            <textarea
-              rows={3}
-              value={invoiceEditForm.notes}
-              onChange={(e) => setInvoiceEditForm({ ...invoiceEditForm, notes: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white resize-none"
-            />
-          </div>
-          <div className="flex gap-3 pt-4 border-t themed-border">
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditInvoiceOpen(false);
-                setSelectedInvoiceForEdit(null);
-              }}
-              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
-              style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
-            >
-              Save Changes
-            </button>
-          </div>
-        </form>
-      </BaseModal>
 
       <BaseModal
         isOpen={isDeleteInvoiceOpen}

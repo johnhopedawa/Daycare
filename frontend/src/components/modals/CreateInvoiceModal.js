@@ -7,6 +7,8 @@ export function CreateInvoiceModal({ isOpen, onClose, onSuccess }) {
   const [families, setFamilies] = useState([]);
   const [formData, setFormData] = useState({
     familyId: '',
+    parentId: '',
+    childId: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     notes: '',
@@ -30,6 +32,58 @@ export function CreateInvoiceModal({ isOpen, onClose, onSuccess }) {
     } catch (error) {
       console.error('Failed to load families:', error);
     }
+  };
+
+  const getFamilyId = (family) => String(family?.family_id ?? family?.id ?? '');
+  const getParentId = (parent) => String(parent?.parent_id ?? parent?.id ?? parent?.parentId ?? '');
+  const getParentLabel = (parent) => {
+    if (!parent) return '';
+    const first = parent.parent_first_name ?? parent.first_name ?? parent.firstName ?? '';
+    const last = parent.parent_last_name ?? parent.last_name ?? parent.lastName ?? '';
+    const name = `${first} ${last}`.trim();
+    return name || parent.parent_email || parent.email || 'Parent';
+  };
+  const getFamilyDisplayName = (family) => {
+    const directName = family?.family_name
+      || family?.parents?.map((parent) => parent.family_name).find(Boolean);
+    if (directName) return directName;
+    const childLastName = family?.children?.[0]?.last_name || family?.children?.[0]?.lastName;
+    if (childLastName) return `${childLastName} Family`;
+    return family?.family_id ? `Family #${family.family_id}` : 'Family';
+  };
+  const getChildLabel = (child) => {
+    if (!child) return '';
+    const first = child.first_name ?? child.firstName ?? '';
+    const last = child.last_name ?? child.lastName ?? '';
+    const name = `${first} ${last}`.trim();
+    return name || 'Child';
+  };
+  const getBillingParent = (family) => {
+    const parents = family?.parents || [];
+    return (
+      parents.find((parent) => parent.has_billing_responsibility)
+      || parents.find((parent) => parent.is_primary_contact)
+      || parents[0]
+      || null
+    );
+  };
+
+  const selectedFamily = families.find((family) => getFamilyId(family) === formData.familyId);
+  const familyParents = selectedFamily?.parents || [];
+  const familyChildren = selectedFamily?.children || [];
+
+  const handleFamilyChange = (familyId) => {
+    const family = families.find((item) => getFamilyId(item) === familyId);
+    const billingParent = getBillingParent(family);
+    const defaultParentId = billingParent ? getParentId(billingParent) : '';
+    const defaultChildId = family?.children?.[0]?.id ? String(family.children[0].id) : '';
+
+    setFormData((prev) => ({
+      ...prev,
+      familyId,
+      parentId: defaultParentId,
+      childId: defaultChildId
+    }));
   };
 
   const addLineItem = () => {
@@ -58,20 +112,41 @@ export function CreateInvoiceModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      const total = calculateTotal();
+      if (!selectedFamily) {
+        setError('Please select a family.');
+        return;
+      }
+
+      const fallbackParent = getBillingParent(selectedFamily);
+      const parentId = formData.parentId || (fallbackParent ? getParentId(fallbackParent) : '');
+      if (!parentId) {
+        setError('Please select a billing parent.');
+        return;
+      }
+
+      const line_items = lineItems.map((item) => {
+        const amount = parseFloat(item.amount) || 0;
+        return {
+          description: item.description,
+          quantity: 1,
+          rate: amount,
+          amount
+        };
+      });
 
       await api.post('/invoices', {
-        family_id: parseInt(formData.familyId),
+        parent_id: parseInt(parentId, 10),
+        child_id: formData.childId ? parseInt(formData.childId, 10) : null,
         invoice_date: formData.invoiceDate,
         due_date: formData.dueDate,
-        total_amount: total,
-        balance_due: total,
-        status: 'SENT',
-        notes: formData.notes,
+        line_items,
+        notes: formData.notes
       });
 
       setFormData({
         familyId: '',
+        parentId: '',
+        childId: '',
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         notes: '',
@@ -104,21 +179,59 @@ export function CreateInvoiceModal({ isOpen, onClose, onSuccess }) {
           </label>
           <select
             value={formData.familyId}
-            onChange={(e) => setFormData({ ...formData, familyId: e.target.value })}
+            onChange={(e) => handleFamilyChange(e.target.value)}
             className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
             required
           >
             <option value="">Select Family...</option>
             {families.map((family) => {
-              const familyName = family.children && family.children.length > 0
-                ? `${family.children[0].last_name} Family`
-                : `Family #${family.family_id}`;
               return (
-                <option key={family.family_id} value={family.family_id}>
-                  {familyName}
+                <option key={family.family_id} value={getFamilyId(family)}>
+                  {getFamilyDisplayName(family)}
                 </option>
               );
             })}
+          </select>
+        </div>
+
+        {/* Billing Parent */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Billing Parent
+          </label>
+          <select
+            value={formData.parentId}
+            onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            required
+            disabled={!selectedFamily}
+          >
+            <option value="">Select Parent...</option>
+            {familyParents.map((parent) => (
+              <option key={getParentId(parent)} value={getParentId(parent)}>
+                {getParentLabel(parent)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Child (Optional) */}
+        <div>
+          <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+            Child (Optional)
+          </label>
+          <select
+            value={formData.childId}
+            onChange={(e) => setFormData({ ...formData, childId: e.target.value })}
+            className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+            disabled={!selectedFamily}
+          >
+            <option value="">No child selected</option>
+            {familyChildren.map((child) => (
+              <option key={child.id} value={child.id}>
+                {getChildLabel(child)}
+              </option>
+            ))}
           </select>
         </div>
 

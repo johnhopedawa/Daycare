@@ -31,6 +31,7 @@ router.get('/', async (req, res) => {
             'parent_last_name', p.last_name,
             'parent_email', p.email,
             'parent_phone', p.phone,
+            'family_name', p.family_name,
             'parent_address_line1', p.address_line1,
             'parent_address_line2', p.address_line2,
             'parent_city', p.city,
@@ -63,8 +64,10 @@ router.get('/', async (req, res) => {
       const familyKey = parentIds || `orphan-${child.child_id}`;
 
       if (!familiesMap.has(familyKey)) {
+        const familyName = (child.parents || []).map(p => p.family_name).find(Boolean) || null;
         familiesMap.set(familyKey, {
           family_id: familyKey,
+          family_name: familyName,
           parents: child.parents || [],
           children: [],
           primary_parent: (child.parents || []).find(p => p.is_primary_contact) || (child.parents || [])[0],
@@ -74,6 +77,12 @@ router.get('/', async (req, res) => {
       }
 
       const family = familiesMap.get(familyKey);
+      if (!family.family_name) {
+        const familyName = (child.parents || []).map(p => p.family_name).find(Boolean) || null;
+        if (familyName) {
+          family.family_name = familyName;
+        }
+      }
       family.children.push({
         id: child.child_id,
         first_name: child.child_first_name,
@@ -134,6 +143,8 @@ router.post('/', async (req, res) => {
       allergies,
       medical_notes,
       notes,
+      familyName,
+      family_name,
       emergency_contact_name,
       emergency_contact_phone,
       emergency_contact_relationship
@@ -153,6 +164,8 @@ router.post('/', async (req, res) => {
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
     const passwords = [];
     const parentIds = [];
+
+    const resolvedFamilyName = familyName || family_name || null;
 
     // Create Parent 1
     const existingUser1 = await client.query(
@@ -177,9 +190,9 @@ router.post('/', async (req, res) => {
     const parentResult1 = await client.query(
       `INSERT INTO parents (
         first_name, last_name, email, phone, notes, user_id,
-        address_line1, address_line2, city, province, postal_code
+        address_line1, address_line2, city, province, postal_code, family_name
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         parent1FirstName,
@@ -192,7 +205,8 @@ router.post('/', async (req, res) => {
         address_line2 || null,
         city || null,
         province || null,
-        postal_code || null
+        postal_code || null,
+        resolvedFamilyName
       ]
     );
 
@@ -223,9 +237,9 @@ router.post('/', async (req, res) => {
       const parentResult2 = await client.query(
         `INSERT INTO parents (
           first_name, last_name, email, phone, notes, user_id,
-          address_line1, address_line2, city, province, postal_code
+          address_line1, address_line2, city, province, postal_code, family_name
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING *`,
         [
           parent2FirstName,
@@ -238,7 +252,8 @@ router.post('/', async (req, res) => {
           address_line2 || null,
           city || null,
           province || null,
-          postal_code || null
+          postal_code || null,
+          resolvedFamilyName
         ]
       );
 
@@ -315,7 +330,8 @@ router.post('/', async (req, res) => {
     res.json({
       message: 'Family created successfully',
       passwords: passwords,
-      child: child
+      child: child,
+      parentIds: parentIds
     });
   } catch (error) {
     await client.query('ROLLBACK');

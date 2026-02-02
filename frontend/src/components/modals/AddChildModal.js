@@ -157,9 +157,13 @@ export function AddChildModal({ isOpen, onClose, onSuccess }) {
           >
             <option value="">Select Family...</option>
             {families.map((family) => {
-              const familyName = family.children && family.children.length > 0
-                ? `${family.children[0].last_name} Family`
-                : `Family #${family.family_id}`;
+              const customName = family.family_name
+                || family.parents?.map((parent) => parent.family_name).find(Boolean);
+              const childLastName = family.children && family.children.length > 0
+                ? family.children[0].last_name
+                : '';
+              const familyName = customName
+                || (childLastName ? `${childLastName} Family` : `Family #${family.family_id}`);
               return (
                 <option key={family.family_id} value={family.family_id}>
                   {familyName}
