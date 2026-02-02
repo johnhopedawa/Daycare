@@ -48,3 +48,6 @@ PRIVACY POLICY.HTML
 Privacy Policy.pdf
 SIMPLEFIN_FIREFLY_IMPLEMENTATION_PLAN.md
 TBD/
+
+# k8s secrets (local only)
+k8s/secrets/dockerhub-credentials.yaml

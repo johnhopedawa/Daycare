@@ -13,8 +13,6 @@ spec:
         image: johnhopedawa/daycare-backend:latest
         command: ["npm", "run", "migrate"]
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -30,5 +28,7 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: postgres-db
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
       restartPolicy: OnFailure
   backoffLimit: 3

@@ -22,8 +22,6 @@ spec:
         ports:
         - containerPort: 5000
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -39,6 +37,8 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: postgres-db
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
