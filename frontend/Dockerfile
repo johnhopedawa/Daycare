@@ -1,12 +1,18 @@
+# syntax=docker/dockerfile:1.6
 FROM node:18-alpine as build
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 COPY . .
+
+ARG GENERATE_SOURCEMAP=false
+ENV GENERATE_SOURCEMAP=${GENERATE_SOURCEMAP}
+ENV NODE_OPTIONS=--max_old_space_size=4096
 
 RUN npm run build
 
