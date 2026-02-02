@@ -6,6 +6,8 @@ metadata:
 spec:
   template:
     spec:
+      imagePullSecrets:
+      - name: dockerhub-credentials
       containers:
       - name: migrate
         image: localhost:5000/daycare-backend:latest

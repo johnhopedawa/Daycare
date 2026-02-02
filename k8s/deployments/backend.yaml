@@ -13,6 +13,8 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+      - name: dockerhub-credentials
       containers:
       - name: backend
         image: localhost:5000/daycare-backend:latest

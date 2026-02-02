@@ -129,6 +129,18 @@ Generate an encryption key (required for SimpleFIN/Firefly integration):
 ```bash
 openssl rand -hex 32
 ```
+
+### Private Registry Pull Secret (Docker Hub)
+
+If your Docker Hub repos are private, create a pull secret in the cluster and
+ensure it is named `dockerhub-credentials` in the `littlesparrows` namespace:
+
+```bash
+kubectl -n littlesparrows create secret docker-registry dockerhub-credentials \
+  --docker-username="$DOCKERHUB_USERNAME" \
+  --docker-password="$DOCKERHUB_TOKEN" \
+  --docker-email="you@example.com"
+```
 ### Update CORS Origin (IMPORTANT!)
 
 Edit `deployments/backend.yaml` and set `FRONTEND_URL` to your real domain:
