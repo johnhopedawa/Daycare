@@ -51,6 +51,8 @@ spec:
               key: encryption-key
         - name: FRONTEND_URL
           value: "https://littlesparrowsacademy.com"
+        - name: ALLOWED_ORIGINS
+          value: "https://littlesparrowsacademy.com,http://littlesparrowsacademy.com"
         - name: NODE_ENV
           value: "production"
         - name: PORT
