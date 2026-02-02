@@ -11,6 +11,19 @@ NAMESPACE="littlesparrows"
 echo "Applying all Kubernetes manifests..."
 
 kubectl apply -f "$K8S_DIR/namespace.yaml"
+
+CF_CERT="$K8S_DIR/secrets/cf-origin.crt"
+CF_KEY="$K8S_DIR/secrets/cf-origin.key"
+if [[ -f "$CF_CERT" && -f "$CF_KEY" ]]; then
+  echo "Applying Cloudflare origin TLS secret..."
+  kubectl -n "$NAMESPACE" create secret tls cloudflare-origin-tls \
+    --cert="$CF_CERT" \
+    --key="$CF_KEY" \
+    --dry-run=client -o yaml | kubectl apply -f -
+else
+  echo "Cloudflare origin cert/key not found; skipping TLS secret."
+fi
+
 kubectl apply -f "$K8S_DIR/secrets/"
 kubectl apply -f "$K8S_DIR/storage/"
 
