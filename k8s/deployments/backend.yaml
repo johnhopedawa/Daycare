@@ -17,7 +17,7 @@ spec:
       - name: dockerhub-credentials
       containers:
       - name: backend
-        image: localhost:5000/daycare-backend:latest
+        image: johnhopedawa/daycare-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000

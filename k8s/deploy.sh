@@ -8,9 +8,9 @@ echo "=========================================="
 echo ""
 
 # Configuration
-REGISTRY=${REGISTRY:-"localhost:5000"}
-BACKEND_IMAGE="$REGISTRY/daycare-backend:latest"
-FRONTEND_IMAGE="$REGISTRY/daycare-frontend:latest"
+DOCKERHUB_USER=${DOCKERHUB_USER:-"johnhopedawa"}
+BACKEND_IMAGE="$DOCKERHUB_USER/daycare-backend:latest"
+FRONTEND_IMAGE="$DOCKERHUB_USER/daycare-frontend:latest"
 K8S_DIR="$(cd "$(dirname "$0")" && pwd)"
 NAMESPACE="littlesparrows"
 
@@ -37,7 +37,7 @@ if [ "$SKIP_BUILD" = false ]; then
     docker build -t $FRONTEND_IMAGE ./frontend
 
     echo ""
-    echo "Pushing images to registry..."
+    echo "Pushing images to Docker Hub..."
     docker push $BACKEND_IMAGE
     docker push $FRONTEND_IMAGE
 

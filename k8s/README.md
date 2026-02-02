@@ -23,7 +23,7 @@ k8s/
 
 - k3s cluster running
 - kubectl configured
-- Docker registry accessible (default: localhost:5000)
+- Docker Hub accessible (default: johnhopedawa)
 - Domain DNS pointing to your cluster IP
 - Namespace `littlesparrows` (lowercase required by Kubernetes) will be created by the scripts
 
@@ -78,18 +78,15 @@ kubectl -n littlesparrows apply -f services/postgres-service.yaml
 
 The images need to be accessible to your k3s cluster. Options:
 
-### Option A: Local Registry
+### Option A: Docker Hub (recommended)
 
 ```bash
-# Start a local registry if you don't have one
-docker run -d -p 5000:5000 --restart=always --name registry registry:2
-
 # Build and push
 cd ..
-docker build -t localhost:5000/daycare-backend:latest ./backend
-docker build -t localhost:5000/daycare-frontend:latest ./frontend
-docker push localhost:5000/daycare-backend:latest
-docker push localhost:5000/daycare-frontend:latest
+docker build -t johnhopedawa/daycare-backend:latest ./backend
+docker build -t johnhopedawa/daycare-frontend:latest ./frontend
+docker push johnhopedawa/daycare-backend:latest
+docker push johnhopedawa/daycare-frontend:latest
 ```
 
 ### Option B: Import to k3s Directly
@@ -103,7 +100,7 @@ docker build -t daycare-frontend:latest ./frontend
 docker save daycare-backend:latest | sudo k3s ctr images import -
 docker save daycare-frontend:latest | sudo k3s ctr images import -
 
-# Update deployments to use local images (remove registry prefix)
+# Update deployments to use local images (remove Docker Hub prefix)
 ```
 
 ## Configuration
@@ -236,10 +233,10 @@ createAdmin();
 ```bash
 # Rebuild images
 cd ..
-docker build -t localhost:5000/daycare-backend:latest ./backend
-docker build -t localhost:5000/daycare-frontend:latest ./frontend
-docker push localhost:5000/daycare-backend:latest
-docker push localhost:5000/daycare-frontend:latest
+docker build -t johnhopedawa/daycare-backend:latest ./backend
+docker build -t johnhopedawa/daycare-frontend:latest ./frontend
+docker push johnhopedawa/daycare-backend:latest
+docker push johnhopedawa/daycare-frontend:latest
 
 # Restart deployments to pull new images
 kubectl -n littlesparrows rollout restart deployment/backend
