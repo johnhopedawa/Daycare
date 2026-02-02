@@ -5,10 +5,18 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
+  ingressClassName: traefik
   rules:
-  - host: sistersdomain.com
+  - host: littlesparrowsacademy.com
     http:
       paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 5000
       - path: /
         pathType: Prefix
         backend:

@@ -41,10 +41,33 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: jwt-secret
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: encryption-key
+        - name: FRONTEND_URL
+          value: "https://littlesparrowsacademy.com"
         - name: NODE_ENV
           value: "production"
         - name: PORT
           value: "5000"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         resources:
           requests:
             memory: "256Mi"

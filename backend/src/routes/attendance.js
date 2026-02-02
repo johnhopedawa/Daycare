@@ -4,9 +4,36 @@ const pool = require('../db/pool');
 const { requireAuth, requireAdmin, requireStaff } = require('../middleware/auth');
 const { getOwnerId } = require('../utils/owner');
 
+const requireScheduledStaff = async (req, res, next) => {
+  if (req.user?.role === 'ADMIN') {
+    return next();
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT 1
+       FROM schedules
+       WHERE user_id = $1
+         AND shift_date = CURRENT_DATE
+         AND status IN ('ACCEPTED', 'PENDING')
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: 'Attendance access requires a scheduled shift today' });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Attendance schedule check error:', error);
+    return res.status(500).json({ error: 'Failed to validate attendance access' });
+  }
+};
+
 // GET /api/attendance
 // Get attendance records with filters
-router.get('/', requireAuth, requireStaff, async (req, res) => {
+router.get('/', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
   try {
     const { child_id, start_date, end_date, status } = req.query;
 
@@ -62,7 +89,7 @@ router.get('/', requireAuth, requireStaff, async (req, res) => {
 
 // GET /api/attendance/today
 // Get today's attendance
-router.get('/today', requireAuth, requireStaff, async (req, res) => {
+router.get('/today', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
   try {
     const ownerId = getOwnerId(req.user);
     const result = await pool.query(
@@ -87,7 +114,7 @@ router.get('/today', requireAuth, requireStaff, async (req, res) => {
 
 // POST /api/attendance/check-in
 // Check in a child (supports custom attendance_date for historical entries)
-router.post('/check-in', requireAuth, requireStaff, async (req, res) => {
+router.post('/check-in', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
   try {
     const { child_id, parent_name, notes, check_in_time, attendance_date } = req.body;
     const checkInTime = check_in_time || new Date().toTimeString().split(' ')[0];
@@ -144,7 +171,7 @@ router.post('/check-in', requireAuth, requireStaff, async (req, res) => {
 
 // POST /api/attendance/check-out
 // Check out a child (supports custom attendance_date for historical entries)
-router.post('/check-out', requireAuth, requireStaff, async (req, res) => {
+router.post('/check-out', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
   try {
     const { child_id, parent_name, notes, check_out_time, attendance_date } = req.body;
     const checkOutTime = check_out_time || new Date().toTimeString().split(' ')[0];
@@ -185,7 +212,7 @@ router.post('/check-out', requireAuth, requireStaff, async (req, res) => {
 
 // POST /api/attendance/mark-absent
 // Mark a child as absent (or SICK/VACATION)
-router.post('/mark-absent', requireAuth, requireStaff, async (req, res) => {
+router.post('/mark-absent', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
   try {
     const { child_id, attendance_date, status, notes } = req.body;
     const attendanceDate = attendance_date || null; // null will use CURRENT_DATE in SQL

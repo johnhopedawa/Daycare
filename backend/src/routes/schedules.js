@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { createAppNotification } = require('../utils/appNotifications');
 
 const router = express.Router();
 
@@ -323,8 +324,8 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
 
     const hours = schedule.rows[0].hours;
 
-    // Calculate days to deduct (8 hours = 1 day)
-    const daysToDeduct = hours / 8;
+    // Deduct hours directly from balances
+    const hoursToDeduct = hours;
 
     // Update schedule
     const result = await client.query(
@@ -340,12 +341,12 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
     if (declineType === 'SICK_DAY') {
       await client.query(
         'UPDATE users SET sick_days_remaining = sick_days_remaining - $1 WHERE id = $2',
-        [daysToDeduct, req.user.id]
+        [hoursToDeduct, req.user.id]
       );
     } else if (declineType === 'VACATION_DAY') {
       await client.query(
         'UPDATE users SET vacation_days_remaining = vacation_days_remaining - $1 WHERE id = $2',
-        [daysToDeduct, req.user.id]
+        [hoursToDeduct, req.user.id]
       );
     }
 
@@ -356,6 +357,15 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
     );
 
     await client.query('COMMIT');
+
+    await createAppNotification({
+      recipientId: schedule.rows[0].created_by,
+      type: 'SCHEDULE_DECLINED',
+      title: 'Shift declined',
+      message: `${req.user.first_name || 'Staff'} declined a shift on ${schedule.rows[0].shift_date}.`,
+      actionUrl: '/scheduling',
+      metadata: { schedule_id: schedule.rows[0].id, decline_type: declineType }
+    });
 
     res.json({
       schedule: result.rows[0],

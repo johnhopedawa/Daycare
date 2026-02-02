@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth, requireParent } = require('../middleware/auth');
+const { createAppNotification } = require('../utils/appNotifications');
 
 const router = express.Router();
 
@@ -73,6 +74,15 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [req.parent.id, recipientId, subject || 'Message from Parent', message]
     );
+
+    await createAppNotification({
+      recipientId,
+      type: 'NEW_MESSAGE',
+      title: 'New parent message',
+      message: `${req.parent.first_name || 'Parent'} ${req.parent.last_name || ''}: ${subject || 'Message from Parent'}`,
+      actionUrl: '/messages',
+      metadata: { message_id: result.rows[0].id, parent_id: req.parent.id }
+    });
 
     res.json({ message: result.rows[0] });
   } catch (error) {

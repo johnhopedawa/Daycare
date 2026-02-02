@@ -14,6 +14,13 @@ const getReceiptData = async (paymentId, options = {}) => {
   const result = await runner.query(
     `SELECT pp.*, pr.receipt_number,
             p.first_name, p.last_name, p.email, p.phone,
+            p.address_line1, p.address_line2, p.city, p.province, p.postal_code,
+            pi.invoice_number, pi.invoice_date, pi.line_items, pi.subtotal,
+            pi.tax_rate, pi.tax_amount, pi.total_amount, pi.amount_paid,
+            pi.balance_due, pi.status as invoice_status, pi.payment_terms,
+            pi.notes as invoice_notes,
+            ic.first_name as invoice_child_first_name,
+            ic.last_name as invoice_child_last_name,
             COALESCE(
               NULLIF(
                 STRING_AGG(DISTINCT (c.first_name || ' ' || c.last_name), ', '),
@@ -24,10 +31,12 @@ const getReceiptData = async (paymentId, options = {}) => {
      FROM parent_payments pp
      JOIN parents p ON pp.parent_id = p.id
      LEFT JOIN payment_receipts pr ON pr.payment_id = pp.id
+     LEFT JOIN parent_invoices pi ON pp.invoice_id = pi.id
+     LEFT JOIN children ic ON pi.child_id = ic.id
      LEFT JOIN parent_children pc ON p.id = pc.parent_id
      LEFT JOIN children c ON pc.child_id = c.id
      WHERE ${whereClause}
-     GROUP BY pp.id, p.id, pr.receipt_number`,
+     GROUP BY pp.id, p.id, pr.receipt_number, pi.id, ic.id`,
     params
   );
 

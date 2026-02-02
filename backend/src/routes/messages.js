@@ -16,6 +16,36 @@ const getStaffIdsForOwner = async (ownerId) => {
   return staffResult.rows.map(row => row.id);
 };
 
+// Get parent recipients for staff messaging
+router.get('/recipients', async (req, res) => {
+  try {
+    const ownerId = getOwnerId(req.user);
+    const result = await pool.query(
+      `SELECT
+        p.id,
+        p.first_name,
+        p.last_name,
+        p.email,
+        COALESCE(
+          STRING_AGG(DISTINCT (c.first_name || ' ' || c.last_name), ', '),
+          ''
+        ) AS children
+      FROM parents p
+      JOIN parent_children pc ON p.id = pc.parent_id
+      JOIN children c ON pc.child_id = c.id
+      WHERE c.created_by = $1
+      GROUP BY p.id
+      ORDER BY p.last_name, p.first_name`,
+      [ownerId]
+    );
+
+    res.json({ recipients: result.rows });
+  } catch (error) {
+    console.error('Get message recipients error:', error);
+    res.status(500).json({ error: 'Failed to fetch message recipients' });
+  }
+});
+
 // Get recent messages for staff inbox
 router.get('/inbox', async (req, res) => {
   try {
@@ -59,6 +89,31 @@ router.get('/inbox', async (req, res) => {
   } catch (error) {
     console.error('Get inbox error:', error);
     res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+// Get unread count for staff inbox
+router.get('/unread-count', async (req, res) => {
+  try {
+    const ownerId = getOwnerId(req.user);
+    const staffIds = await getStaffIdsForOwner(ownerId);
+
+    if (staffIds.length === 0) {
+      return res.json({ count: 0 });
+    }
+
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM messages
+       WHERE to_user_id = ANY($1::int[])
+         AND is_read = false`,
+      [staffIds]
+    );
+
+    res.json({ count: result.rows[0]?.count || 0 });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({ error: 'Failed to load unread count' });
   }
 });
 

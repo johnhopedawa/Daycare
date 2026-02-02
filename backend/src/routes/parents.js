@@ -7,6 +7,22 @@ const { ensureReceipt } = require('../services/receiptService');
 const { applyCreditPayment } = require('../services/creditService');
 const { queueNotification } = require('../utils/notifications');
 
+const PASSWORD_WORDS = {
+  colors: ['sunset', 'peach', 'mint', 'coral', 'sky', 'lavender', 'sage', 'amber'],
+  fruits: ['apple', 'berry', 'peach', 'kiwi', 'plum', 'mango', 'orange', 'grape'],
+  veggies: ['carrot', 'pepper', 'tomato', 'celery', 'spinach', 'pumpkin', 'cucumber', 'broccoli']
+};
+
+const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
+
+const generateTempPassword = () => {
+  const wordLists = [PASSWORD_WORDS.colors, PASSWORD_WORDS.fruits, PASSWORD_WORDS.veggies];
+  const first = pickRandom(wordLists[Math.floor(Math.random() * wordLists.length)]);
+  const second = pickRandom(wordLists[Math.floor(Math.random() * wordLists.length)]);
+  const number = Math.floor(100 + Math.random() * 900);
+  return `${first}-${second}${number}`;
+};
+
 const router = express.Router();
 
 // All routes require admin
@@ -292,7 +308,19 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, phone, notes, isActive } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      notes,
+      isActive,
+      address_line1,
+      address_line2,
+      city,
+      province,
+      postal_code
+    } = req.body;
 
     const updates = [];
     const params = [];
@@ -325,6 +353,31 @@ router.patch('/:id', async (req, res) => {
     if (isActive !== undefined) {
       params.push(isActive);
       updates.push(`is_active = $${params.length}`);
+    }
+
+    if (address_line1 !== undefined) {
+      params.push(address_line1);
+      updates.push(`address_line1 = $${params.length}`);
+    }
+
+    if (address_line2 !== undefined) {
+      params.push(address_line2);
+      updates.push(`address_line2 = $${params.length}`);
+    }
+
+    if (city !== undefined) {
+      params.push(city);
+      updates.push(`city = $${params.length}`);
+    }
+
+    if (province !== undefined) {
+      params.push(province);
+      updates.push(`province = $${params.length}`);
+    }
+
+    if (postal_code !== undefined) {
+      params.push(postal_code);
+      updates.push(`postal_code = $${params.length}`);
     }
 
     if (updates.length === 0) {
@@ -407,6 +460,47 @@ router.post('/:id/password-reset', async (req, res) => {
   } catch (error) {
     console.error('Send password reset error:', error);
     res.status(500).json({ error: 'Failed to generate password reset link' });
+  }
+});
+
+// Admin: generate temp password for parent account
+router.post('/:id/temp-password', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const parentResult = await pool.query(
+      'SELECT id, user_id, first_name, last_name FROM parents WHERE id = $1',
+      [id]
+    );
+
+    if (parentResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    const parent = parentResult.rows[0];
+    if (!parent.user_id) {
+      return res.status(400).json({ error: 'Parent does not have login access' });
+    }
+
+    const tempPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1,
+           must_reset_password = true,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [passwordHash, parent.user_id]
+    );
+
+    res.json({
+      message: 'Temporary password generated',
+      temp_password: tempPassword
+    });
+  } catch (error) {
+    console.error('Temp password error:', error);
+    res.status(500).json({ error: 'Failed to generate temporary password' });
   }
 });
 

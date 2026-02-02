@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
 import { DollarSign, Download } from 'lucide-react';
 import api from '../utils/api';
 import { BaseModal } from '../components/modals/BaseModal';
@@ -181,10 +180,7 @@ export function PaymentsPage() {
           </button>
         </div>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <section
         >
           <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
             Payment History
@@ -260,12 +256,9 @@ export function PaymentsPage() {
               </div>
             </div>
           )}
-        </motion.section>
+        </section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <section
         >
           <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
             Invoices
@@ -321,7 +314,7 @@ export function PaymentsPage() {
               </div>
             </div>
           )}
-        </motion.section>
+        </section>
       </div>
 
       <BaseModal
@@ -485,3 +478,4 @@ export function PaymentsPage() {
     </Layout>
   );
 }
+

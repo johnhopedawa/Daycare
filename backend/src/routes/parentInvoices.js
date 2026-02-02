@@ -4,6 +4,7 @@ const { requireAuth, requireParent } = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
 const { generatePdfToken } = require('../utils/jwt');
 const { generateReceipt } = require('../services/pdfGenerator');
+const { getDaycareSettings } = require('../services/settingsService');
 const { ensureReceipt, getReceiptData } = require('../services/receiptService');
 
 const router = express.Router();
@@ -279,7 +280,9 @@ router.get('/payments/:id/receipt-pdf', async (req, res) => {
       amount: data.amount,
       payment_date: data.payment_date,
       payment_method: data.payment_method,
-      notes: data.notes
+      notes: data.notes,
+      status: data.status,
+      invoice_id: data.invoice_id
     };
 
     const parent = {
@@ -287,13 +290,81 @@ router.get('/payments/:id/receipt-pdf', async (req, res) => {
       last_name: data.last_name,
       email: data.email,
       phone: data.phone,
-      child_names: data.child_names
+      child_names: data.child_names,
+      address_line1: data.address_line1,
+      address_line2: data.address_line2,
+      city: data.city,
+      province: data.province,
+      postal_code: data.postal_code
+    };
+
+    let lineItems = data.line_items;
+    if (typeof lineItems === 'string') {
+      try {
+        lineItems = JSON.parse(lineItems);
+      } catch (error) {
+        lineItems = [];
+      }
+    }
+    if (!Array.isArray(lineItems)) {
+      lineItems = [];
+    }
+
+    const invoice = data.invoice_number
+      ? {
+          invoice_number: data.invoice_number,
+          invoice_date: data.invoice_date,
+          line_items: lineItems,
+          subtotal: data.subtotal,
+          tax_rate: data.tax_rate,
+          tax_amount: data.tax_amount,
+          total_amount: data.total_amount,
+          amount_paid: data.amount_paid,
+          balance_due: data.balance_due,
+          status: data.invoice_status,
+          payment_terms: data.payment_terms,
+          notes: data.invoice_notes,
+          child_name: [data.invoice_child_first_name, data.invoice_child_last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+        }
+      : null;
+
+    const settings = await getDaycareSettings(pool);
+    const daycare = {
+      name:
+        settings.daycare_name ||
+        settings.name ||
+        process.env.DAYCARE_NAME ||
+        'Daycare Management System',
+      address_line1: settings.address_line1 || process.env.DAYCARE_ADDRESS_LINE1,
+      address_line2: settings.address_line2 || process.env.DAYCARE_ADDRESS_LINE2,
+      city: settings.city || process.env.DAYCARE_CITY,
+      province: settings.province || process.env.DAYCARE_PROVINCE,
+      postal_code: settings.postal_code || process.env.DAYCARE_POSTAL_CODE,
+      phone1: settings.phone1 || process.env.DAYCARE_PHONE1,
+      phone2: settings.phone2 || process.env.DAYCARE_PHONE2,
+      contact_name: settings.contact_name || process.env.DAYCARE_CONTACT_NAME,
+      contact_phone: settings.contact_phone || process.env.DAYCARE_CONTACT_PHONE,
+      contact_email: settings.contact_email || process.env.DAYCARE_CONTACT_EMAIL,
+      signature_name:
+        settings.signature_name ||
+        process.env.DAYCARE_SIGNATURE_NAME ||
+        settings.contact_name ||
+        process.env.DAYCARE_CONTACT_NAME,
+      signature_image: settings.signature_image,
+      signature_mode: settings.signature_mode
     };
 
     const childName = data.child_names || `${data.first_name} ${data.last_name}`.trim();
     const filename = `Receipt_${formatYearMonth(data.payment_date)}_${sanitizeFileNamePart(childName)}.pdf`;
 
-    const pdfBuffer = await generateReceipt(payment, parent);
+    const pdfBuffer = await generateReceipt(payment, parent, {
+      invoice,
+      settings,
+      daycare
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);

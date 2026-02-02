@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
 import { Calendar, DollarSign, Users, CheckCircle, Clock, Download, Plus } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
@@ -170,11 +169,8 @@ export function PayPeriodsPage() {
       ) : (
         <div className="space-y-6">
           {payPeriods.map((period, i) => (
-            <motion.div
+            <div
               key={period.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
               className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
@@ -265,7 +261,7 @@ export function PayPeriodsPage() {
                   <p className="text-sm text-stone-600">{period.notes}</p>
                 </div>
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
@@ -484,3 +480,4 @@ export function PayPeriodsPage() {
     </Layout>
   );
 }
+

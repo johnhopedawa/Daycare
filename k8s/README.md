@@ -17,6 +17,8 @@ k8s/
 └── delete-all.sh     # Delete all resources
 ```
 
+Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
+
 ## Prerequisites
 
 - k3s cluster running
@@ -45,7 +47,7 @@ This will:
 ```bash
 # 1. Update secrets first!
 nano secrets/daycare-secrets.yaml
-# Change postgres-password and jwt-secret
+# Change postgres-password, jwt-secret, and encryption-key
 
 # 2. Apply all manifests
 ./apply-all.sh
@@ -114,11 +116,24 @@ stringData:
   postgres-password: YOUR_STRONG_PASSWORD_HERE
   postgres-db: daycare
   jwt-secret: YOUR_LONG_RANDOM_STRING_HERE
+  encryption-key: YOUR_64_HEX_CHAR_KEY
 ```
 
 Generate a strong JWT secret:
 ```bash
 openssl rand -base64 32
+```
+Generate an encryption key (required for SimpleFIN/Firefly integration):
+```bash
+openssl rand -hex 32
+```
+### Update CORS Origin (IMPORTANT!)
+
+Edit `deployments/backend.yaml` and set `FRONTEND_URL` to your real domain:
+
+```yaml
+- name: FRONTEND_URL
+  value: "https://littlesparrowsacademy.com"
 ```
 
 ### Update Ingress Domain
@@ -128,8 +143,14 @@ Edit `ingress/daycare-ingress.yaml` and change the host:
 ```yaml
 spec:
   rules:
-  - host: your-actual-domain.com  # Change this
+  - host: littlesparrowsacademy.com
 ```
+The ingress routes `/api` to the backend and `/` to the frontend.
+
+### Frontend API URL (Build Time)
+
+The frontend uses `REACT_APP_API_URL` at build time. If you deploy behind ingress,
+set it to `https://littlesparrowsacademy.com/api` when building the frontend image.
 
 ## Verification
 
@@ -155,7 +176,7 @@ kubectl get ingress
 Once deployed:
 
 1. **Via Ingress** (if DNS configured):
-   - http://your-domain.com
+   - http://littlesparrowsacademy.com
 
 2. **Via Port Forward** (for testing):
    ```bash
@@ -319,3 +340,5 @@ kubectl scale deployment/backend --replicas=3
 kubectl delete -f deployments/backend.yaml
 kubectl apply -f deployments/backend.yaml
 ```
+
+

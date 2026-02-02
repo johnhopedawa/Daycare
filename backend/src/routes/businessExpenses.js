@@ -81,6 +81,51 @@ function normalizeTransactionDate(value) {
   return parsed.toISOString().split('T')[0];
 }
 
+function parseSimplefinNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeSimplefinDate(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+  if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    const ms = num < 1e12 ? num * 1000 : num;
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+}
+
+function normalizeBalanceForAccountType(value, accountType) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (accountType === 'credit') {
+    return Math.abs(value);
+  }
+  return value;
+}
+
+function extractCreditLimit(account) {
+  return parseSimplefinNumber(
+    account['credit-limit']
+    || account.credit_limit
+    || account.creditLimit
+    || account.creditLimitAmount
+    || account.limit
+  );
+}
+
 function normalizeDateParam(value) {
   if (!value) {
     return null;
@@ -572,21 +617,33 @@ router.post('/simplefin/claim', async (req, res) => {
               if (typeof value === 'number') {
                 return String(value);
               }
-              try {
-                return JSON.stringify(value);
-              } catch (error) {
-                return String(value);
-              }
+              return '';
             };
 
             const rawName = account.name || account.nickname || account.account_name || '';
             const name = toSafeString(rawName);
-            const institution = toSafeString(account.institution?.name || account.institution || account.org);
+            const org = account.org || account.institution || null;
+            const institution = org
+              ? toSafeString(org.name || org.domain || org['sfin-url'] || org)
+              : '';
             const type = toSafeString(account.type || account.account_type);
+            const currency = toSafeString(account.currency);
             const rawNumber = account.account || account.number || account.account_number || account.accountNumber || '';
             const digits = String(rawNumber).replace(/\D/g, '');
             const masked = digits.length >= 4 ? `****${digits.slice(-4)}` : '';
-            const displayName = [name, institution, type, masked].filter(Boolean).join(' • ') || account.id;
+            const balance = parseSimplefinNumber(account.balance);
+            const availableBalance = parseSimplefinNumber(
+              account['available-balance'] || account.available_balance || account.availableBalance
+            );
+            const balanceDate = normalizeSimplefinDate(
+              account['balance-date'] || account.balance_date || account.balanceDate
+            );
+            const availableBalanceDate = normalizeSimplefinDate(
+              account['available-balance-date']
+              || account.available_balance_date
+              || account.availableBalanceDate
+            ) || balanceDate;
+            const displayName = [name, institution, type, masked, currency].filter(Boolean).join(' | ') || account.id;
 
             return {
               id: account.id,
@@ -594,6 +651,11 @@ router.post('/simplefin/claim', async (req, res) => {
               institution: institution || null,
               type: type || null,
               maskedAccount: masked || null,
+              currency: currency || null,
+              balance,
+              availableBalance,
+              balanceDate,
+              availableBalanceDate,
               displayName
             };
           })
@@ -624,6 +686,34 @@ router.post('/simplefin/claim', async (req, res) => {
     console.log(`[BusinessExpenses] Firefly account created: ${fireflyAccount.id}`);
 
     const normalizedAccountType = ACCOUNT_TYPES.has(accountType) ? accountType : 'credit';
+    const openingBalance = normalizeBalanceForAccountType(
+      parseSimplefinNumber(simplefinAccount.balance),
+      normalizedAccountType
+    );
+    const openingBalanceDate = normalizeSimplefinDate(
+      simplefinAccount['balance-date'] || simplefinAccount.balance_date || simplefinAccount.balanceDate
+    );
+    const currentBalance = normalizeBalanceForAccountType(
+      parseSimplefinNumber(simplefinAccount.balance),
+      normalizedAccountType
+    );
+    const currentBalanceDate = openingBalanceDate;
+    const availableBalance = normalizeBalanceForAccountType(
+      parseSimplefinNumber(
+        simplefinAccount['available-balance']
+        || simplefinAccount.available_balance
+        || simplefinAccount.availableBalance
+      ),
+      normalizedAccountType
+    );
+    const availableBalanceDate = normalizeSimplefinDate(
+      simplefinAccount['available-balance-date']
+      || simplefinAccount.available_balance_date
+      || simplefinAccount.availableBalanceDate
+    ) || openingBalanceDate;
+    const creditLimit = normalizedAccountType === 'credit'
+      ? normalizeBalanceForAccountType(extractCreditLimit(simplefinAccount), normalizedAccountType)
+      : null;
 
     // Step 4: Store encrypted Access URL in database
     const encryptedAccessUrl = encrypt(accessUrl);
@@ -631,10 +721,27 @@ router.post('/simplefin/claim', async (req, res) => {
     try {
       const result = await pool.query(
         `INSERT INTO simplefin_connections
-         (user_id, access_url, account_name, simplefin_account_id, firefly_account_id, is_active, account_type)
-         VALUES ($1, $2, $3, $4, $5, true, $6)
-         RETURNING id, account_name, created_at`,
-        [req.user.id, encryptedAccessUrl, accountName, simplefinAccount.id, fireflyAccount.id, normalizedAccountType]
+         (user_id, access_url, account_name, simplefin_account_id, firefly_account_id, is_active, account_type,
+          opening_balance, opening_balance_date, balance, balance_date,
+          available_balance, available_balance_date, credit_limit)
+         VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9, $10, $11, $12, $13)
+         RETURNING id, account_name, created_at, opening_balance, opening_balance_date,
+                   balance, balance_date, available_balance, available_balance_date, credit_limit`,
+        [
+          req.user.id,
+          encryptedAccessUrl,
+          accountName,
+          simplefinAccount.id,
+          fireflyAccount.id,
+          normalizedAccountType,
+          openingBalance,
+          openingBalanceDate,
+          currentBalance,
+          currentBalanceDate,
+          availableBalance,
+          availableBalanceDate,
+          creditLimit
+        ]
       );
 
       const connection = result.rows[0];
@@ -673,9 +780,12 @@ router.get('/connections', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, account_name, last_sync_at, is_active, created_at, updated_at,
-              account_type, opening_balance, opening_balance_date
+              account_type, opening_balance, opening_balance_date,
+              balance, balance_date,
+              available_balance, available_balance_date, credit_limit
        FROM simplefin_connections
        WHERE user_id = $1
+         AND is_active = true
        ORDER BY created_at DESC`,
       [req.user.id]
     );
@@ -700,9 +810,11 @@ router.get('/connections/:id', async (req, res) => {
 
     const result = await pool.query(
       `SELECT id, account_name, last_sync_at, is_active, created_at, updated_at,
-              account_type, opening_balance, opening_balance_date
+              account_type, opening_balance, opening_balance_date,
+              balance, balance_date,
+              available_balance, available_balance_date, credit_limit
        FROM simplefin_connections
-       WHERE id = $1 AND user_id = $2`,
+       WHERE id = $1 AND user_id = $2 AND is_active = true`,
       [id, req.user.id]
     );
 
@@ -773,6 +885,20 @@ router.patch('/connections/:id', async (req, res) => {
       updates.push(`opening_balance_date = $${values.length}`);
     }
 
+    if (req.body.creditLimit !== undefined) {
+      const rawLimit = req.body.creditLimit;
+      let creditLimit = null;
+      if (rawLimit !== null && rawLimit !== '') {
+        const parsedLimit = Number.parseFloat(rawLimit);
+        if (!Number.isFinite(parsedLimit)) {
+          return res.status(400).json({ error: 'Credit limit must be a number' });
+        }
+        creditLimit = Math.abs(parsedLimit);
+      }
+      values.push(creditLimit);
+      updates.push(`credit_limit = $${values.length}`);
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No updates provided' });
     }
@@ -785,7 +911,8 @@ router.patch('/connections/:id', async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $${values.length - 1} AND user_id = $${values.length}
        RETURNING id, account_name, last_sync_at, is_active, created_at, updated_at,
-                 account_type, opening_balance, opening_balance_date`,
+                 account_type, opening_balance, opening_balance_date,
+                 balance, balance_date, available_balance, available_balance_date, credit_limit`,
       values
     );
 
@@ -802,16 +929,20 @@ router.patch('/connections/:id', async (req, res) => {
 
 /**
  * DELETE /api/business-expenses/connections/:id
- * Disconnect a business card
+ * Disconnect a business card (soft disconnect).
+ * Optional query: deleteHistory=true to clear sync history.
  *
  * Returns: { message }
  */
 router.delete('/connections/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const deleteHistory = ['1', 'true', 'yes'].includes(String(req.query.deleteHistory || '').toLowerCase());
 
     const result = await pool.query(
-      `DELETE FROM simplefin_connections
+      `UPDATE simplefin_connections
+       SET is_active = false,
+           updated_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND user_id = $2
        RETURNING id, account_name`,
       [id, req.user.id]
@@ -821,9 +952,26 @@ router.delete('/connections/:id', async (req, res) => {
       return res.status(404).json({ error: 'Connection not found' });
     }
 
-    console.log(`[BusinessExpenses] Connection deleted: ${result.rows[0].account_name}`);
+    if (deleteHistory) {
+      await pool.query(
+        'DELETE FROM transaction_sync_log WHERE connection_id = $1',
+        [id]
+      );
+      await pool.query(
+        'UPDATE simplefin_connections SET last_sync_at = NULL WHERE id = $1 AND user_id = $2',
+        [id, req.user.id]
+      );
+    }
 
-    res.json({ message: 'Connection disconnected successfully' });
+    console.log(
+      `[BusinessExpenses] Connection disconnected: ${result.rows[0].account_name} (history ${deleteHistory ? 'cleared' : 'kept'})`
+    );
+
+    res.json({
+      message: deleteHistory
+        ? 'Connection disconnected. Saved transactions removed.'
+        : 'Connection disconnected successfully'
+    });
   } catch (error) {
     console.error('[BusinessExpenses] Delete connection error:', error);
     res.status(500).json({ error: 'Failed to disconnect' });
@@ -843,6 +991,8 @@ router.delete('/connections/:id', async (req, res) => {
 router.post('/sync/:connectionId', async (req, res) => {
   try {
     const { connectionId } = req.params;
+    const debug = req.query.debug === '1' || req.query.debug === 'true' || req.body?.debug === true;
+    const force = req.query.force === '1' || req.query.force === 'true' || req.body?.force === true;
 
     // Verify ownership
     const check = await pool.query(
@@ -874,7 +1024,7 @@ router.post('/sync/:connectionId', async (req, res) => {
     // Import sync service here to avoid circular dependencies
     const syncService = require('../services/syncService');
 
-    const result = await syncService.syncConnection(parseInt(connectionId));
+    const result = await syncService.syncConnection(parseInt(connectionId, 10), { debug, force });
     const updatedSyncLimit = await getSyncLimitStatus(req.user.id);
 
     res.json({
@@ -882,11 +1032,33 @@ router.post('/sync/:connectionId', async (req, res) => {
       imported: result.imported,
       skipped: result.skipped,
       total: result.total,
-      syncLimit: updatedSyncLimit
+      syncLimit: updatedSyncLimit,
+      ...(debug ? { debug: result.debug || null } : {})
     });
   } catch (error) {
     console.error('[BusinessExpenses] Manual sync error:', error);
     res.status(500).json({ error: error.message || 'Sync failed' });
+  }
+});
+
+/**
+ * POST /api/business-expenses/sync-reset
+ * Reset manual sync attempt counter for current user
+ *
+ * Returns: { message, syncLimit }
+ */
+router.post('/sync-reset', async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM simplefin_sync_attempts WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    const syncLimit = await getSyncLimitStatus(req.user.id);
+    res.json({ message: 'Sync limit reset', syncLimit });
+  } catch (error) {
+    console.error('[BusinessExpenses] Sync reset error:', error);
+    res.status(500).json({ error: 'Failed to reset sync limit' });
   }
 });
 
@@ -926,4 +1098,7 @@ router.get('/status', async (req, res) => {
 });
 
 module.exports = router;
+
+
+
 

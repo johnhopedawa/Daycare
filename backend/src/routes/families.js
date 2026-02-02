@@ -31,6 +31,11 @@ router.get('/', async (req, res) => {
             'parent_last_name', p.last_name,
             'parent_email', p.email,
             'parent_phone', p.phone,
+            'parent_address_line1', p.address_line1,
+            'parent_address_line2', p.address_line2,
+            'parent_city', p.city,
+            'parent_province', p.province,
+            'parent_postal_code', p.postal_code,
             'user_id', p.user_id,
             'is_primary_contact', pc.is_primary_contact,
             'has_billing_responsibility', pc.has_billing_responsibility,
@@ -116,6 +121,11 @@ router.post('/', async (req, res) => {
       parent2LastName,
       parent2Email,
       parent2Phone,
+      address_line1,
+      address_line2,
+      city,
+      province,
+      postal_code,
       childFirstName,
       childLastName,
       childDob,
@@ -165,10 +175,25 @@ router.post('/', async (req, res) => {
     const userId1 = userResult1.rows[0].id;
 
     const parentResult1 = await client.query(
-      `INSERT INTO parents (first_name, last_name, email, phone, notes, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO parents (
+        first_name, last_name, email, phone, notes, user_id,
+        address_line1, address_line2, city, province, postal_code
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [parent1FirstName, parent1LastName, parent1Email, parent1Phone || null, notes || null, userId1]
+      [
+        parent1FirstName,
+        parent1LastName,
+        parent1Email,
+        parent1Phone || null,
+        notes || null,
+        userId1,
+        address_line1 || null,
+        address_line2 || null,
+        city || null,
+        province || null,
+        postal_code || null
+      ]
     );
 
     parentIds.push(parentResult1.rows[0].id);
@@ -196,10 +221,25 @@ router.post('/', async (req, res) => {
       const userId2 = userResult2.rows[0].id;
 
       const parentResult2 = await client.query(
-        `INSERT INTO parents (first_name, last_name, email, phone, notes, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO parents (
+          first_name, last_name, email, phone, notes, user_id,
+          address_line1, address_line2, city, province, postal_code
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
-        [parent2FirstName, parent2LastName, parent2Email, parent2Phone || null, notes || null, userId2]
+        [
+          parent2FirstName,
+          parent2LastName,
+          parent2Email,
+          parent2Phone || null,
+          notes || null,
+          userId2,
+          address_line1 || null,
+          address_line2 || null,
+          city || null,
+          province || null,
+          postal_code || null
+        ]
       );
 
       parentIds.push(parentResult2.rows[0].id);

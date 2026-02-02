@@ -8,7 +8,11 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
     familyName: '',
     parents: [{ id: Date.now(), name: '', email: '', phone: '' }],
     children: [{ id: Date.now(), firstName: '', lastName: '', dateOfBirth: '' }],
-    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    province: '',
+    postalCode: '',
   });
   const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -112,6 +116,11 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
         parent2LastName: parent2NameParts.slice(1).join(' ') || '',
         parent2Email: parent2.email || '',
         parent2Phone: parent2.phone || '',
+        address_line1: formData.addressLine1 || '',
+        address_line2: formData.addressLine2 || '',
+        city: formData.city || '',
+        province: formData.province || '',
+        postal_code: formData.postalCode || '',
         childFirstName: child.firstName || '',
         childLastName: child.lastName || '',
         childDob: child.dateOfBirth || '',
@@ -137,7 +146,11 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
         familyName: '',
         parents: [{ id: Date.now(), name: '', email: '', phone: '' }],
         children: [{ id: Date.now(), firstName: '', lastName: '', dateOfBirth: '' }],
-        address: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        province: '',
+        postalCode: '',
       });
       setEmergencyContacts([]);
 
@@ -387,18 +400,50 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
           <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
             Home Address
           </label>
-          <div className="relative">
-            <MapPin
-              size={18}
-              className="absolute left-3 top-3 text-stone-400"
+          <div className="space-y-3">
+            <div className="relative">
+              <MapPin
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              />
+              <input
+                type="text"
+                placeholder="Address Line 1"
+                value={formData.addressLine1}
+                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Address Line 2"
+              value={formData.addressLine2}
+              onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
             />
-            <textarea
-              placeholder="123 Main Street, City, State 12345"
-              rows={3}
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white resize-none"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <input
+                type="text"
+                placeholder="City"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Province/State"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Postal Code"
+                value={formData.postalCode}
+                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
+              />
+            </div>
           </div>
         </div>
 

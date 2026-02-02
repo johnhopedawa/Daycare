@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bugs-and-fixes>
+  <entry id="2026-01-simplefin-sync-missing-transactions">
+    <date>2026-01-30</date>
+    <summary>SimpleFIN sync appeared to miss transactions in the Finance Transactions page.</summary>
+    <symptoms>
+      <item>Sync Now returned total transactions but imported 0.</item>
+      <item>Transactions visible in bank/Firefly were missing in app.</item>
+      <item>Last synced timestamp was stale.</item>
+      <item>Transaction dates appeared one day ahead for PST users.</item>
+      <item>Unposted estimate and current balance looked off.</item>
+    </symptoms>
+    <root-causes>
+      <cause>Firefly already had the transactions; imports failed as duplicates.</cause>
+      <cause>App fetched only the first page of Firefly transactions (no pagination).</cause>
+      <cause>Transaction dates were formatted in UTC, not local time.</cause>
+      <cause>Current balance was derived from opening balance instead of SimpleFIN balance.</cause>
+    </root-causes>
+    <fixes>
+      <fix>Paginated Firefly transaction fetch to return all pages.</fix>
+      <fix>Preferred SimpleFIN transacted date and formatted using SYNC_TIMEZONE.</fix>
+      <fix>Stored SimpleFIN balance and balance_date to show accurate current balance.</fix>
+      <fix>Added debug panel (password-gated) with force sync and reset sync limit.</fix>
+      <fix>Added /api/time endpoint to verify server time/timezone.</fix>
+    </fixes>
+    <diagnostic-steps>
+      <step>Run Sync Now and inspect response: imported/skipped/total.</step>
+      <step>Run debug sync with force to capture errorSamples.</step>
+      <step>If errors show Firefly duplicates, verify Firefly pagination.</step>
+      <step>Check SYNC_TIMEZONE and compare bank dates to app dates.</step>
+      <step>Verify SimpleFIN balance/available balance in connection JSON.</step>
+    </diagnostic-steps>
+    <notes>
+      <note>Sync Now and the scheduler both use syncService; debug force bypasses local dedupe only.</note>
+      <note>Use force sync only for troubleshooting; Firefly will still block duplicates.</note>
+      <note>Ensure containers restart after SYNC_TIMEZONE changes.</note>
+    </notes>
+  </entry>
+</bugs-and-fixes>

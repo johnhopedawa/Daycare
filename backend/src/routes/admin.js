@@ -144,6 +144,7 @@ router.get('/users', async (req, res) => {
     const { role } = req.query;
 
     let query = `SELECT id, email, first_name, last_name, role, hourly_rate, is_active,
+                 address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                  carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
                  created_at FROM users WHERE created_by = $1`;
@@ -169,6 +170,7 @@ router.post('/users', async (req, res) => {
   try {
     const {
       email, password, firstName, lastName, hourlyRate,
+      addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, carryoverEnabled,
       dateEmployed, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
@@ -188,22 +190,29 @@ router.post('/users', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Parse numeric values
-    const sickDays = parseInt(annualSickDays) || 0;
-    const vacationDays = parseInt(annualVacationDays) || 0;
+    const sickDays = parseFloat(annualSickDays) || 0;
+    const vacationDays = parseFloat(annualVacationDays) || 0;
 
     // Create educator
     const result = await pool.query(
       `INSERT INTO users (
         email, password_hash, first_name, last_name, role, hourly_rate, created_by,
+        address_line1, address_line2, city, province, postal_code,
         annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
         carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
        )
-       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
        RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
+                 address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                  carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
       [
         email, passwordHash, firstName, lastName, hourlyRate || null, req.user.id,
+        addressLine1 || null,
+        addressLine2 || null,
+        city || null,
+        province || null,
+        postalCode || null,
         sickDays, vacationDays, sickDays, vacationDays, // Set remaining equal to annual initially
         carryoverEnabled || false,
         dateEmployed || null,
@@ -229,6 +238,7 @@ router.patch('/users/:id', async (req, res) => {
     const { id } = req.params;
     const {
       firstName, lastName, hourlyRate, isActive,
+      addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, sickDaysRemaining, vacationDaysRemaining,
       carryoverEnabled, dateEmployed, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
@@ -256,13 +266,38 @@ router.patch('/users/:id', async (req, res) => {
       updates.push(`is_active = $${params.length}`);
     }
 
+    if (addressLine1 !== undefined) {
+      params.push(addressLine1 || null);
+      updates.push(`address_line1 = $${params.length}`);
+    }
+
+    if (addressLine2 !== undefined) {
+      params.push(addressLine2 || null);
+      updates.push(`address_line2 = $${params.length}`);
+    }
+
+    if (city !== undefined) {
+      params.push(city || null);
+      updates.push(`city = $${params.length}`);
+    }
+
+    if (province !== undefined) {
+      params.push(province || null);
+      updates.push(`province = $${params.length}`);
+    }
+
+    if (postalCode !== undefined) {
+      params.push(postalCode || null);
+      updates.push(`postal_code = $${params.length}`);
+    }
+
     if (annualSickDays !== undefined) {
-      params.push(parseInt(annualSickDays) || 0);
+      params.push(parseFloat(annualSickDays) || 0);
       updates.push(`annual_sick_days = $${params.length}`);
     }
 
     if (annualVacationDays !== undefined) {
-      params.push(parseInt(annualVacationDays) || 0);
+      params.push(parseFloat(annualVacationDays) || 0);
       updates.push(`annual_vacation_days = $${params.length}`);
     }
 
@@ -326,6 +361,7 @@ router.patch('/users/:id', async (req, res) => {
       SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${params.length}
       RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
+                address_line1, address_line2, city, province, postal_code,
                 annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                 carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
     `;

@@ -177,6 +177,50 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
+// Forced reset for users flagged for password reset
+router.post('/force-reset-password', requireAuth, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const userResult = await pool.query(
+      'SELECT must_reset_password FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!userResult.rows[0].must_reset_password) {
+      return res.status(400).json({ error: 'Password reset is not required' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1,
+           must_reset_password = false,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [passwordHash, req.user.id]
+    );
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Force reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 // Admin reset user password
 router.post('/admin/reset-password', requireAuth, async (req, res) => {
   try {
@@ -263,7 +307,11 @@ router.post('/parent-reset-password', authLimiter, async (req, res) => {
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await pool.query(
-      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      `UPDATE users
+       SET password_hash = $1,
+           must_reset_password = false,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
       [passwordHash, parentResult.rows[0].user_id]
     );
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
-import { Phone, Mail, Users, Plus, DollarSign, Trash2, FileText, Download } from 'lucide-react';
+import { Phone, Mail, Users, Plus, DollarSign, Trash2, FileText, Download, MapPin } from 'lucide-react';
 import { AddFamilyModal } from '../components/modals/AddFamilyModal';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
@@ -30,6 +29,10 @@ export function FamiliesPage() {
   const [filesModalOwner, setFilesModalOwner] = useState(null);
   const [linkedDocuments, setLinkedDocuments] = useState([]);
   const [linkedDocumentsLoading, setLinkedDocumentsLoading] = useState(false);
+  const [tempPassword, setTempPassword] = useState(null);
+  const [tempPasswordParent, setTempPasswordParent] = useState(null);
+  const [tempPasswordLoading, setTempPasswordLoading] = useState(false);
+  const [tempPasswordError, setTempPasswordError] = useState('');
   const [editEmergencyContacts, setEditEmergencyContacts] = useState([]);
   const [editEmergencyContactIds, setEditEmergencyContactIds] = useState([]);
   const [editForm, setEditForm] = useState({
@@ -38,6 +41,11 @@ export function FamiliesPage() {
     parent1LastName: '',
     parent1Email: '',
     parent1Phone: '',
+    parentAddressLine1: '',
+    parentAddressLine2: '',
+    parentCity: '',
+    parentProvince: '',
+    parentPostalCode: '',
     parent2Id: null,
     parent2FirstName: '',
     parent2LastName: '',
@@ -73,6 +81,12 @@ export function FamiliesPage() {
           last_name: parent.parent_last_name ?? parent.last_name ?? '',
           email: parent.parent_email ?? parent.email ?? '',
           phone: parent.parent_phone ?? parent.phone ?? '',
+          address_line1: parent.parent_address_line1 ?? parent.address_line1 ?? '',
+          address_line2: parent.parent_address_line2 ?? parent.address_line2 ?? '',
+          city: parent.parent_city ?? parent.city ?? '',
+          province: parent.parent_province ?? parent.province ?? '',
+          postal_code: parent.parent_postal_code ?? parent.postal_code ?? '',
+          user_id: parent.user_id ?? null,
           is_primary_contact: parent.is_primary_contact,
           has_billing_responsibility: parent.has_billing_responsibility,
           is_active: parent.is_active
@@ -135,6 +149,9 @@ export function FamiliesPage() {
 
   const handleViewProfile = (family) => {
     setSelectedFamily(family);
+    setTempPassword(null);
+    setTempPasswordParent(null);
+    setTempPasswordError('');
 
     // Populate edit form from family data
     const parent1 = family.parents && family.parents.length > 0 ? family.parents[0] : null;
@@ -159,6 +176,11 @@ export function FamiliesPage() {
       parent1LastName: parent1?.last_name || '',
       parent1Email: parent1?.email || '',
       parent1Phone: parent1?.phone || '',
+      parentAddressLine1: parent1?.address_line1 || '',
+      parentAddressLine2: parent1?.address_line2 || '',
+      parentCity: parent1?.city || '',
+      parentProvince: parent1?.province || '',
+      parentPostalCode: parent1?.postal_code || '',
       parent2Id: parent2?.id || null,
       parent2FirstName: parent2?.first_name || '',
       parent2LastName: parent2?.last_name || '',
@@ -257,7 +279,12 @@ export function FamiliesPage() {
           firstName: editForm.parent1FirstName,
           lastName: editForm.parent1LastName,
           email: editForm.parent1Email,
-          phone: editForm.parent1Phone
+          phone: editForm.parent1Phone,
+          address_line1: editForm.parentAddressLine1,
+          address_line2: editForm.parentAddressLine2,
+          city: editForm.parentCity,
+          province: editForm.parentProvince,
+          postal_code: editForm.parentPostalCode
         });
       }
 
@@ -267,7 +294,12 @@ export function FamiliesPage() {
           firstName: editForm.parent2FirstName,
           lastName: editForm.parent2LastName,
           email: editForm.parent2Email,
-          phone: editForm.parent2Phone
+          phone: editForm.parent2Phone,
+          address_line1: editForm.parentAddressLine1,
+          address_line2: editForm.parentAddressLine2,
+          city: editForm.parentCity,
+          province: editForm.parentProvince,
+          postal_code: editForm.parentPostalCode
         });
       }
 
@@ -291,6 +323,9 @@ export function FamiliesPage() {
       setSelectedFamily(null);
       setEditEmergencyContacts([]);
       setEditEmergencyContactIds([]);
+      setTempPassword(null);
+      setTempPasswordParent(null);
+      setTempPasswordError('');
       loadFamilies();
       loadChildrenDirectory();
       loadParentsDirectory();
@@ -545,6 +580,21 @@ export function FamiliesPage() {
     }
   };
 
+  const handleGenerateTempPassword = async (parent) => {
+    if (!parent?.id) return;
+    try {
+      setTempPasswordError('');
+      setTempPasswordLoading(true);
+      const response = await api.post(`/parents/${parent.id}/temp-password`);
+      setTempPassword(response.data.temp_password);
+      setTempPasswordParent(parent);
+    } catch (error) {
+      setTempPasswordError(error.response?.data?.error || 'Failed to generate temporary password');
+    } finally {
+      setTempPasswordLoading(false);
+    }
+  };
+
   return (
     <Layout title="Families" subtitle="Manage family profiles and contacts">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -593,19 +643,8 @@ export function FamiliesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {families.map((family, i) => (
-                <motion.div
+                <div
                   key={family.family_id || family.id || `family-${i}`}
-                  initial={{
-                    opacity: 0,
-                    scale: 0.95,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                  }}
-                  transition={{
-                    delay: i * 0.05,
-                  }}
                   className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -652,6 +691,25 @@ export function FamiliesPage() {
                             <span>{getPrimaryContact(family).phone}</span>
                           </div>
                         )}
+                        {(getPrimaryContact(family).address_line1 ||
+                          getPrimaryContact(family).address_line2 ||
+                          getPrimaryContact(family).city ||
+                          getPrimaryContact(family).province ||
+                          getPrimaryContact(family).postal_code) && (
+                          <div className="flex items-start gap-3 text-stone-500 text-sm">
+                            <MapPin size={16} className="text-[var(--primary)] mt-0.5" />
+                            <span>
+                              {getPrimaryContact(family).address_line1}
+                              {getPrimaryContact(family).address_line2
+                                ? `, ${getPrimaryContact(family).address_line2}`
+                                : ''}
+                              <br />
+                              {[getPrimaryContact(family).city, getPrimaryContact(family).province, getPrimaryContact(family).postal_code]
+                                .filter(Boolean)
+                                .join(' ')}
+                            </span>
+                          </div>
+                        )}
                         {getPrimaryContact(family).email && (
                           <div className="flex items-center gap-3 text-stone-500 text-sm">
                             <Mail size={16} className="text-[var(--primary)]" />
@@ -688,7 +746,7 @@ export function FamiliesPage() {
                       )}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}
@@ -1004,6 +1062,9 @@ export function FamiliesPage() {
           setSelectedFamily(null);
           setEditEmergencyContacts([]);
           setEditEmergencyContactIds([]);
+          setTempPassword(null);
+          setTempPasswordParent(null);
+          setTempPasswordError('');
         }}
         title={`Edit ${selectedFamily ? getFamilyDisplayName(selectedFamily) : 'Family'}`}
       >
@@ -1038,6 +1099,41 @@ export function FamiliesPage() {
                 placeholder="Phone"
                 value={editForm.parent1Phone}
                 onChange={(e) => setEditForm({ ...editForm, parent1Phone: e.target.value })}
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Address Line 1"
+                value={editForm.parentAddressLine1}
+                onChange={(e) => setEditForm({ ...editForm, parentAddressLine1: e.target.value })}
+                className="col-span-2 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Address Line 2"
+                value={editForm.parentAddressLine2}
+                onChange={(e) => setEditForm({ ...editForm, parentAddressLine2: e.target.value })}
+                className="col-span-2 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <input
+                type="text"
+                placeholder="City"
+                value={editForm.parentCity}
+                onChange={(e) => setEditForm({ ...editForm, parentCity: e.target.value })}
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Province/State"
+                value={editForm.parentProvince}
+                onChange={(e) => setEditForm({ ...editForm, parentProvince: e.target.value })}
+                className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <input
+                type="text"
+                placeholder="Postal Code"
+                value={editForm.parentPostalCode}
+                onChange={(e) => setEditForm({ ...editForm, parentPostalCode: e.target.value })}
                 className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
@@ -1077,6 +1173,71 @@ export function FamiliesPage() {
                   className="px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Account Access */}
+          {selectedFamily?.parents?.some((parent) => parent.user_id) && (
+            <div>
+              <h4 className="font-bold text-stone-700 mb-3 font-quicksand">Account Access</h4>
+              {tempPasswordError && (
+                <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+                  {tempPasswordError}
+                </div>
+              )}
+              <div className="space-y-3">
+                {selectedFamily.parents.filter((parent) => parent.user_id).map((parent) => (
+                  <div
+                    key={parent.id}
+                    className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border themed-border bg-white"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-stone-800">
+                        {parent.first_name} {parent.last_name}
+                      </p>
+                      <p className="text-xs text-stone-500">{parent.email || 'No email on file'}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateTempPassword(parent)}
+                      disabled={tempPasswordLoading}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+                      style={{ backgroundColor: 'var(--primary)' }}
+                    >
+                      {tempPasswordLoading && tempPasswordParent?.id === parent.id
+                        ? 'Generating...'
+                        : 'Reset Password'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {tempPassword && tempPasswordParent && (
+                <div className="mt-4 p-4 rounded-2xl border themed-border bg-[var(--background)]">
+                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                    Temporary Password for {tempPasswordParent.first_name}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="px-3 py-2 rounded-xl bg-white border themed-border text-sm font-semibold">
+                      {tempPassword}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator?.clipboard) {
+                          navigator.clipboard.writeText(tempPassword);
+                        }
+                      }}
+                      className="text-xs font-semibold text-stone-500 hover:text-[var(--primary-dark)]"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-2">
+                    The parent will be required to set a new password after logging in.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1355,5 +1516,6 @@ export function FamiliesPage() {
     </Layout>
   );
 }
+
 
 

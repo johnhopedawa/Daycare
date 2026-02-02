@@ -79,6 +79,9 @@ export function DashboardPage() {
   const [invoices, setInvoices] = useState([]);
   const [events, setEvents] = useState([]);
   const [pendingTasks, setPendingTasks] = useState(0);
+  const [pendingNotifications, setPendingNotifications] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingOpen, setPendingOpen] = useState(false);
   const [actionModal, setActionModal] = useState({ type: null, child: null });
   const [actionForm, setActionForm] = useState({
     parentName: '',
@@ -98,11 +101,11 @@ export function DashboardPage() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [childrenRes, attendanceRes, schedulesRes, timeEntriesRes, invoicesRes, eventsRes] = await Promise.all([
+      const [childrenRes, attendanceRes, schedulesRes, notificationsRes, invoicesRes, eventsRes] = await Promise.all([
         api.get('/children?status=ACTIVE'),
         api.get(`/attendance?start_date=${today}&end_date=${today}`),
         api.get(`/schedules/admin/schedules?from=${today}&to=${today}`),
-        api.get('/admin/time-entries?status=PENDING'),
+        api.get('/notifications/unread-count'),
         api.get('/invoices'),
         api.get('/events', { params: { from: today, to: today } }),
       ]);
@@ -111,7 +114,7 @@ export function DashboardPage() {
       setAttendance(attendanceRes.data.attendance || []);
       setSchedules(schedulesRes.data.schedules || []);
       setInvoices(invoicesRes.data.invoices || []);
-      setPendingTasks(timeEntriesRes.data.timeEntries.length || 0);
+      setPendingTasks(notificationsRes.data.count || 0);
       setEvents(eventsRes.data.events || []);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -226,6 +229,20 @@ export function DashboardPage() {
     setActionModal({ type, child });
   };
 
+  const openPendingTasks = async () => {
+    try {
+      setPendingLoading(true);
+      setPendingOpen(true);
+      const response = await api.get('/notifications', { params: { limit: 25 } });
+      const unread = (response.data.notifications || []).filter((item) => !item.is_read);
+      setPendingNotifications(unread);
+    } catch (error) {
+      console.error('Failed to load pending tasks:', error);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
   const closeActionModal = () => {
     setActionModal({ type: null, child: null });
   };
@@ -331,6 +348,7 @@ export function DashboardPage() {
           icon={ClipboardList}
           themeIndex={4}
           delay={0.4}
+          onClick={openPendingTasks}
         />
       </div>
 
@@ -507,7 +525,14 @@ export function DashboardPage() {
           <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="section-title font-quicksand font-bold text-xl">Today's Events</h3>
-              <CalendarCheck size={18} style={{ color: 'var(--primary-dark)' }} />
+              <button
+                onClick={() => navigate('/events')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
+                style={OUTLINE_STYLE}
+              >
+                <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
+                Full Calendar
+              </button>
             </div>
             {events.length === 0 ? (
               <p className="text-xs text-stone-500 italic">No events scheduled for today.</p>
@@ -644,6 +669,42 @@ export function DashboardPage() {
         onClose={() => setIsAddChildOpen(false)}
         onSuccess={loadDashboardData}
       />
+
+      <BaseModal
+        isOpen={pendingOpen}
+        onClose={() => setPendingOpen(false)}
+        title="Pending Tasks"
+      >
+        {pendingLoading ? (
+          <div className="text-sm text-stone-500">Loading tasks...</div>
+        ) : pendingNotifications.length === 0 ? (
+          <div className="text-sm text-stone-500">No pending tasks right now.</div>
+        ) : (
+          <div className="space-y-3">
+            {pendingNotifications.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => {
+                  if (task.action_url) {
+                    navigate(task.action_url);
+                    setPendingOpen(false);
+                  }
+                }}
+                className="w-full text-left p-4 rounded-2xl border themed-border hover:bg-[var(--background)] transition-colors"
+              >
+                <p className="text-sm font-semibold text-stone-800">{task.title}</p>
+                {task.message && (
+                  <p className="text-xs text-stone-500 mt-1">{task.message}</p>
+                )}
+                <p className="text-[11px] text-stone-400 mt-2">
+                  {task.created_at ? new Date(task.created_at).toLocaleString() : ''}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </BaseModal>
       <SendMessageModal
         isOpen={isMessageOpen}
         onClose={() => setIsMessageOpen(false)}

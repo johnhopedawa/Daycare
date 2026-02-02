@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
 import { FileText, Download, Upload, Trash2, User, AlertCircle, Bell, ClipboardCheck } from 'lucide-react';
 import api from '../utils/api';
 import { UploadDocumentModal } from '../components/modals/UploadDocumentModal';
@@ -200,10 +199,7 @@ export function PaperworkPage() {
     <Layout title="Paperwork" subtitle="Document management and uploads">
       <div className="space-y-8">
         {/* Upload Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <section
         >
           <button
             onClick={() => setIsUploadOpen(true)}
@@ -223,13 +219,10 @@ export function PaperworkPage() {
               Click to upload or drag and drop files here
             </p>
           </button>
-        </motion.section>
+        </section>
 
         {/* Categories Overview */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <section
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-quicksand font-bold text-xl text-stone-800">
@@ -250,10 +243,7 @@ export function PaperworkPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
+              <div
                 onClick={() => setCategoryFilter('')}
                 className="themed-surface p-5 rounded-2xl transition-transform cursor-pointer"
                 style={{
@@ -264,7 +254,7 @@ export function PaperworkPage() {
                 <div className="mb-2"><FileText size={28} style={{ color: "var(--primary-dark)" }} /></div>
                 <h4 className="font-bold text-stone-800 mb-1">All</h4>
                 <p className="text-stone-500 text-sm">{documents.length} documents</p>
-              </motion.div>
+              </div>
 
               {categories.map((category, i) => {
                 const count = documents.filter(
@@ -274,11 +264,8 @@ export function PaperworkPage() {
                 const Icon = getCategoryIcon(category.name);
                 const categoryStyle = getCategoryStyle(category.name);
                 return (
-                  <motion.div
+                  <div
                     key={category.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.25 + i * 0.05 }}
                     onClick={() => setCategoryFilter(String(category.id))}
                     className="themed-surface p-5 rounded-2xl hover:translate-y-[-2px] transition-transform cursor-pointer"
                     style={{ borderColor: isActive ? 'var(--primary)' : 'var(--border)' }}
@@ -288,18 +275,15 @@ export function PaperworkPage() {
                       {category.name}
                     </h4>
                     <p className="text-stone-500 text-sm">{count} documents</p>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
           )}
-        </motion.section>
+        </section>
 
         {showCategoryManager && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
+          <section
             className="themed-surface rounded-3xl p-6"
           >
             <h3 className="font-quicksand font-bold text-lg text-stone-800 mb-4">
@@ -343,14 +327,11 @@ export function PaperworkPage() {
                 ))}
               </div>
             )}
-          </motion.section>
+          </section>
         )}
 
         {/* Documents List */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+        <section
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
             <h3 className="font-quicksand font-bold text-xl text-stone-800">
@@ -506,7 +487,7 @@ export function PaperworkPage() {
               </div>
             </div>
           )}
-        </motion.section>
+        </section>
       </div>
 
       <UploadDocumentModal
@@ -520,5 +501,6 @@ export function PaperworkPage() {
     </Layout>
   );
 }
+
 
 

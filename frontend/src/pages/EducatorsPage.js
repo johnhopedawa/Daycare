@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
-import { Mail, Phone, UserPlus, Calendar, DollarSign, Briefcase, Trash2, X } from 'lucide-react';
+import { FileText, Phone, UserPlus, Calendar, DollarSign, Briefcase, Trash2, X } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
 
@@ -11,17 +10,23 @@ export function EducatorsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEducator, setSelectedEducator] = useState(null);
+  const [paystubLoadingId, setPaystubLoadingId] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     firstName: '',
     lastName: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    province: '',
+    postalCode: '',
     paymentType: 'HOURLY',
     payFrequency: 'BI_WEEKLY',
     hourlyRate: '',
     salaryAmount: '',
-    annualSickDays: '10',
-    annualVacationDays: '10',
+    annualSickDays: '80',
+    annualVacationDays: '80',
     carryoverEnabled: false,
     dateEmployed: '',
     sin: '',
@@ -77,12 +82,17 @@ export function EducatorsPage() {
         password: '',
         firstName: '',
         lastName: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        province: '',
+        postalCode: '',
         paymentType: 'HOURLY',
         payFrequency: 'BI_WEEKLY',
         hourlyRate: '',
         salaryAmount: '',
-        annualSickDays: '10',
-        annualVacationDays: '10',
+        annualSickDays: '80',
+        annualVacationDays: '80',
         carryoverEnabled: false,
         dateEmployed: '',
         sin: '',
@@ -107,8 +117,13 @@ export function EducatorsPage() {
       payFrequency: educator.pay_frequency || 'BI_WEEKLY',
       hourlyRate: educator.hourly_rate || '',
       salaryAmount: educator.salary_amount || '',
-      annualSickDays: educator.annual_sick_days || 10,
-      annualVacationDays: educator.annual_vacation_days || 10,
+      addressLine1: educator.address_line1 || '',
+      addressLine2: educator.address_line2 || '',
+      city: educator.city || '',
+      province: educator.province || '',
+      postalCode: educator.postal_code || '',
+      annualSickDays: educator.annual_sick_days || 80,
+      annualVacationDays: educator.annual_vacation_days || 80,
       sickDaysRemaining: educator.sick_days_remaining || 0,
       vacationDaysRemaining: educator.vacation_days_remaining || 0,
       carryoverEnabled: educator.carryover_enabled || false,
@@ -163,15 +178,69 @@ export function EducatorsPage() {
     }
   };
 
+  const openPaystub = async (educator) => {
+    if (!educator?.id) {
+      return;
+    }
+    setPaystubLoadingId(educator.id);
+    try {
+      const paystubRes = await api.get('/documents/paystubs', {
+        params: { user_id: educator.id },
+      });
+      let paystubs = paystubRes.data?.paystubs || [];
+
+      if (paystubs.length === 0) {
+        const periodsRes = await api.get('/pay-periods');
+        const periods = (periodsRes.data?.payPeriods || [])
+          .filter((period) => period.status === 'CLOSED')
+          .sort((a, b) => new Date(b.end_date) - new Date(a.end_date));
+
+        for (const period of periods) {
+          const payoutsRes = await api.get(`/pay-periods/${period.id}/payouts`);
+          const payout = (payoutsRes.data?.payouts || []).find(
+            (entry) => entry.user_id === educator.id
+          );
+          if (payout) {
+            await api.post(`/documents/payouts/${payout.id}/generate-paystub`);
+            break;
+          }
+        }
+
+        const refreshedRes = await api.get('/documents/paystubs', {
+          params: { user_id: educator.id },
+        });
+        paystubs = refreshedRes.data?.paystubs || [];
+      }
+
+      let pdfRes;
+      if (paystubs.length === 0) {
+        pdfRes = await api.get('/documents/paystubs/sample', {
+          params: { user_id: educator.id },
+          responseType: 'blob',
+        });
+      } else {
+        const latest = paystubs[0];
+        pdfRes = await api.get(`/documents/paystubs/${latest.id}/pdf`, {
+          responseType: 'blob',
+        });
+      }
+      const pdfUrl = URL.createObjectURL(new Blob([pdfRes.data], { type: 'application/pdf' }));
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000);
+    } catch (error) {
+      console.error('Open paystub error:', error);
+      alert('Failed to open paystub.');
+    } finally {
+      setPaystubLoadingId(null);
+    }
+  };
+
   return (
     <Layout title="Educators" subtitle="Staff profiles and management">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {educators.map((educator, i) => (
-          <motion.div
+          <div
             key={educator.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
             className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border flex flex-col items-center text-center hover:translate-y-[-4px] transition-transform duration-300"
           >
             {/* Avatar */}
@@ -207,22 +276,22 @@ export function EducatorsPage() {
                 </span>
               </div>
 
-              {/* Sick Days */}
+              {/* Sick Hours */}
               <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
                   <Briefcase size={16} />
-                  <span>Sick Days</span>
+                  <span>Sick Hours</span>
                 </div>
                 <span className="font-bold text-stone-700 text-sm">
                   {parseFloat(educator.sick_days_remaining || 0).toFixed(1)} / {educator.annual_sick_days || 0}
                 </span>
               </div>
 
-              {/* Vacation Days */}
+              {/* Vacation Hours */}
               <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
                   <Calendar size={16} />
-                  <span>Vacation Days</span>
+                  <span>Vacation Hours</span>
                 </div>
                 <span className="font-bold text-stone-700 text-sm">
                   {parseFloat(educator.vacation_days_remaining || 0).toFixed(1)} / {educator.annual_vacation_days || 0}
@@ -246,12 +315,15 @@ export function EducatorsPage() {
 
             {/* Actions */}
             <div className="flex gap-2 w-full">
-              <a
-                href={`mailto:${educator.email}`}
-                className="flex-1 py-2 rounded-xl border themed-border text-stone-500 themed-hover hover:text-[var(--primary-dark)] transition-colors flex justify-center"
+              <button
+                type="button"
+                onClick={() => openPaystub(educator)}
+                disabled={paystubLoadingId === educator.id}
+                className="flex-1 py-2 rounded-xl border themed-border text-stone-500 themed-hover hover:text-[var(--primary-dark)] transition-colors flex justify-center disabled:opacity-60"
+                title="View paystub"
               >
-                <Mail size={18} />
-              </a>
+                <FileText size={18} />
+              </button>
               <button
                 onClick={() => toggleActive(educator.id, educator.is_active)}
                 className="flex-1 py-2 rounded-xl border themed-border text-stone-500 themed-hover hover:text-[var(--primary-dark)] transition-colors flex justify-center"
@@ -266,14 +338,11 @@ export function EducatorsPage() {
                 Profile
               </button>
             </div>
-          </motion.div>
+          </div>
         ))}
 
         {/* Add New Card */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: educators.length * 0.1 }}
+        <button
           onClick={() => setShowAddModal(true)}
           className="border-2 border-dashed themed-border rounded-3xl flex flex-col items-center justify-center p-6 text-[var(--primary)] hover:bg-[var(--background)] transition-colors min-h-[300px]"
         >
@@ -284,7 +353,7 @@ export function EducatorsPage() {
             <UserPlus size={32} />
           </div>
           <span className="font-bold font-quicksand text-lg">Add New Educator</span>
-        </motion.button>
+        </button>
       </div>
 
       {/* Add Educator Modal */}
@@ -347,6 +416,65 @@ export function EducatorsPage() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 required
+              />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Address Line 1
+              </label>
+              <input
+                type="text"
+                value={formData.addressLine1}
+                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Address Line 2
+              </label>
+              <input
+                type="text"
+                value={formData.addressLine2}
+                onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                City
+              </label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Province
+              </label>
+              <input
+                type="text"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Postal Code
+              </label>
+              <input
+                type="text"
+                value={formData.postalCode}
+                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
               />
             </div>
           </div>
@@ -419,7 +547,7 @@ export function EducatorsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                Annual Sick Days
+                Annual Sick Hours
               </label>
               <input
                 type="number"
@@ -430,7 +558,7 @@ export function EducatorsPage() {
             </div>
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                Annual Vacation Days
+                Annual Vacation Hours
               </label>
               <input
                 type="number"
@@ -646,13 +774,75 @@ export function EducatorsPage() {
             </div>
           </div>
 
+          {/* Address */}
+          <div className="space-y-4">
+            <h3 className="font-quicksand font-bold text-lg text-stone-800">Address</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  Address Line 1
+                </label>
+                <input
+                  type="text"
+                  value={editForm.addressLine1}
+                  onChange={(e) => setEditForm({ ...editForm, addressLine1: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  Address Line 2
+                </label>
+                <input
+                  type="text"
+                  value={editForm.addressLine2}
+                  onChange={(e) => setEditForm({ ...editForm, addressLine2: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  Province
+                </label>
+                <input
+                  type="text"
+                  value={editForm.province}
+                  onChange={(e) => setEditForm({ ...editForm, province: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  Postal Code
+                </label>
+                <input
+                  type="text"
+                  value={editForm.postalCode}
+                  onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Time Off */}
           <div className="space-y-4">
             <h3 className="font-quicksand font-bold text-lg text-stone-800">Time Off</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Annual Sick Days
+                  Annual Sick Hours
                 </label>
                 <input
                   type="number"
@@ -663,7 +853,7 @@ export function EducatorsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Annual Vacation Days
+                  Annual Vacation Hours
                 </label>
                 <input
                   type="number"
@@ -687,7 +877,7 @@ export function EducatorsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Sick Days Remaining
+                  Sick Hours Remaining
                 </label>
                 <input
                   type="number"
@@ -699,7 +889,7 @@ export function EducatorsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Vacation Days Remaining
+                  Vacation Hours Remaining
                 </label>
                 <input
                   type="number"
@@ -837,4 +1027,5 @@ export function EducatorsPage() {
     </Layout>
   );
 }
+
 

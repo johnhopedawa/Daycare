@@ -428,7 +428,23 @@ async function importTransaction(transaction) {
 
         // Other 422 errors
         console.error('[Firefly] Validation error:', errorData);
-        throw new Error('Transaction validation failed');
+        let detail = '';
+        if (errorData && typeof errorData.message === 'string') {
+          detail = errorData.message.trim();
+        }
+        if (!detail && errorData && typeof errorData.errors === 'object') {
+          const entries = Object.entries(errorData.errors);
+          if (entries.length > 0) {
+            const [field, messages] = entries[0];
+            if (Array.isArray(messages) && messages.length > 0) {
+              detail = `${field}: ${messages[0]}`;
+            } else if (messages) {
+              detail = `${field}: ${messages}`;
+            }
+          }
+        }
+        const suffix = detail ? ` (${detail})` : '';
+        throw new Error(`Transaction validation failed${suffix}`);
       } else if (error.response.status === 401) {
         throw new Error('Firefly III authentication failed');
       } else {
@@ -528,19 +544,56 @@ async function fetchAccountTransactions(accountId, options = {}) {
   if (options.limit) {
     params.limit = options.limit;
   }
-  if (options.page) {
-    params.page = options.page;
-  }
+  const overallLimit = Number.isFinite(Number(options.limit)) ? Number(options.limit) : null;
+  const maxPages = Number.isFinite(Number(options.maxPages))
+    ? Number(options.maxPages)
+    : 100;
+  let page = Number.isFinite(Number(options.page)) ? Number(options.page) : 1;
+
+  const collected = [];
 
   try {
-    const response = await client.get(`/accounts/${accountId}/transactions`, { params });
+    while (true) {
+      params.page = page;
+      const response = await client.get(`/accounts/${accountId}/transactions`, { params });
 
-    if (!response.data || !Array.isArray(response.data.data)) {
-      console.error('[Firefly] Invalid transactions response:', response.data);
-      throw new Error('Invalid response from Firefly III');
+      if (!response.data || !Array.isArray(response.data.data)) {
+        console.error('[Firefly] Invalid transactions response:', response.data);
+        throw new Error('Invalid response from Firefly III');
+      }
+
+      const normalized = normalizeTransactionGroups(response.data.data);
+      collected.push(...normalized);
+
+      if (overallLimit && collected.length >= overallLimit) {
+        return collected.slice(0, overallLimit);
+      }
+
+      const pagination = response.data.meta?.pagination;
+      if (pagination && Number.isFinite(Number(pagination.current_page))) {
+        const currentPage = Number(pagination.current_page);
+        const totalPages = Number.isFinite(Number(pagination.total_pages))
+          ? Number(pagination.total_pages)
+          : currentPage;
+        if (currentPage >= totalPages) {
+          break;
+        }
+        page = currentPage + 1;
+      } else {
+        const pageCount = response.data.data.length;
+        if (pageCount === 0) {
+          break;
+        }
+        page += 1;
+      }
+
+      if (page > maxPages) {
+        console.warn('[Firefly] Pagination limit reached, stopping fetch.');
+        break;
+      }
     }
 
-    return normalizeTransactionGroups(response.data.data);
+    return collected;
   } catch (error) {
     if (error.response) {
       if (error.response.status === 401) {

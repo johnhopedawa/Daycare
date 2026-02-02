@@ -3,7 +3,7 @@ import { Check, Repeat, User } from 'lucide-react';
 import api from '../../utils/api';
 import { DateTimePickerModal } from './DateTimePickerModal';
 
-export function AddShiftModal({ isOpen, onClose, onSuccess }) {
+export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
   const [educators, setEducators] = useState([]);
   const [formData, setFormData] = useState({
     educatorId: '',
@@ -12,7 +12,19 @@ export function AddShiftModal({ isOpen, onClose, onSuccess }) {
     endDate: '',
   });
   const [selection, setSelection] = useState(null);
-  const [selectedDateTime, setSelectedDateTime] = useState(new Date());
+  const resolveInitialDate = () => {
+    if (initialDate instanceof Date && !Number.isNaN(initialDate.getTime())) {
+      return new Date(initialDate);
+    }
+    if (initialDate) {
+      const parsed = new Date(initialDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  };
+  const [selectedDateTime, setSelectedDateTime] = useState(() => resolveInitialDate());
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,9 +33,10 @@ export function AddShiftModal({ isOpen, onClose, onSuccess }) {
 
   useEffect(() => {
     if (isOpen) {
+      resetForm();
       loadEducators();
     }
-  }, [isOpen]);
+  }, [isOpen, initialDate]);
 
   const loadEducators = async () => {
     try {
@@ -82,7 +95,7 @@ export function AddShiftModal({ isOpen, onClose, onSuccess }) {
           const conflictStart = conflict.start_time?.slice(0, 5);
           const conflictEnd = conflict.end_time?.slice(0, 5);
           setConflictMessage(
-            `Conflict: already scheduled ${conflictStart || ''}${conflictEnd ? `–${conflictEnd}` : ''}.`
+            `Conflict: already scheduled ${conflictStart || ''}${conflictEnd ? `-${conflictEnd}` : ''}.`
           );
         } else {
           setConflictMessage('');
@@ -103,7 +116,7 @@ export function AddShiftModal({ isOpen, onClose, onSuccess }) {
       dayOfWeek: '1',
       endDate: '',
     });
-    setSelectedDateTime(new Date());
+    setSelectedDateTime(resolveInitialDate());
     setSelection(null);
     setRepeatEnabled(false);
     setError('');

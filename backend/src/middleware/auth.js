@@ -24,8 +24,9 @@ async function requireAuth(req, res, next) {
     // Fetch full user info from users table
     const result = await pool.query(
       `SELECT id, email, first_name, last_name, role, hourly_rate, is_active,
+              address_line1, address_line2, city, province, postal_code,
               annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-              carryover_enabled, date_employed, created_by
+              carryover_enabled, date_employed, created_by, must_reset_password
        FROM users WHERE id = $1`,
       [decoded.id]
     );

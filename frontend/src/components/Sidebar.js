@@ -22,6 +22,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './modals/ConfirmModal';
+import api from '../utils/api';
 
 const OPERATIONS_DASHBOARD = {
   icon: LayoutDashboard,
@@ -37,6 +39,7 @@ const FINANCE_DASHBOARD = {
 
 const OPERATIONS_ITEMS = [
   { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
+  { icon: Calendar, label: 'Events', path: '/events' },
   { icon: Users, label: 'Families', path: '/families' },
   { icon: FileText, label: 'Paperwork', path: '/paperwork' },
 ];
@@ -48,7 +51,7 @@ const OPERATIONS_STAFFING_ITEMS = [
 
 const OPERATIONS_PAYROLL_ITEMS = [
   { icon: DollarSign, label: 'Pay Periods', path: '/pay' },
-  { icon: Clock, label: 'Time Entries', path: '/time-entries' },
+  { icon: Clock, label: 'Time Requests', path: '/time-entries' },
 ];
 
 const FINANCE_ITEMS = [
@@ -101,7 +104,7 @@ const readStoredBoolean = (key, fallback) => {
 export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navRef = useRef(null);
   const navScrollRef = useRef(0);
   const [operationsOpen, setOperationsOpen] = useState(() =>
@@ -119,6 +122,8 @@ export function Sidebar({ isOpen, onClose }) {
   const [billingOpen, setBillingOpen] = useState(() =>
     readStoredBoolean(STORAGE_KEYS.billingOpen, true)
   );
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [pendingTimeEntries, setPendingTimeEntries] = useState(0);
 
   useEffect(() => {
     try {
@@ -159,6 +164,29 @@ export function Sidebar({ isOpen, onClose }) {
       // Ignore storage failures (private mode or blocked storage).
     }
   }, [billingOpen]);
+
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') {
+      return undefined;
+    }
+    let isMounted = true;
+    const loadPending = async () => {
+      try {
+        const response = await api.get('/admin/time-entries', { params: { status: 'PENDING' } });
+        if (isMounted) {
+          setPendingTimeEntries(response.data.timeEntries?.length || 0);
+        }
+      } catch (error) {
+        // ignore
+      }
+    };
+    loadPending();
+    const interval = setInterval(loadPending, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user?.role]);
 
   useEffect(() => {
     const nav = navRef.current;
@@ -217,12 +245,13 @@ export function Sidebar({ isOpen, onClose }) {
   }, [location.pathname]);
 
   const renderNavLink = (item, options = {}) => {
-    const { compact = false, indent = false } = options;
+    const { compact = false, indent = false, dense = false } = options;
     const isActive = location.pathname === item.path;
     const paddingClass = indent ? 'pl-10 pr-4' : 'px-4';
-    const verticalClass = compact ? 'py-2' : 'py-3';
-    const textClass = compact ? 'text-xs' : 'text-sm';
-    const iconSize = compact ? 18 : 20;
+    const verticalClass = compact ? 'py-2' : dense ? 'py-2.5' : 'py-3';
+    const textClass = compact ? 'text-sm' : 'text-base';
+    const iconSize = compact ? 19 : 21;
+    const showBadge = Number.isFinite(item.badge) && item.badge > 0;
 
     return (
       <Link
@@ -244,13 +273,20 @@ export function Sidebar({ isOpen, onClose }) {
             style={{ backgroundColor: 'var(--menu-accent)' }}
           />
         )}
-        <item.icon
-          size={iconSize}
-          className={`transition-transform duration-300 ${
-            isActive ? 'scale-110' : 'group-hover:scale-110'
-          }`}
-          strokeWidth={isActive ? 2.5 : 2}
-        />
+        <span className="relative">
+          <item.icon
+            size={iconSize}
+            className={`transition-transform duration-300 ${
+              isActive ? 'scale-110' : 'group-hover:scale-110'
+            }`}
+            strokeWidth={isActive ? 2.5 : 2}
+          />
+          {showBadge && (
+            <span className="absolute -top-1 -right-2 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold text-center shadow">
+              {item.badge > 9 ? '9+' : item.badge}
+            </span>
+          )}
+        </span>
         <span className={`font-quicksand ${textClass}`}>{item.label}</span>
       </Link>
     );
@@ -263,6 +299,10 @@ export function Sidebar({ isOpen, onClose }) {
     }
     navigate('/login', { replace: true });
   };
+
+  const payrollItems = OPERATIONS_PAYROLL_ITEMS.map((item) =>
+    item.path === '/time-entries' ? { ...item, badge: pendingTimeEntries } : item
+  );
 
   return (
     <>
@@ -284,7 +324,7 @@ export function Sidebar({ isOpen, onClose }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className={`
-          w-64 h-screen fixed left-0 top-0 border-r
+          w-72 h-screen fixed left-0 top-0 border-r
           flex flex-col
           transition-transform duration-300 ease-in-out
           lg:translate-x-0
@@ -299,7 +339,7 @@ export function Sidebar({ isOpen, onClose }) {
       <div className="px-4 pt-4 pb-2 sm:px-6 lg:hidden border-b" style={{ borderColor: 'var(--menu-border)' }}>
         <div className="flex items-center justify-between">
           <span
-            className="font-quicksand text-xs font-semibold uppercase tracking-[0.2em]"
+            className="font-quicksand text-sm font-semibold uppercase tracking-[0.18em]"
             style={{ color: 'var(--menu-text)' }}
           >
             Menu
@@ -351,7 +391,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={() => setOperationsOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em]"
+            className="w-full flex items-center justify-between px-4 pt-4 text-[11px] font-semibold uppercase tracking-[0.18em]"
             style={{ color: 'var(--menu-text)' }}
             aria-expanded={operationsOpen}
           >
@@ -373,7 +413,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => setStaffingOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
                   style={{ color: 'var(--menu-text)' }}
                   aria-expanded={staffingOpen}
                 >
@@ -394,7 +434,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => setPayrollOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
                   style={{ color: 'var(--menu-text)' }}
                   aria-expanded={payrollOpen}
                 >
@@ -406,7 +446,7 @@ export function Sidebar({ isOpen, onClose }) {
                 </button>
                 {payrollOpen && (
                   <div className="space-y-1">
-                    {OPERATIONS_PAYROLL_ITEMS.map((item) => renderNavLink(item))}
+                    {payrollItems.map((item) => renderNavLink(item))}
                   </div>
                 )}
               </div>
@@ -418,7 +458,7 @@ export function Sidebar({ isOpen, onClose }) {
           <button
             type="button"
             onClick={() => setFinanceOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-4 pt-4 text-[10px] font-semibold uppercase tracking-[0.2em]"
+            className="w-full flex items-center justify-between px-4 pt-4 text-[11px] font-semibold uppercase tracking-[0.18em]"
             style={{ color: 'var(--menu-text)' }}
             aria-expanded={financeOpen}
           >
@@ -440,7 +480,7 @@ export function Sidebar({ isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => setBillingOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between pr-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
+                  className="w-full flex items-center justify-between pr-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.18em]"
                   style={{ color: 'var(--menu-text)' }}
                   aria-expanded={billingOpen}
                 >
@@ -461,25 +501,33 @@ export function Sidebar({ isOpen, onClose }) {
         </div>
       </nav>
 
-      <div className="p-4 border-t space-y-2" style={{ borderColor: 'var(--menu-border)' }}>
+      <div className="px-4 py-3 border-t space-y-1" style={{ borderColor: 'var(--menu-border)' }}>
         <div
-          className="px-4 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70"
+          className="px-4 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70"
           style={{ color: 'var(--menu-text)' }}
         >
           General
         </div>
-        {renderNavLink(REPORTS_ITEM)}
-        {renderNavLink(SETTINGS_ITEM)}
+        {renderNavLink(REPORTS_ITEM, { dense: true })}
+        {renderNavLink(SETTINGS_ITEM, { dense: true })}
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors"
+          onClick={() => setShowLogoutConfirm(true)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors"
           style={{ color: 'var(--menu-text)' }}
         >
           <LogOut size={20} />
-          <span className="font-quicksand text-sm font-medium">Sign Out</span>
+          <span className="font-quicksand text-base font-medium">Sign Out</span>
         </button>
       </div>
     </motion.aside>
+    <ConfirmModal
+      isOpen={showLogoutConfirm}
+      onClose={() => setShowLogoutConfirm(false)}
+      onConfirm={handleLogout}
+      title="Sign out"
+      message="Are you sure you want to sign out?"
+      confirmLabel="Sign out"
+    />
     </>
   );
 }

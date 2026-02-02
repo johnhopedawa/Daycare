@@ -1,0 +1,201 @@
+/* URL IMPORTS (SUCH AS FONT IMPORTS) SHOULD BE KEPT ABOVE TAILWIND IMPORTS */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+/* TAILWIND IMPORTS - DO NOT DELETE */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #FF9B85;
+  --primary-dark: #E07A5F;
+  --primary-rgb: 255, 155, 133;
+  --accent: #FFE5D9;
+  --accent-rgb: 255, 229, 217;
+  --background: #FFF8F3;
+  --surface: #FFFFFF;
+  --text: #1C1917;
+  --muted: #78716C;
+  --border: #FFE5D9;
+  --on-primary: #FFFFFF;
+  --on-accent: #7A3B2A;
+  --font-heading: 'Quicksand', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --card-1: #E5D4ED;
+  --card-2: #B8E6D5;
+  --card-3: #FFF4CC;
+  --card-4: #FFDCC8;
+  --card-text-1: #44403C;
+  --card-text-2: #44403C;
+  --card-text-3: #44403C;
+  --card-text-4: #44403C;
+  --card-count: 4;
+  --menu-bg: #FFFFFF;
+  --menu-border: #FFE5D9;
+  --menu-text: #78716C;
+  --menu-active-bg: #FFE5D9;
+  --menu-active-text: #E07A5F;
+  --menu-accent: #FF9B85;
+  --menu-shadow: rgba(255, 229, 217, 0.4);
+  --app-backdrop: rgba(0, 0, 0, 0);
+  --app-gradient: radial-gradient(1000px 520px at 12% -10%, rgba(var(--primary-rgb), 0.18), transparent 62%),
+    radial-gradient(880px 520px at 88% 0%, rgba(var(--accent-rgb), 0.2), transparent 60%),
+    radial-gradient(900px 700px at 50% 100%, rgba(var(--primary-rgb), 0.08), transparent 65%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0) 38%);
+  --layout-padding: clamp(1rem, 2vw + 1rem, 2.5rem);
+  --layout-gap: 1.5rem;
+  --panel-padding: 1.5rem;
+  --panel-radius: 1.25rem;
+  --panel-shadow: 0 22px 46px -30px rgba(15, 23, 42, 0.5);
+  --panel-shadow-soft: 0 14px 30px -26px rgba(15, 23, 42, 0.4);
+  --bubble-bg: rgba(var(--primary-rgb), 0.08);
+  --bubble-border: rgba(var(--primary-rgb), 0.22);
+  --bubble-bg-strong: rgba(var(--accent-rgb), 0.22);
+}
+
+:root[data-density="compact"] {
+  --layout-padding: clamp(0.75rem, 1.5vw + 0.75rem, 1.75rem);
+  --layout-gap: 1rem;
+  --panel-padding: 1.1rem;
+  --panel-radius: 1rem;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.font-quicksand {
+  font-family: var(--font-heading);
+}
+
+.font-sans {
+  font-family: var(--font-body);
+}
+
+.themed-surface {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--panel-shadow);
+  transition: box-shadow 180ms ease;
+}
+
+.themed-border {
+  border-color: var(--border);
+}
+
+.themed-row:hover {
+  background-color: var(--bubble-bg-strong);
+}
+
+.themed-hover:hover {
+  background-color: var(--background);
+}
+
+.themed-ring:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.35);
+}
+
+.themed-dashed {
+  border: 2px dashed var(--border);
+  background-color: var(--surface);
+}
+
+.themed-dashed:hover {
+  background-color: var(--background);
+}
+
+.menu-surface {
+  background-color: var(--menu-bg);
+  border: 1px solid var(--menu-border);
+  box-shadow: var(--panel-shadow);
+}
+
+.elevated-control {
+  background-color: var(--surface);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: var(--panel-shadow-soft);
+  background-image: linear-gradient(
+    180deg,
+    rgba(var(--accent-rgb), 0.2) 0%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.elevated-control:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--panel-shadow);
+}
+
+.menu-link {
+  color: var(--menu-text);
+}
+
+.menu-link:hover {
+  background-color: var(--background);
+  color: var(--menu-active-text);
+}
+
+.menu-link-active {
+  background-color: var(--menu-active-bg);
+  color: var(--menu-active-text);
+}
+
+.menu-tab {
+  color: var(--menu-text);
+}
+
+.menu-tab:hover {
+  background-color: var(--background);
+  color: var(--menu-active-text);
+}
+
+.menu-tab-active {
+  background-color: var(--menu-active-bg);
+  color: var(--menu-active-text);
+}
+
+/* Custom scrollbar for sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(var(--primary-rgb), 0.3);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--primary-rgb), 0.5);
+}
+
+/* Soft scrollbar for modals */
+.soft-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--primary-rgb), 0.55) transparent;
+}
+
+.soft-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.soft-scrollbar::-webkit-scrollbar-track {
+  background: rgba(var(--primary-rgb), 0.08);
+  border-radius: 999px;
+}
+
+.soft-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(var(--primary-rgb), 0.45);
+  border-radius: 999px;
+}
+
+.soft-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--primary-rgb), 0.65);
+}

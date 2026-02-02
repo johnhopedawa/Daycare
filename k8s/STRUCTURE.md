@@ -1,39 +1,42 @@
 # K8s Structure
 
-The Kubernetes manifests are now organized into separate folders for better management.
+The Kubernetes manifests are organized into separate folders for better management.
 
-## New Structure
+## Structure
 
 ```
 k8s/
-├── secrets/
-│   └── daycare-secrets.yaml          # Passwords and JWT secret
-├── storage/
-│   └── postgres-pvc.yaml              # Persistent volume claim
-├── deployments/
-│   ├── postgres.yaml                  # PostgreSQL StatefulSet
-│   ├── backend.yaml                   # Backend API Deployment
-│   └── frontend.yaml                  # Frontend Deployment
-├── services/
-│   ├── postgres-service.yaml          # Postgres Service
-│   ├── backend-service.yaml           # Backend Service
-│   └── frontend-service.yaml          # Frontend Service
-├── ingress/
-│   └── daycare-ingress.yaml           # Traefik Ingress
-├── jobs/
-│   └── db-migration.yaml              # Database migration job
-├── deploy.sh                          # Full deployment automation
-├── apply-all.sh                       # Quick apply all
-├── delete-all.sh                      # Clean up all resources
-├── README.md                          # Full documentation
-└── STRUCTURE.md                       # This file
+|- secrets/
+|  `- daycare-secrets.yaml        # Passwords, JWT, encryption key
+|- storage/
+|  `- postgres-pvc.yaml           # Persistent volume claim
+|- deployments/
+|  |- postgres.yaml               # PostgreSQL StatefulSet
+|  |- backend.yaml                # Backend API Deployment
+|  `- frontend.yaml               # Frontend Deployment
+|- services/
+|  |- postgres-service.yaml       # Postgres Service
+|  |- backend-service.yaml        # Backend Service
+|  `- frontend-service.yaml       # Frontend Service
+|- ingress/
+|  `- daycare-ingress.yaml        # Traefik Ingress
+|- jobs/
+|  `- db-migration.yaml           # Database migration job
+|- legacy/                        # Old manifests (not applied)
+|- deploy.sh                      # Full deployment automation
+|- apply-all.sh                   # Quick apply all
+|- delete-all.sh                  # Clean up all resources
+|- README.md                      # Full documentation
+`- STRUCTURE.md                   # This file
 ```
+
+Note: Legacy manifests live under `k8s/legacy` and are ignored by the scripts.
 
 ## Key Changes from Original
 
 1. **No namespace** - Removed all `namespace: daycare` lines
 2. **Organized folders** - Separated by resource type
-3. **Cleaner secrets** - Updated with better defaults
+3. **Cleaner secrets** - Added encryption key and safer defaults
 4. **Helper scripts** - Added apply-all and delete-all
 5. **Better documentation** - Updated README with new structure
 
@@ -59,11 +62,15 @@ kubectl apply -f deployments/backend.yaml
 1. **Edit secrets/daycare-secrets.yaml**:
    - Change `postgres-password`
    - Change `jwt-secret` (use `openssl rand -base64 32`)
+   - Change `encryption-key` (use `openssl rand -hex 32`)
 
-2. **Edit ingress/daycare-ingress.yaml**:
+2. **Edit deployments/backend.yaml**:
+   - Set `FRONTEND_URL` to your domain
+
+3. **Edit ingress/daycare-ingress.yaml**:
    - Change host to your actual domain
 
-3. **Update image location** (if needed):
+4. **Update image location** (if needed):
    - deployments/backend.yaml
    - deployments/frontend.yaml
    - Change `localhost:5000` to your registry

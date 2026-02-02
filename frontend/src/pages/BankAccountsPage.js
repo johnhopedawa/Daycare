@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
+  ChevronLeft,
+  ChevronRight,
   BarChart3,
   Building2,
   Calendar,
@@ -16,7 +18,6 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import { BaseModal } from '../components/modals/BaseModal';
-import { DatePickerModal } from '../components/modals/DatePickerModal';
 
 const DEFAULT_REPORTING_YEAR = new Date().getFullYear();
 const DEFAULT_LIMIT = 1000;
@@ -45,14 +46,6 @@ const PERIOD_VIEWS = [
   { value: 'term', label: 'Terms' },
 ];
 
-const RANGE_OPTIONS = [
-  { value: '30', label: 'Last 30 days' },
-  { value: '90', label: 'Last 90 days' },
-  { value: '365', label: 'Last 12 months' },
-  { value: 'year', label: 'Reporting year' },
-  { value: 'custom', label: 'From date' },
-];
-
 const ACCOUNT_TYPES = [
   { value: 'credit', label: 'Credit card' },
   { value: 'debit', label: 'Debit or bank' },
@@ -64,6 +57,25 @@ const TERM_BUCKETS = [
   { key: 'summer', label: 'Summer', months: [6, 7, 8] },
   { key: 'fall', label: 'Fall', months: [9, 10, 11] },
 ];
+
+const DOW_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+const toDateOnly = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const buildCalendarGrid = (monthCursor) => {
+  const year = monthCursor.getFullYear();
+  const month = monthCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = firstOfMonth.getDay();
+  const startDate = new Date(year, month, 1 - startOffset);
+  const days = [];
+
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
+    days.push(day);
+  }
+  return days;
+};
 
 const VIEW_CONFIG = {
   dashboard: {
@@ -125,7 +137,38 @@ const parseAmount = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const parseNullableAmount = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
+
+const normalizeBalanceForType = (value, accountType) => {
+  if (!Number.isFinite(Number(value))) {
+    return null;
+  }
+  const numeric = Number(value);
+  if (String(accountType || '').toLowerCase() === 'credit') {
+    return Math.abs(numeric);
+  }
+  return numeric;
+};
+
+const formatSimplefinAccountOption = (account) => {
+  const name = account.name || account.id || 'Account';
+  const masked = account.maskedAccount ? ` ${account.maskedAccount}` : '';
+  const rawCurrent = account.balance ?? account.availableBalance;
+  const typeText = String(account.type || '').toLowerCase();
+  const isCredit = typeText.includes('credit') || typeText.includes('card');
+  const normalizedCurrent = normalizeBalanceForType(rawCurrent, isCredit ? 'credit' : 'debit');
+  const displayCurrent = normalizedCurrent !== null ? Math.abs(normalizedCurrent) : null;
+  const currentLabel = displayCurrent !== null ? formatCurrency(displayCurrent) : 'Balance n/a';
+  return `${name}${masked} | ${currentLabel}`;
+};
 
 const normalizeCategoryName = (value) => {
   if (!value) {
@@ -198,7 +241,17 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [syncLimit, setSyncLimit] = useState(null);
   const [reportingYear, setReportingYear] = useState(DEFAULT_REPORTING_YEAR);
   const [periodView, setPeriodView] = useState('month');
-  const [tableRange, setTableRange] = useState('year');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filterView, setFilterView] = useState('filters');
+  const [filterViewDirection, setFilterViewDirection] = useState(0);
+  const [calendarTarget, setCalendarTarget] = useState(null);
+  const [filterFromDate, setFilterFromDate] = useState(null);
+  const [filterToDate, setFilterToDate] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(() => toDateOnly(new Date()));
+  const [calendarMonthCursor, setCalendarMonthCursor] = useState(
+    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  );
   const [selectedAccountIds, setSelectedAccountIds] = useState([]);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [setupToken, setSetupToken] = useState('');
@@ -209,6 +262,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [connecting, setConnecting] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
   const [editingConnection, setEditingConnection] = useState(null);
+  const [disconnectTarget, setDisconnectTarget] = useState(null);
+  const [disconnectDeleteHistory, setDisconnectDeleteHistory] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [savingConnection, setSavingConnection] = useState(false);
   const [categorizeTransaction, setCategorizeTransaction] = useState(null);
   const [categorizeCategory, setCategorizeCategory] = useState('');
@@ -222,6 +278,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     accountType: 'credit',
     openingBalance: '',
     openingBalanceDate: '',
+    creditLimit: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -229,10 +286,8 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   const [rulesError, setRulesError] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showUncategorizedOnly, setShowUncategorizedOnly] = useState(false);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([]);
-  const [customStartDate, setCustomStartDate] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [newRule, setNewRule] = useState({
     keyword: '',
     category: '',
@@ -241,6 +296,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   });
   const categorizeDropdownRef = useRef(null);
   const selectAllRef = useRef(null);
+  const accountDropdownRef = useRef(null);
 
   const viewConfig = VIEW_CONFIG[view] || VIEW_CONFIG.dashboard;
   const { title, subtitle, sections } = viewConfig;
@@ -264,9 +320,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       setSuccess('');
       setTransactionsError('');
       setRulesError('');
-      const yearRange = buildYearRange(reportingYear);
-      const rangeStart = yearRange.start.toISOString().split('T')[0];
-      const rangeEnd = yearRange.end.toISOString().split('T')[0];
+      const currentYear = DEFAULT_REPORTING_YEAR;
+      const rangeStart = `${currentYear - 1}-01-01`;
+      const rangeEnd = `${currentYear}-12-31`;
       const [connectionsRes, transactionsRes, rulesRes] = await Promise.allSettled([
         api.get('/business-expenses/connections'),
         api.get('/business-expenses', {
@@ -287,7 +343,10 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         console.error('Failed to load connections:', connectionsRes.reason);
         setConnections([]);
         setSyncLimit(null);
-        setError('Failed to load connected accounts.');
+        const status = connectionsRes.reason?.response?.status;
+        if (!status || status >= 500) {
+          setError('Failed to load connected accounts.');
+        }
       }
 
       if (transactionsRes.status === 'fulfilled') {
@@ -314,7 +373,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         setLoading(false);
       }
     }
-  }, [reportingYear]);
+  }, []);
 
   useEffect(() => {
     loadBankingData();
@@ -354,6 +413,35 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       document.removeEventListener('keydown', handleKey);
     };
   }, [categorizeDropdownOpen]);
+
+  useEffect(() => {
+    if (!accountDropdownOpen) {
+      return;
+    }
+
+    const handleClick = (event) => {
+      if (!accountDropdownRef.current) {
+        return;
+      }
+      if (!accountDropdownRef.current.contains(event.target)) {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [accountDropdownOpen]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -428,6 +516,16 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
   }, [rules, transactions]);
 
+  const categoryFilterOptions = useMemo(() => {
+    const options = new Set(availableCategories);
+    options.add('Uncategorized');
+    return Array.from(options).sort((a, b) => {
+      if (a === 'Uncategorized') return -1;
+      if (b === 'Uncategorized') return 1;
+      return a.localeCompare(b);
+    });
+  }, [availableCategories]);
+
   const reportingRange = useMemo(() => {
     const range = buildYearRange(reportingYear);
     return {
@@ -482,48 +580,37 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     };
   }, [reportingTransactions]);
 
-  const rangeFilteredTransactions = useMemo(() => {
-    if (tableRange === 'year') {
-      return reportingTransactions;
+  const dateFilteredTransactions = useMemo(() => {
+    let data = reportingTransactions;
+    if (filterFromDate) {
+      data = data.filter((txn) => (
+        txn.transaction_date && txn.transaction_date >= filterFromDate
+      ));
     }
-    if (tableRange === 'custom') {
-      if (!customStartDate) {
-        return reportingTransactions;
-      }
-      return scopedTransactions.filter((txn) => {
-        if (!txn.transaction_date) {
-          return false;
-        }
-        return txn.transaction_date >= customStartDate;
-      });
+    if (filterToDate) {
+      data = data.filter((txn) => (
+        txn.transaction_date && txn.transaction_date <= filterToDate
+      ));
     }
-    const days = Number.parseInt(tableRange, 10);
-    if (!Number.isFinite(days)) {
-      return reportingTransactions;
+    return data;
+  }, [reportingTransactions, filterFromDate, filterToDate]);
+
+  const categoryFilteredTransactions = useMemo(() => {
+    if (!selectedCategories.length) {
+      return dateFilteredTransactions;
     }
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    return scopedTransactions.filter((txn) => {
-      if (!txn.transaction_date) {
-        return false;
-      }
-      const date = new Date(txn.transaction_date);
-      if (Number.isNaN(date.getTime())) {
-        return false;
-      }
-      return date >= startDate;
+    const selected = new Set(selectedCategories);
+    return dateFilteredTransactions.filter((txn) => {
+      const category = normalizeCategoryName(txn.category) || 'Uncategorized';
+      return selected.has(category);
     });
-  }, [reportingTransactions, scopedTransactions, tableRange, customStartDate]);
+  }, [dateFilteredTransactions, selectedCategories]);
 
   const filteredTransactions = useMemo(() => {
-    let data = [...rangeFilteredTransactions];
+    let data = [...categoryFilteredTransactions];
 
     if (filterType !== 'all') {
       data = data.filter((txn) => (txn.direction || 'expense') === filterType);
-    }
-
-    if (showUncategorizedOnly) {
-      data = data.filter((txn) => !txn.category);
     }
 
     if (searchTerm.trim()) {
@@ -537,7 +624,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     }
 
     return data;
-  }, [rangeFilteredTransactions, filterType, showUncategorizedOnly, searchTerm]);
+  }, [categoryFilteredTransactions, filterType, searchTerm]);
 
   const visibleTransactionIds = useMemo(
     () => filteredTransactions.map((txn) => txn.id),
@@ -584,10 +671,155 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     });
   };
 
-  const handleQuickYearSelect = (year) => {
-    setReportingYear(year);
-    setTableRange('year');
-    setCustomStartDate(null);
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterType !== 'all') {
+      count += 1;
+    }
+    if (selectedCategories.length) {
+      count += 1;
+    }
+    if (filterFromDate) {
+      count += 1;
+    }
+    if (filterToDate) {
+      count += 1;
+    }
+    return count;
+  }, [filterType, selectedCategories, filterFromDate, filterToDate]);
+
+  const handleOpenFilterModal = () => {
+    setFilterViewDirection(0);
+    setFilterView('filters');
+    setCalendarTarget(null);
+    setFilterModalOpen(true);
+  };
+
+  const handleCloseFilterModal = () => {
+    setFilterModalOpen(false);
+    setFilterViewDirection(0);
+    setFilterView('filters');
+    setCalendarTarget(null);
+  };
+
+  const handleOpenCalendar = (target) => {
+    const existing = target === 'from' ? filterFromDate : filterToDate;
+    const fallbackDate = new Date(reportingYear, 0, 1);
+    const baseDate = existing ? new Date(`${existing}T00:00:00`) : fallbackDate;
+    const safeDate = Number.isNaN(baseDate.getTime()) ? fallbackDate : baseDate;
+    const dateOnly = toDateOnly(safeDate);
+    setCalendarSelectedDate(dateOnly);
+    setCalendarMonthCursor(new Date(dateOnly.getFullYear(), dateOnly.getMonth(), 1));
+    setCalendarTarget(target);
+    setFilterViewDirection(1);
+    setFilterView('calendar');
+  };
+
+  const handleApplyCalendar = () => {
+    const dateKey = toDateKey(calendarSelectedDate);
+    if (!dateKey) {
+      setFilterViewDirection(-1);
+      setFilterView('filters');
+      return;
+    }
+    if (calendarTarget === 'from') {
+      setFilterFromDate(dateKey);
+      if (filterToDate && dateKey > filterToDate) {
+        setFilterToDate(null);
+      }
+    } else if (calendarTarget === 'to') {
+      setFilterToDate(dateKey);
+      if (filterFromDate && dateKey < filterFromDate) {
+        setFilterFromDate(null);
+      }
+    }
+    setFilterViewDirection(-1);
+    setCalendarTarget(null);
+    setFilterView('filters');
+  };
+
+  const handleClearCalendar = () => {
+    if (calendarTarget === 'from') {
+      setFilterFromDate(null);
+    } else if (calendarTarget === 'to') {
+      setFilterToDate(null);
+    }
+    setFilterViewDirection(-1);
+    setCalendarTarget(null);
+    setFilterView('filters');
+  };
+
+  const handleBackToFilters = () => {
+    setFilterViewDirection(-1);
+    setCalendarTarget(null);
+    setFilterView('filters');
+  };
+
+  const handleResetFilters = () => {
+    setFilterType('all');
+    setSelectedCategories([]);
+    setFilterFromDate(null);
+    setFilterToDate(null);
+    setReportingYear(availableYears[0] || DEFAULT_REPORTING_YEAR);
+  };
+
+  const handleToggleCategory = (category) => {
+    setSelectedCategories((prev) => (
+      prev.includes(category)
+        ? prev.filter((item) => item !== category)
+        : [...prev, category]
+    ));
+  };
+
+  const calendarDays = useMemo(
+    () => buildCalendarGrid(calendarMonthCursor),
+    [calendarMonthCursor]
+  );
+  const calendarMonthLabel = calendarMonthCursor.toLocaleDateString('en-US', { month: 'long' });
+  const calendarYearLabel = calendarMonthCursor.getFullYear();
+  const filterViewVariants = {
+    enter: (direction) => ({
+      opacity: 0,
+      x: direction === 0 ? 0 : direction > 0 ? 40 : -40,
+    }),
+    center: { opacity: 1, x: 0 },
+    exit: (direction) => ({
+      opacity: 0,
+      x: direction === 0 ? 0 : direction > 0 ? -40 : 40,
+    }),
+  };
+
+  const isCalendarPrevDisabled =
+    calendarMonthCursor.getFullYear() === reportingYear && calendarMonthCursor.getMonth() === 0;
+  const isCalendarNextDisabled =
+    calendarMonthCursor.getFullYear() === reportingYear && calendarMonthCursor.getMonth() === 11;
+
+  const handleCalendarPrev = () => {
+    if (isCalendarPrevDisabled) {
+      return;
+    }
+    setCalendarMonthCursor(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+    );
+  };
+
+  const handleCalendarNext = () => {
+    if (isCalendarNextDisabled) {
+      return;
+    }
+    setCalendarMonthCursor(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+    );
+  };
+
+  const handleCalendarToday = () => {
+    const today = new Date();
+    const baseDate = today.getFullYear() === reportingYear
+      ? today
+      : new Date(reportingYear, 0, 1);
+    const dateOnly = toDateOnly(baseDate);
+    setCalendarSelectedDate(dateOnly);
+    setCalendarMonthCursor(new Date(dateOnly.getFullYear(), dateOnly.getMonth(), 1));
   };
 
   const selectedTotals = useMemo(() => {
@@ -620,42 +852,39 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   }, [selectedTotals.net]);
 
   const rangeLabel = useMemo(() => {
-    if (tableRange === 'custom' && customStartDate) {
-      return `From ${formatDateKeyLabel(customStartDate)} to today`;
+    const fromLabel = filterFromDate ? formatDateKeyLabel(filterFromDate) : null;
+    const toLabel = filterToDate ? formatDateKeyLabel(filterToDate) : null;
+    if (fromLabel && toLabel) {
+      return `${fromLabel} to ${toLabel}`;
     }
-    if (tableRange === 'year') {
-      return `Reporting year ${reportingYear}`;
+    if (fromLabel) {
+      return `From ${fromLabel} to today`;
     }
-    const days = Number.parseInt(tableRange, 10);
-    if (Number.isFinite(days)) {
-      return `Last ${days} days`;
+    if (toLabel) {
+      return `Up to ${toLabel}`;
     }
-    return `Reporting year ${reportingYear}`;
-  }, [tableRange, customStartDate, reportingYear]);
+    return `Year ${reportingYear}`;
+  }, [filterFromDate, filterToDate, reportingYear]);
 
-  const datePickerInitialDate = useMemo(() => {
-    if (customStartDate) {
-      const parsed = new Date(`${customStartDate}T00:00:00`);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    return new Date(reportingYear, 0, 1);
-  }, [customStartDate, reportingYear]);
+  const filterSummary = useMemo(() => {
+    const typeEntry = FILTER_TYPES.find((type) => type.value === filterType) || FILTER_TYPES[0];
+    const categoryCount = selectedCategories.length;
+    const categoryLabel = categoryCount
+      ? `${categoryCount} ${categoryCount === 1 ? 'category' : 'categories'}`
+      : 'All categories';
+    return `${rangeLabel} | ${typeEntry.label} | ${categoryLabel}`;
+  }, [rangeLabel, filterType, selectedCategories]);
 
   useEffect(() => {
-    if (!customStartDate) {
-      return;
-    }
     const yearStart = `${reportingYear}-01-01`;
     const yearEnd = `${reportingYear}-12-31`;
-    if (customStartDate < yearStart || customStartDate > yearEnd) {
-      setCustomStartDate(null);
-      if (tableRange === 'custom') {
-        setTableRange('year');
-      }
+    if (filterFromDate && (filterFromDate < yearStart || filterFromDate > yearEnd)) {
+      setFilterFromDate(null);
     }
-  }, [customStartDate, reportingYear, tableRange]);
+    if (filterToDate && (filterToDate < yearStart || filterToDate > yearEnd)) {
+      setFilterToDate(null);
+    }
+  }, [filterFromDate, filterToDate, reportingYear]);
 
   const monthlySummary = useMemo(() => {
     const buckets = periodView === 'term'
@@ -724,10 +953,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
   }, [reportingTransactions]);
 
   const availableYears = useMemo(() => {
-    const yearSet = new Set([DEFAULT_REPORTING_YEAR, reportingYear]);
-    for (let offset = 1; offset <= 3; offset += 1) {
-      yearSet.add(DEFAULT_REPORTING_YEAR - offset);
-    }
+    const yearSet = new Set();
     transactions.forEach((txn) => {
       if (!txn.transaction_date) {
         return;
@@ -737,8 +963,34 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         yearSet.add(date.getFullYear());
       }
     });
+    if (yearSet.size === 0) {
+      yearSet.add(DEFAULT_REPORTING_YEAR);
+    }
     return Array.from(yearSet).sort((a, b) => b - a);
-  }, [transactions, reportingYear]);
+  }, [transactions]);
+
+  const sortedSimplefinAccounts = useMemo(() => {
+    return [...simplefinAccounts].sort((a, b) => {
+      const aName = String(a.name || '').toLowerCase();
+      const bName = String(b.name || '').toLowerCase();
+      if (aName !== bName) return aName.localeCompare(bName);
+      const aMask = String(a.maskedAccount || '').toLowerCase();
+      const bMask = String(b.maskedAccount || '').toLowerCase();
+      if (aMask !== bMask) return aMask.localeCompare(bMask);
+      const aInst = String(a.institution || '').toLowerCase();
+      const bInst = String(b.institution || '').toLowerCase();
+      return aInst.localeCompare(bInst);
+    });
+  }, [simplefinAccounts]);
+
+  useEffect(() => {
+    if (!availableYears.length) {
+      return;
+    }
+    if (!availableYears.includes(reportingYear)) {
+      setReportingYear(availableYears[0]);
+    }
+  }, [availableYears, reportingYear]);
 
   const balanceByConnection = useMemo(() => {
     const balances = new Map();
@@ -797,6 +1049,193 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     return balances;
   }, [connections, transactions]);
 
+  const getCurrentBalanceValue = useCallback((connection) => {
+    const explicitBalance = connection.balance;
+    const derivedBalance = balanceByConnection.get(connection.id);
+    const raw = explicitBalance !== null && explicitBalance !== undefined
+      ? explicitBalance
+      : derivedBalance;
+    return parseNullableAmount(raw);
+  }, [balanceByConnection]);
+
+  const latestTransactionDateByConnection = useMemo(() => {
+    const latest = new Map();
+
+    transactions.forEach((txn) => {
+      if (!txn.connection_id || !txn.transaction_date) {
+        return;
+      }
+      const parsed = parseDateValue(txn.transaction_date);
+      if (!parsed) {
+        return;
+      }
+      const current = latest.get(txn.connection_id);
+      if (!current || parsed > current) {
+        latest.set(txn.connection_id, parsed);
+      }
+    });
+
+    return latest;
+  }, [transactions]);
+
+  const unpostedByConnection = useMemo(() => {
+    const unposted = new Map();
+
+    connections.forEach((connection) => {
+      const availableBalance = parseNullableAmount(connection.available_balance);
+      const normalizedAvailable = availableBalance !== null
+        ? normalizeBalanceForType(availableBalance, connection.account_type)
+        : null;
+      const currentBalance = getCurrentBalanceValue(connection);
+      const normalizedCurrent = currentBalance !== null
+        ? normalizeBalanceForType(currentBalance, connection.account_type)
+        : null;
+
+      if (connection.account_type === 'credit') {
+        const creditLimit = parseNullableAmount(connection.credit_limit);
+        const normalizedLimit = creditLimit !== null
+          ? normalizeBalanceForType(creditLimit, connection.account_type)
+          : null;
+        if (normalizedAvailable === null || normalizedCurrent === null || normalizedLimit === null) {
+          return;
+        }
+        const estimate = Math.max(
+          0,
+          Math.abs(normalizedLimit) - Math.abs(normalizedAvailable) - Math.abs(normalizedCurrent)
+        );
+        unposted.set(connection.id, estimate);
+        return;
+      }
+
+      if (normalizedAvailable === null || normalizedCurrent === null) {
+        return;
+      }
+
+      const estimate = Math.max(0, normalizedCurrent - normalizedAvailable);
+      unposted.set(connection.id, estimate);
+    });
+
+    return unposted;
+  }, [balanceByConnection, connections, getCurrentBalanceValue]);
+
+  const selectedFilterAccountId = selectedAccountIds.length === 1 ? selectedAccountIds[0] : '';
+  const selectedAccountLabel = useMemo(() => {
+    if (!selectedFilterAccountId) {
+      return 'All accounts';
+    }
+    const match = connections.find((connection) => connection.id === selectedFilterAccountId);
+    return match ? match.account_name : 'Selected account';
+  }, [connections, selectedFilterAccountId]);
+
+  const activeConnections = useMemo(() => {
+    if (!selectedAccountIds.length) {
+      return connections;
+    }
+    return connections.filter((connection) => selectedAccountIds.includes(connection.id));
+  }, [connections, selectedAccountIds]);
+
+  const accountSummaries = useMemo(() => {
+    const buildSummary = (accountType, items) => {
+      if (!items.length) {
+        return null;
+      }
+
+      const sumIfComplete = (getter) => {
+        let total = 0;
+        let count = 0;
+        items.forEach((item) => {
+          const value = getter(item);
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return;
+          }
+          total += Number(value);
+          count += 1;
+        });
+        if (count === 0 || count < items.length) {
+          return null;
+        }
+        return total;
+      };
+
+      const currentBalance = sumIfComplete((item) => normalizeBalanceForType(
+        getCurrentBalanceValue(item),
+        accountType
+      ));
+      const availableBalance = sumIfComplete((item) => normalizeBalanceForType(
+        item.available_balance,
+        accountType
+      ));
+      const creditLimit = accountType === 'credit'
+        ? sumIfComplete((item) => normalizeBalanceForType(item.credit_limit, accountType))
+        : null;
+
+      let lastSyncAt = null;
+      items.forEach((item) => {
+        if (!item.last_sync_at) {
+          return;
+        }
+        if (!lastSyncAt) {
+          lastSyncAt = item.last_sync_at;
+          return;
+        }
+        const current = new Date(item.last_sync_at);
+        const best = new Date(lastSyncAt);
+        if (current > best) {
+          lastSyncAt = item.last_sync_at;
+        }
+      });
+
+      let unposted = null;
+      if (accountType === 'credit') {
+        if (currentBalance !== null && availableBalance !== null && creditLimit !== null) {
+          unposted = Math.max(
+            0,
+            Math.abs(creditLimit) - Math.abs(availableBalance) - Math.abs(currentBalance)
+          );
+        }
+      } else if (currentBalance !== null && availableBalance !== null) {
+        unposted = Math.max(0, currentBalance - availableBalance);
+      }
+
+      return {
+        accountType,
+        accountCount: items.length,
+        currentBalance,
+        availableBalance,
+        creditLimit,
+        unposted,
+        lastSyncAt,
+      };
+    };
+
+    const creditAccounts = activeConnections.filter((connection) => connection.account_type === 'credit');
+    const debitAccounts = activeConnections.filter((connection) => connection.account_type !== 'credit');
+
+    return [
+      buildSummary('credit', creditAccounts),
+      buildSummary('debit', debitAccounts),
+    ].filter(Boolean);
+  }, [activeConnections, balanceByConnection, getCurrentBalanceValue]);
+
+  const latestSyncAtForSelection = useMemo(() => {
+    let latest = null;
+    activeConnections.forEach((connection) => {
+      if (!connection.last_sync_at) {
+        return;
+      }
+      if (!latest) {
+        latest = connection.last_sync_at;
+        return;
+      }
+      const current = new Date(connection.last_sync_at);
+      const best = new Date(latest);
+      if (current > best) {
+        latest = connection.last_sync_at;
+      }
+    });
+    return latest;
+  }, [activeConnections]);
+
   const showChart = sections.chart;
   const showTopCategories = sections.topCategories;
   const showSummaryGrid = showChart || showTopCategories;
@@ -807,29 +1246,38 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     ? `Daily sync limit: ${syncLimit.remaining} of ${syncLimit.limit} remaining today.`
     : '';
 
-  const toggleAccountFilter = (connectionId) => {
-    setSelectedAccountIds((prev) => {
-      if (!prev.length) {
-        return [connectionId];
-      }
-      if (prev.includes(connectionId)) {
-        const next = prev.filter((id) => id !== connectionId);
-        return next;
-      }
-      return [...prev, connectionId];
-    });
-  };
-
   const openEditModal = (connection) => {
+    const isCredit = connection.account_type === 'credit';
+    const openingBalance = connection.opening_balance !== null && connection.opening_balance !== undefined
+      ? String(isCredit ? Math.abs(connection.opening_balance) : connection.opening_balance)
+      : '';
+    const creditLimit = connection.credit_limit !== null && connection.credit_limit !== undefined
+      ? String(Math.abs(connection.credit_limit))
+      : '';
     setEditingConnection(connection);
     setEditForm({
       accountName: connection.account_name || '',
       accountType: connection.account_type || 'credit',
-      openingBalance: connection.opening_balance !== null && connection.opening_balance !== undefined
-        ? String(connection.opening_balance)
-        : '',
+      openingBalance,
       openingBalanceDate: formatDateInput(connection.opening_balance_date),
+      creditLimit,
     });
+  };
+
+  const openDisconnectModal = (connection) => {
+    if (!connection) {
+      return;
+    }
+    setDisconnectTarget(connection);
+    setDisconnectDeleteHistory(false);
+  };
+
+  const closeDisconnectModal = () => {
+    if (disconnecting) {
+      return;
+    }
+    setDisconnectTarget(null);
+    setDisconnectDeleteHistory(false);
   };
 
   const closeEditModal = () => {
@@ -839,6 +1287,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
       accountType: 'credit',
       openingBalance: '',
       openingBalanceDate: '',
+      creditLimit: '',
     });
   };
 
@@ -954,20 +1403,41 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     }
   };
 
-  const handleDisconnect = async (connectionId) => {
-    if (!window.confirm('Disconnect this bank account? Historical data will remain.')) {
-      return;
-    }
-
+  const handleDisconnect = async (connectionId, options = {}) => {
     setError('');
     setSuccess('');
+    setDisconnecting(true);
     try {
-      await api.delete(`/business-expenses/connections/${connectionId}`);
-      setSuccess('Account disconnected.');
+      await api.delete(`/business-expenses/connections/${connectionId}`, {
+        params: {
+          deleteHistory: options.deleteHistory ? 'true' : 'false',
+        },
+      });
+      setSuccess(
+        options.deleteHistory
+          ? 'Account disconnected. Saved transactions removed.'
+          : 'Account disconnected.'
+      );
       loadBankingData(false);
+      return true;
     } catch (err) {
       const message = err.response?.data?.error || 'Failed to disconnect account.';
       setError(message);
+      return false;
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleConfirmDisconnect = async () => {
+    if (!disconnectTarget) {
+      return;
+    }
+    const disconnected = await handleDisconnect(disconnectTarget.id, {
+      deleteHistory: disconnectDeleteHistory,
+    });
+    if (disconnected) {
+      closeDisconnectModal();
     }
   };
 
@@ -986,6 +1456,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         accountType: editForm.accountType,
         openingBalance: editForm.openingBalance === '' ? null : editForm.openingBalance,
         openingBalanceDate: editForm.openingBalanceDate || null,
+        creditLimit: editForm.accountType === 'credit'
+          ? (editForm.creditLimit === '' ? null : editForm.creditLimit)
+          : null,
       };
 
       await api.patch(`/business-expenses/connections/${editingConnection.id}`, payload);
@@ -1130,10 +1603,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         {/* Stats Overview */}
         {sections.stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+            <div
               className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex items-center gap-3">
@@ -1151,12 +1621,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   <p className="text-xs text-stone-400">Reporting year {reportingYear}</p>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+            <div
               className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex items-center gap-3">
@@ -1174,12 +1641,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   <p className="text-xs text-stone-400">Reporting year {reportingYear}</p>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+            <div
               className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex items-center gap-3">
@@ -1197,12 +1661,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   <p className="text-xs text-stone-400">Income minus expenses</p>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
+            <div
               className="themed-surface p-6 rounded-3xl"
             >
               <div className="flex items-center gap-3">
@@ -1222,109 +1683,140 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                   </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
 
         {sections.reporting && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+          <section
             className="themed-surface p-6 rounded-3xl"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-stone-500">
-                  <Calendar size={16} />
-                  Reporting settings
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-600 mb-2">
-                    Reporting year
-                  </label>
-                  <select
-                    value={reportingYear}
-                    onChange={(event) => setReportingYear(Number(event.target.value))}
-                    className="w-full px-4 py-2 rounded-2xl border themed-border bg-white text-sm focus:outline-none focus:ring-2"
-                  >
-                    {availableYears.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-600 mb-2">
-                    Grouping
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {PERIOD_VIEWS.map((viewOption) => (
-                      <button
-                        key={viewOption.value}
-                        onClick={() => setPeriodView(viewOption.value)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                          periodView === viewOption.value
-                            ? 'bg-stone-800 text-white'
-                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                        }`}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-stone-500">
+                <Building2 size={16} />
+                Account overview
+              </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
+                  <div ref={accountDropdownRef} className="relative w-full lg:max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => setAccountDropdownOpen((prev) => !prev)}
+                      className="w-full px-4 py-3 rounded-2xl border themed-border bg-white text-sm font-semibold flex items-center justify-between themed-ring"
+                      style={{ color: 'var(--text)' }}
+                    >
+                      <span>
+                        {selectedAccountLabel}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${accountDropdownOpen ? 'rotate-180' : ''}`}
+                        style={{ color: 'var(--muted)' }}
+                      />
+                    </button>
+                    {accountDropdownOpen && (
+                      <div
+                        className="absolute z-20 mt-2 w-full rounded-2xl border themed-border"
+                        style={{ backgroundColor: 'var(--surface)', boxShadow: 'var(--panel-shadow-soft)' }}
                       >
-                        {viewOption.label}
-                      </button>
-                    ))}
+                        <div className="max-h-56 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAccountIds([]);
+                              setAccountDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                              !selectedFilterAccountId
+                                ? 'bg-stone-800 text-white'
+                                : 'text-stone-600 hover:bg-stone-100'
+                            }`}
+                          >
+                            All accounts
+                          </button>
+                          {connections.map((connection) => (
+                            <button
+                              key={connection.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAccountIds([connection.id]);
+                                setAccountDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                                selectedFilterAccountId === connection.id
+                                  ? 'bg-stone-800 text-white'
+                                  : 'text-stone-600 hover:bg-stone-100'
+                              }`}
+                            >
+                              {connection.account_name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-stone-500">
+                    Last synced: {formatDateTime(latestSyncAtForSelection)}
                   </div>
                 </div>
-                <div className="text-xs text-stone-400">
-                  Term view uses winter, spring, summer, and fall groupings.
-                </div>
-              </div>
 
-              <div className="lg:col-span-2 space-y-3">
-                <div className="flex items-center gap-2 text-sm text-stone-500">
-                  <Building2 size={16} />
-                  Account focus
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSelectedAccountIds([])}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      selectedAccountIds.length === 0
-                        ? 'bg-stone-800 text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    All accounts
-                  </button>
-                  {connections.map((connection) => (
-                    <button
-                      key={connection.id}
-                      onClick={() => toggleAccountFilter(connection.id)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        selectedAccountIds.includes(connection.id)
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {connection.account_name}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-xs text-stone-400">
-                  Use All accounts to see totals across your cards.
-                </div>
+                {accountSummaries.length ? (
+                  <div className="space-y-3">
+                    {accountSummaries.map((summary) => {
+                      const selectedName = selectedFilterAccountId
+                        ? (connections.find((connection) => connection.id === selectedFilterAccountId)?.account_name
+                          || 'Account')
+                        : null;
+                      const headerLabel = selectedName
+                        ? `${selectedName} (${summary.accountType === 'credit' ? 'Credit' : 'Debit'})`
+                        : (summary.accountType === 'credit' ? 'Credit' : 'Debit');
+                      return (
+                        <div
+                          key={summary.accountType}
+                          className="rounded-2xl border themed-border bg-white/70 px-4 py-3"
+                        >
+                          <div className="flex items-center justify-between text-xs text-stone-400 uppercase tracking-wide mb-2">
+                            <span>{headerLabel}</span>
+                            {summary.accountCount > 1 && (
+                              <span>{summary.accountCount} accounts</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <div className="text-stone-500 text-xs uppercase tracking-wide">Current balance</div>
+                              <div className="font-semibold text-stone-800 text-lg">
+                                {summary.currentBalance !== null && summary.currentBalance !== undefined
+                                  ? formatCurrency(summary.currentBalance)
+                                  : 'Not set'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-stone-500 text-xs uppercase tracking-wide">Unposted</div>
+                              <div className="font-semibold text-stone-800 text-lg">
+                                {summary.unposted !== null && summary.unposted !== undefined
+                                  ? formatCurrency(summary.unposted)
+                                  : 'Not set'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-stone-400">
+                    Connect an account to see balances and status.
+                  </div>
+                )}
               </div>
             </div>
-          </motion.section>
+          </section>
         )}
 
         {showSummaryGrid && (
           <div className={`grid grid-cols-1 ${summaryGridClass} gap-6`}>
             {showChart && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
+              <div
                 className={`themed-surface p-6 rounded-3xl ${chartSpanClass}`}
               >
                 <div className="flex items-center justify-between mb-6">
@@ -1377,14 +1869,11 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                     Income
                   </span>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {showTopCategories && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
+              <div
                 className="themed-surface p-6 rounded-3xl"
               >
                 <div className="flex items-center gap-2 mb-6">
@@ -1419,18 +1908,15 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                     })}
                   </div>
                 )}
-              </motion.div>
+              </div>
             )}
           </div>
         )}
 
         {/* Connected Accounts */}
         {sections.accounts && (
-          <motion.section
+          <section
             id="bank-accounts"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-quicksand font-bold text-xl text-stone-800">
@@ -1508,34 +1994,63 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                     <div className="flex justify-between text-sm mt-2">
                       <span className="text-stone-500">Current balance:</span>
                       <span className="font-medium text-stone-700">
-                        {connection.opening_balance !== null && connection.opening_balance !== undefined
-                          ? formatCurrency(balanceByConnection.get(connection.id))
+                        {getCurrentBalanceValue(connection) !== null
+                          ? formatCurrency(
+                              normalizeBalanceForType(
+                                getCurrentBalanceValue(connection),
+                                connection.account_type
+                              )
+                            )
                           : 'Not set'}
                       </span>
                     </div>
+                    {connection.available_balance !== null && connection.available_balance !== undefined && (
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-stone-500">
+                          {connection.account_type === 'credit' ? 'Available credit:' : 'Available balance:'}
+                        </span>
+                        <span className="font-medium text-stone-700">
+                          {formatCurrency(
+                            normalizeBalanceForType(
+                              connection.available_balance,
+                              connection.account_type
+                            )
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {unpostedByConnection.has(connection.id) && (
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-stone-500">Unposted transactions:</span>
+                        <span className="font-medium text-stone-700">
+                          {formatCurrency(unpostedByConnection.get(connection.id))}
+                        </span>
+                      </div>
+                    )}
+                    {(connection.available_balance === null || connection.available_balance === undefined) && (
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-stone-500">Balance as of:</span>
+                        <span className="font-medium text-stone-700">
+                          {connection.balance_date
+                            ? formatDate(connection.balance_date)
+                            : connection.opening_balance_date
+                              ? formatDate(connection.opening_balance_date)
+                            : 'Not set'}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm mt-2">
-                      <span className="text-stone-500">Balance as of:</span>
+                      <span className="text-stone-500">Last transaction on:</span>
                       <span className="font-medium text-stone-700">
-                        {connection.opening_balance_date
-                          ? formatDate(connection.opening_balance_date)
-                          : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-2">
-                      <span className="text-stone-500">Opening balance:</span>
-                      <span className="font-medium text-stone-700">
-                        {connection.opening_balance !== null && connection.opening_balance !== undefined
-                          ? formatCurrency(connection.opening_balance)
-                          : 'Not set'}
+                        {latestTransactionDateByConnection.get(connection.id)
+                          ? formatDate(latestTransactionDateByConnection.get(connection.id))
+                          : 'No transactions'}
                       </span>
                     </div>
                     <p className="text-xs text-stone-400 mt-2">
                       {connection.account_type === 'debit'
                         ? 'Debit balances reflect cash on hand.'
                         : 'Credit balances reflect amount owed.'}
-                    </p>
-                    <p className="text-xs text-stone-400 mt-1">
-                      Current balance is estimated from transactions shown in this dashboard.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
@@ -1548,31 +2063,22 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                       </button>
                       <button
                         onClick={() => openEditModal(connection)}
-                        className="px-3 py-2 rounded-xl border themed-border text-stone-600 text-sm font-bold hover:bg-stone-50 transition-colors"
+                        className="flex-1 px-3 py-2 rounded-xl border themed-border text-stone-600 text-sm font-bold hover:bg-stone-50 transition-colors"
                       >
                         Edit
-                      </button>
-                      <button
-                        onClick={() => handleDisconnect(connection.id)}
-                        className="flex-1 px-3 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 transition-colors"
-                      >
-                        Disconnect
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </motion.section>
+          </section>
         )}
 
         {/* Transactions */}
         {sections.transactions && (
-          <motion.section
+          <section
             id="transactions"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
           >
             <div className="flex flex-col gap-4 mb-4">
               <div className="relative">
@@ -1586,101 +2092,31 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex items-center gap-2 text-xs text-stone-500">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenFilterModal}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full text-xs font-semibold border themed-border bg-white text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
                     <Filter size={14} />
                     Filters
-                  </span>
-                  <select
-                    value={tableRange}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTableRange(value);
-                      if (value === 'custom') {
-                        setShowDatePicker(true);
-                      }
-                    }}
-                    className="px-3 py-1 rounded-full text-xs font-semibold border themed-border bg-white text-stone-600"
-                  >
-                    {RANGE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      setTableRange('custom');
-                      setShowDatePicker(true);
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors flex items-center gap-1 ${
-                      tableRange === 'custom'
-                        ? 'bg-stone-800 text-white'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    <Calendar size={12} />
-                    From date
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-800 text-white">
+                        {activeFilterCount}
+                      </span>
+                    )}
                   </button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wide">
-                      Year
-                    </span>
-                    {availableYears.map((year) => (
-                      <button
-                        key={year}
-                        onClick={() => handleQuickYearSelect(year)}
-                        className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors ${
-                          reportingYear === year && tableRange === 'year'
-                            ? 'bg-stone-800 text-white'
-                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                        }`}
-                      >
-                        {year}
-                      </button>
-                    ))}
-                  </div>
-                  {FILTER_TYPES.map((type) => (
-                    <button
-                      key={type.value}
-                      onClick={() => setFilterType(type.value)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                        filterType === type.value
-                          ? 'bg-stone-800 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setShowUncategorizedOnly((prev) => !prev)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      showUncategorizedOnly
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                    }`}
-                  >
-                    Uncategorized only
-                  </button>
-                  <span className="text-xs text-stone-500">
-                    Range: {rangeLabel}
-                  </span>
-                  {tableRange === 'custom' && customStartDate && (
-                    <span className="text-xs text-stone-500">
-                      {formatDateKeyLabel(customStartDate)} to today
-                    </span>
-                  )}
+                  <span className="text-xs text-stone-500">{filterSummary}</span>
                 </div>
-                {selectedTransactionIds.length > 0 && (
-                  <div className="text-xs text-stone-500">
-                    Selected {selectedTransactionIds.length} • Total{' '}
-                    <span className={selectedTotals.net < 0 ? 'text-rose-600 font-semibold' : 'text-emerald-700 font-semibold'}>
-                      {selectedTotalLabel}
-                    </span>
-                  </div>
-                )}
               </div>
+              {selectedTransactionIds.length > 0 && (
+                <div className="text-xs text-stone-500">
+                  Selected {selectedTransactionIds.length} | Total{' '}
+                  <span className={selectedTotals.net < 0 ? 'text-rose-600 font-semibold' : 'text-emerald-700 font-semibold'}>
+                    {selectedTotalLabel}
+                  </span>
+                </div>
+              )}
             </div>
 
             {transactionsError && (
@@ -1795,16 +2231,13 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                 </div>
               </div>
             )}
-          </motion.section>
+          </section>
         )}
 
         {/* Rules */}
         {sections.rules && (
-          <motion.section
+          <section
             id="categories"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
           >
             <div className="flex items-center gap-2 mb-4">
               <Tag size={20} className="text-stone-400" />
@@ -1932,32 +2365,267 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                 </form>
               </div>
             </div>
-          </motion.section>
+          </section>
         )}
       </div>
 
-      <DatePickerModal
-        isOpen={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        initialDate={datePickerInitialDate}
-        onConfirm={(date) => {
-          const dateKey = toDateKey(date);
-          if (dateKey) {
-            setCustomStartDate(dateKey);
-            setTableRange('custom');
-          }
-          setShowDatePicker(false);
-        }}
-        onClear={() => {
-          setCustomStartDate(null);
-          setTableRange('year');
-          setShowDatePicker(false);
-        }}
-        title="Select start date"
-        subtitle="Filters transactions from this date to today"
-        confirmLabel="Apply date"
-        clearLabel="Clear date"
-      />
+      <BaseModal
+        isOpen={filterModalOpen}
+        onClose={handleCloseFilterModal}
+        title="Filters"
+        maxWidth="max-w-3xl"
+      >
+        <AnimatePresence mode="wait" initial={false} custom={filterViewDirection}>
+          {filterView === 'filters' && (
+            <div
+              key="filters"
+              className="space-y-6"
+            >
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wide">
+                  Type
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {FILTER_TYPES.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setFilterType(type.value)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                        filterType === type.value
+                          ? 'bg-stone-800 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wide">
+                  Year
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {availableYears.map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => setReportingYear(year)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                        reportingYear === year
+                          ? 'bg-stone-800 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wide">
+                  Dates
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCalendar('from')}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full text-xs font-semibold border themed-border bg-white text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
+                    <Calendar size={14} />
+                    From {filterFromDate ? formatDateKeyLabel(filterFromDate) : 'Any date'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCalendar('to')}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full text-xs font-semibold border themed-border bg-white text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
+                    <Calendar size={14} />
+                    To {filterToDate ? formatDateKeyLabel(filterToDate) : 'Any date'}
+                  </button>
+                </div>
+                <p className="text-xs text-stone-500">
+                  From only shows dates from the selected date forward. To only shows dates up to the selected date.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wide">
+                  Categories
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {categoryFilterOptions.length === 0 && (
+                    <span className="text-xs text-stone-500">No categories yet.</span>
+                  )}
+                  {categoryFilterOptions.map((category) => {
+                    const isSelected = selectedCategories.includes(category);
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => handleToggleCategory(category)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                          isSelected
+                            ? 'bg-stone-800 text-white'
+                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 rounded-xl border themed-border text-xs font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
+                >
+                  Reset filters
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseFilterModal}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-lg transition-all"
+                  style={{ backgroundColor: 'var(--primary)', boxShadow: '0 10px 18px -12px var(--menu-shadow)' }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+
+          {filterView === 'calendar' && (
+            <div
+              key="calendar"
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleBackToFilters}
+                  className="flex items-center gap-2 text-sm font-semibold text-stone-600 hover:text-stone-800 transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                  Back
+                </button>
+                <span className="text-sm font-bold text-stone-700">
+                  {calendarTarget === 'to' ? 'To date' : 'From date'}
+                </span>
+              </div>
+
+              <p className="text-xs text-stone-500">Select a date in {reportingYear}.</p>
+
+              <div className="rounded-2xl border border-[#FFE5D9] bg-[#FFF8F3] p-3">
+                <div className="flex items-center justify-between px-1 py-2">
+                  <div className="text-sm font-bold text-stone-800">
+                    {calendarMonthLabel}
+                    <span className="ml-2 text-stone-400 font-semibold">{calendarYearLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCalendarPrev}
+                      disabled={isCalendarPrevDisabled}
+                      className={`w-9 h-9 rounded-full border border-[#FFE5D9] bg-white text-stone-600 transition-colors ${
+                        isCalendarPrevDisabled
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:text-[#FF9B85] hover:border-[#FF9B85]'
+                      }`}
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft size={18} className="mx-auto" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCalendarToday}
+                      className="h-9 px-3 rounded-full border border-[#FFE5D9] bg-white text-[#FF9B85] text-xs font-bold hover:bg-[#FFF8F3] transition-colors"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCalendarNext}
+                      disabled={isCalendarNextDisabled}
+                      className={`w-9 h-9 rounded-full border border-[#FFE5D9] bg-white text-stone-600 transition-colors ${
+                        isCalendarNextDisabled
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:text-[#FF9B85] hover:border-[#FF9B85]'
+                      }`}
+                      aria-label="Next month"
+                    >
+                      <ChevronRight size={18} className="mx-auto" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 text-[10px] font-bold text-stone-400 px-1">
+                  {DOW_LABELS.map((label) => (
+                    <span key={label} className="text-center tracking-wide">
+                      {label}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 p-2">
+                  {calendarDays.map((day) => {
+                    const isInYear = day.getFullYear() === reportingYear;
+                    const isSameMonth = day.getMonth() === calendarMonthCursor.getMonth();
+                    const isSelected = calendarSelectedDate
+                      && day.getFullYear() === calendarSelectedDate.getFullYear()
+                      && day.getMonth() === calendarSelectedDate.getMonth()
+                      && day.getDate() === calendarSelectedDate.getDate();
+                    const baseClass = 'h-10 rounded-full text-sm font-bold transition-colors';
+                    const stateClass = !isInYear
+                      ? 'text-stone-300 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-[#FFDCC8] text-[#7C2A22]'
+                        : `bg-transparent ${isSameMonth ? 'text-stone-600' : 'text-stone-400'} hover:bg-[#FFE5D9]`;
+                    return (
+                      <button
+                        key={`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`}
+                        type="button"
+                        onClick={() => {
+                          if (isInYear) {
+                            setCalendarSelectedDate(day);
+                          }
+                        }}
+                        disabled={!isInYear}
+                        aria-selected={!!isSelected}
+                        className={`${baseClass} ${stateClass}`}
+                      >
+                        {day.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleApplyCalendar}
+                  className="flex-1 h-10 rounded-xl text-white font-bold shadow-lg shadow-[#FF9B85]/30 bg-[#FF9B85] hover:bg-[#E07A5F] transition-colors"
+                >
+                  Apply date
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearCalendar}
+                  className="h-10 px-4 rounded-xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+                >
+                  Clear date
+                </button>
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
+      </BaseModal>
 
       <BaseModal
         isOpen={showConnectModal}
@@ -2013,9 +2681,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                 className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
               >
                 <option value="">Select an account</option>
-                {simplefinAccounts.map((account) => (
+                {sortedSimplefinAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.displayName || account.name || account.id}
+                    {formatSimplefinAccountOption(account)}
                   </option>
                 ))}
               </select>
@@ -2089,7 +2757,23 @@ export function BankAccountsPage({ view = 'dashboard' }) {
             </label>
             <select
               value={editForm.accountType}
-              onChange={(event) => setEditForm((prev) => ({ ...prev, accountType: event.target.value }))}
+              onChange={(event) => {
+                const nextType = event.target.value;
+                setEditForm((prev) => {
+                  const normalizedOpening = nextType === 'credit' && prev.openingBalance !== ''
+                    ? String(Math.abs(Number(prev.openingBalance)))
+                    : prev.openingBalance;
+                  const normalizedLimit = nextType === 'credit' && prev.creditLimit !== ''
+                    ? String(Math.abs(Number(prev.creditLimit)))
+                    : prev.creditLimit;
+                  return {
+                    ...prev,
+                    accountType: nextType,
+                    openingBalance: normalizedOpening,
+                    creditLimit: normalizedLimit,
+                  };
+                });
+              }}
               className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
             >
               {ACCOUNT_TYPES.map((type) => (
@@ -2102,6 +2786,25 @@ export function BankAccountsPage({ view = 'dashboard' }) {
               Credit balances are amounts owed. Debit balances are cash on hand.
             </p>
           </div>
+
+          {editForm.accountType === 'credit' && (
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Credit limit
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={editForm.creditLimit}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, creditLimit: event.target.value }))}
+                placeholder="0.00"
+                className="w-full px-4 py-3 rounded-2xl border themed-border focus:outline-none focus:ring-2 bg-white"
+              />
+              <p className="text-xs text-stone-500 mt-2">
+                Used to estimate pending credit card transactions.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
@@ -2137,6 +2840,19 @@ export function BankAccountsPage({ view = 'dashboard' }) {
             >
               Cancel
             </button>
+            {editingConnection && (
+              <button
+                type="button"
+                onClick={() => {
+                  openDisconnectModal(editingConnection);
+                  closeEditModal();
+                }}
+                disabled={savingConnection}
+                className="flex-1 px-6 py-3 rounded-2xl border border-red-200 text-red-600 font-bold hover:bg-red-50 transition-colors disabled:opacity-60"
+              >
+                Disconnect
+              </button>
+            )}
             <button
               type="submit"
               disabled={savingConnection}
@@ -2147,6 +2863,54 @@ export function BankAccountsPage({ view = 'dashboard' }) {
             </button>
           </div>
         </form>
+      </BaseModal>
+
+      <BaseModal
+        isOpen={!!disconnectTarget}
+        onClose={closeDisconnectModal}
+        title="Disconnect Bank Account"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600">
+            Are you sure you want to disconnect{' '}
+            <span className="font-bold text-stone-800">
+              {disconnectTarget?.account_name || 'this account'}
+            </span>
+            ?
+          </p>
+          <label className="flex items-start gap-3 rounded-2xl border themed-border bg-white p-4 text-sm text-stone-600">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-stone-300 text-rose-600 focus:ring-2 focus:ring-rose-200"
+              checked={disconnectDeleteHistory}
+              onChange={(event) => setDisconnectDeleteHistory(event.target.checked)}
+            />
+            <span>
+              Delete saved transactions{' '}
+              <span className="text-xs text-stone-500">
+                (If deleted, it will take longer to pull transactions next time you reconnect.)
+              </span>
+            </span>
+          </label>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={closeDisconnectModal}
+              disabled={disconnecting}
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDisconnect}
+              disabled={disconnecting}
+              className="flex-1 px-6 py-3 rounded-2xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all disabled:opacity-60"
+            >
+              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+          </div>
+        </div>
       </BaseModal>
 
       <BaseModal
@@ -2296,4 +3060,5 @@ export function BankAccountsPage({ view = 'dashboard' }) {
     </Layout>
   );
 }
+
 

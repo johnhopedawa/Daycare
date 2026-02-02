@@ -1,10 +1,88 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Layout } from '../components/Layout';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, Clock, Pencil, Plus, Trash2, User } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Calendar as CalendarIcon, Pencil, Plus, Trash2, User } from 'lucide-react';
 import { AddShiftModal } from '../components/modals/AddShiftModal';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
+
+const getDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeScheduleDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return getDateKey(value);
+  }
+  const raw = String(value);
+  if (raw.includes('T')) {
+    return raw.split('T')[0];
+  }
+  if (raw.length === 10 && raw[4] === '-' && raw[7] === '-') {
+    return raw;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return getDateKey(parsed);
+};
+
+const parseDateKey = (dateKey) => {
+  const [year, month, day] = String(dateKey || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const formatTimeCompact = (time24) => {
+  if (!time24) return '';
+  const [hoursRaw, minutesRaw] = String(time24).split(':');
+  const hour24 = parseInt(hoursRaw, 10);
+  if (!Number.isFinite(hour24)) return '';
+  const hour12 = hour24 % 12 || 12;
+  const minutes = minutesRaw || '00';
+  if (minutes === '00') {
+    return `${hour12}`;
+  }
+  return `${hour12}:${minutes}`;
+};
+
+const formatRequestType = (type) => {
+  const value = String(type || '').toUpperCase();
+  if (value === 'SICK') return 'Sick';
+  if (value === 'VACATION') return 'Vacation';
+  if (value === 'UNPAID') return 'Unpaid';
+  return value || 'Time Off';
+};
+
+const getMonthStart = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
+
+const getMonthRange = (date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return { from: getDateKey(start), to: getDateKey(end) };
+};
+
+const getMonthGrid = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDayOfWeek = firstDay.getDay();
+  const totalSlots = Math.ceil((startDayOfWeek + daysInMonth) / 7) * 7;
+  const days = [];
+
+  for (let i = 0; i < totalSlots; i += 1) {
+    const dayNumber = i - startDayOfWeek + 1;
+    days.push(dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : null);
+  }
+
+  return days;
+};
 
 export function StaffSchedulingPage() {
   const [schedules, setSchedules] = useState([]);
@@ -12,17 +90,13 @@ export function StaffSchedulingPage() {
   const [loading, setLoading] = useState(true);
   const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [selectedEducator, setSelectedEducator] = useState('all');
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      from: start.toISOString().split('T')[0],
-      to: end.toISOString().split('T')[0]
-    };
-  });
+  const [currentMonth, setCurrentMonth] = useState(() => getMonthStart(new Date()));
+  const [presetShiftDate, setPresetShiftDate] = useState(null);
+  const [activeDateKey, setActiveDateKey] = useState(null);
+  const [timeOffRequests, setTimeOffRequests] = useState([]);
 
   const [editForm, setEditForm] = useState({
     shiftDate: '',
@@ -41,12 +115,21 @@ export function StaffSchedulingPage() {
     }
   }, []);
 
+  const monthRange = useMemo(() => getMonthRange(currentMonth), [currentMonth]);
+
+  const monthDays = useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
+
+  const monthTitle = useMemo(
+    () => currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    [currentMonth]
+  );
+
   const loadSchedules = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (dateRange.from) params.append('from', dateRange.from);
-      if (dateRange.to) params.append('to', dateRange.to);
+      if (monthRange.from) params.append('from', monthRange.from);
+      if (monthRange.to) params.append('to', monthRange.to);
       if (selectedEducator !== 'all') params.append('user_id', selectedEducator);
 
       const response = await api.get(`/schedules/admin/schedules?${params.toString()}`);
@@ -56,7 +139,17 @@ export function StaffSchedulingPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, selectedEducator]);
+  }, [monthRange, selectedEducator]);
+
+  const loadTimeOffRequests = useCallback(async () => {
+    try {
+      const response = await api.get('/time-off-requests', { params: { status: 'APPROVED' } });
+      setTimeOffRequests(response.data.requests || []);
+    } catch (error) {
+      console.error('Failed to load time off requests:', error);
+      setTimeOffRequests([]);
+    }
+  }, []);
 
   useEffect(() => {
     loadEducators();
@@ -66,14 +159,9 @@ export function StaffSchedulingPage() {
     loadSchedules();
   }, [loadSchedules]);
 
-  const formatTime = (time24) => {
-    if (!time24) return null;
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
+  useEffect(() => {
+    loadTimeOffRequests();
+  }, [loadTimeOffRequests]);
 
   const calculateHours = (startTime, endTime) => {
     if (!startTime || !endTime) return '';
@@ -86,11 +174,14 @@ export function StaffSchedulingPage() {
   const groupSchedulesByDate = (items) => {
     const grouped = {};
     items.forEach((schedule) => {
-      const date = schedule.shift_date;
-      if (!grouped[date]) {
-        grouped[date] = [];
+      const dateKey = normalizeScheduleDate(schedule.shift_date);
+      if (!dateKey) {
+        return;
       }
-      grouped[date].push(schedule);
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(schedule);
     });
     return grouped;
   };
@@ -103,10 +194,20 @@ export function StaffSchedulingPage() {
   ];
   const getColorForEducator = (index) => cardStyles[index % cardStyles.length];
 
+  const openAddShift = (dateOverride) => {
+    setPresetShiftDate(dateOverride || null);
+    setIsAddShiftOpen(true);
+  };
+
+  const openDayDetails = (dateKey) => {
+    setActiveDateKey(dateKey);
+    setIsDayDetailOpen(true);
+  };
+
   const openEditModal = (schedule) => {
     setEditingSchedule(schedule);
     setEditForm({
-      shiftDate: schedule.shift_date || '',
+      shiftDate: normalizeScheduleDate(schedule.shift_date) || '',
       startTime: schedule.start_time || '',
       endTime: schedule.end_time || '',
       hours: schedule.hours || '',
@@ -148,30 +249,90 @@ export function StaffSchedulingPage() {
   };
 
   const groupedSchedules = groupSchedulesByDate(schedules);
-  const sortedDates = Object.keys(groupedSchedules).sort();
+  const todayKey = getDateKey(new Date());
+  const filteredTimeOffRequests = useMemo(() => {
+    if (selectedEducator === 'all') {
+      return timeOffRequests;
+    }
+    return timeOffRequests.filter(
+      (request) => String(request.user_id) === String(selectedEducator)
+    );
+  }, [timeOffRequests, selectedEducator]);
+  const timeOffByDate = useMemo(() => {
+    const map = new Map();
+    filteredTimeOffRequests.forEach((request) => {
+      if (String(request.status || '').toUpperCase() !== 'APPROVED') return;
+      const startKey = normalizeScheduleDate(request.start_date);
+      const endKey = normalizeScheduleDate(request.end_date);
+      if (!startKey || !endKey) return;
+      const start = parseDateKey(startKey);
+      const end = parseDateKey(endKey);
+      if (!start || !end) return;
+      for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        const key = getDateKey(cursor);
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key).push({
+          id: request.id,
+          first_name: request.first_name,
+          last_name: request.last_name,
+          request_type: request.request_type,
+          reason: request.reason,
+        });
+      }
+    });
+    return map;
+  }, [filteredTimeOffRequests]);
+
+  const activeDayDetails = useMemo(() => {
+    if (!activeDateKey) return null;
+    const date = parseDateKey(activeDateKey);
+    if (!date) return null;
+    return {
+      key: activeDateKey,
+      label: date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      shifts: groupedSchedules[activeDateKey] || [],
+      timeOff: timeOffByDate.get(activeDateKey) || [],
+    };
+  }, [activeDateKey, groupedSchedules, timeOffByDate]);
 
   return (
     <Layout title="Staff Scheduling" subtitle="Manage educator shifts and coverage">
       <div className="themed-surface rounded-3xl p-4 mb-8 flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          <div
-            className="flex items-center gap-2 p-1.5 rounded-2xl border themed-border"
-            style={{ backgroundColor: 'var(--background)' }}
-          >
-            <input
-              type="date"
-              value={dateRange.from}
-              onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-              className="bg-transparent border-none text-sm font-medium text-stone-600 focus:ring-0 px-2"
-            />
-            <span className="text-stone-400 text-xs">to</span>
-            <input
-              type="date"
-              value={dateRange.to}
-              onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-              className="bg-transparent border-none text-sm font-medium text-stone-600 focus:ring-0 px-2"
-            />
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl border themed-border bg-white">
+            <button
+              type="button"
+              onClick={() => {
+                const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+                setCurrentMonth(prev);
+              }}
+              className="px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:text-stone-800"
+            >
+              Prev
+            </button>
+            <div className="text-sm font-semibold text-stone-700 min-w-[140px] text-center">
+              {monthTitle}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+                setCurrentMonth(next);
+              }}
+              className="px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:text-stone-800"
+            >
+              Next
+            </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setCurrentMonth(getMonthStart(new Date()))}
+            className="px-4 py-2 rounded-2xl border themed-border text-sm font-semibold text-stone-600 bg-white"
+          >
+            This Month
+          </button>
 
           <div className="relative">
             <select
@@ -195,7 +356,7 @@ export function StaffSchedulingPage() {
 
         <div className="flex gap-3 w-full lg:w-auto">
           <button
-            onClick={() => setIsAddShiftOpen(true)}
+            onClick={() => openAddShift()}
             className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl text-white font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
             style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
           >
@@ -203,6 +364,14 @@ export function StaffSchedulingPage() {
             Add Shift
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-4 mb-6">
+        <div className="h-px flex-1" style={{ backgroundColor: 'var(--border)' }} />
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">
+          {monthTitle}
+        </span>
+        <div className="h-px flex-1" style={{ backgroundColor: 'var(--border)' }} />
       </div>
 
       {loading ? (
@@ -213,135 +382,244 @@ export function StaffSchedulingPage() {
           />
           <p className="font-quicksand font-medium">Loading schedules...</p>
         </div>
-      ) : schedules.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="themed-surface rounded-3xl p-16 text-center"
-        >
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
-            style={{ backgroundColor: 'var(--background)', color: 'var(--primary)' }}
-          >
-            <CalendarIcon size={40} />
-          </div>
-          <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-3">
-            No Schedules Found
-          </h3>
-          <p className="text-stone-500 mb-8 max-w-md mx-auto">
-            There are no shifts scheduled for this date range. Try adjusting
-            your filters or add a new shift to get started.
-          </p>
-          <button
-            onClick={() => setIsAddShiftOpen(true)}
-            className="px-8 py-3 text-white font-bold rounded-2xl shadow-lg hover:opacity-90 transition-colors"
-            style={{ backgroundColor: 'var(--primary)' }}
-          >
-            Create First Shift
-          </button>
-        </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
-          <AnimatePresence>
-            {sortedDates.map((date, dateIndex) => (
-              <motion.div
-                key={date}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: dateIndex * 0.05 }}
-                className="themed-surface rounded-3xl p-5 flex flex-col gap-4"
+        <div className="themed-surface rounded-3xl p-4">
+          {schedules.length === 0 && filteredTimeOffRequests.length === 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3 text-stone-600">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--background)', color: 'var(--primary)' }}
+                >
+                  <CalendarIcon size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-stone-700">No shifts this month</p>
+                  <p className="text-xs text-stone-500">Click a date to add a shift.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => openAddShift()}
+                className="px-4 py-2 text-white font-semibold rounded-2xl shadow-sm hover:opacity-90 transition-colors text-sm"
+                style={{ backgroundColor: 'var(--primary)' }}
               >
-                <div className="flex items-center justify-between pb-2 border-b themed-border">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-quicksand font-bold text-xl text-stone-800">
-                      {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
-                    </span>
-                    <span className="text-stone-400 font-medium text-sm">
-                      {new Date(date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                  <span
-                    className="text-xs font-bold px-2 py-1 rounded-lg"
-                    style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                Add Shift
+              </button>
+            </div>
+          )}
+
+          <div className="calendar-grid">
+            <div className="calendar-header">Sun</div>
+            <div className="calendar-header">Mon</div>
+            <div className="calendar-header">Tue</div>
+            <div className="calendar-header">Wed</div>
+            <div className="calendar-header">Thu</div>
+            <div className="calendar-header">Fri</div>
+            <div className="calendar-header">Sat</div>
+
+            <AnimatePresence>
+              {monthDays.map((dayNumber, index) => {
+                if (!dayNumber) {
+                  return (
+                    <div key={`empty-${index}`} className="calendar-day calendar-day--empty" />
+                  );
+                }
+                const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNumber);
+                const dateKey = getDateKey(date);
+                const daySchedules = groupedSchedules[dateKey] || [];
+                const dayTimeOff = timeOffByDate.get(dateKey) || [];
+                const isToday = dateKey === todayKey;
+                const hasShifts = daySchedules.length > 0;
+                const hasEvents = hasShifts || dayTimeOff.length > 0;
+                const eventCount = daySchedules.length + dayTimeOff.length;
+                const dayProps = {
+                  role: 'button',
+                  tabIndex: 0,
+                  onClick: () => openDayDetails(dateKey),
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openDayDetails(dateKey);
+                    }
+                  },
+                  'aria-label': `View details for ${date.toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}`,
+                };
+
+                return (
+                  <div
+                    key={dateKey}
+                    className={`calendar-day ${hasEvents ? 'calendar-day--scheduled' : ''} ${
+                      isToday ? 'calendar-day--today' : ''
+                    } cursor-pointer`}
+                    {...dayProps}
                   >
-                    {groupedSchedules[date].length} shifts
-                  </span>
-                </div>
+                    <div className="flex items-center justify-between calendar-day-header">
+                      <span className="calendar-day-number">{dayNumber}</span>
+                      {eventCount > 0 && (
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-lg"
+                          style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                        >
+                          {eventCount}
+                        </span>
+                      )}
+                    </div>
 
-                <div className="space-y-3">
-                  {groupedSchedules[date].map((schedule, i) => (
-                    <motion.div
-                      key={schedule.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: dateIndex * 0.05 + i * 0.03 }}
-                      className="group relative rounded-xl p-3 shadow-sm border themed-border hover:shadow-md transition-all duration-200"
-                      style={{ backgroundColor: 'var(--surface)' }}
-                    >
-                      <div
-                        className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"
-                        style={{ backgroundColor: getColorForEducator(i).backgroundColor }}
-                      />
-                      <div className="pl-3">
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-quicksand font-bold text-stone-800 text-sm">
-                            {schedule.first_name} {schedule.last_name}
-                          </h4>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            <button
-                              onClick={() => openEditModal(schedule)}
-                              className="p-1 text-stone-400 hover:text-[color:var(--primary-dark)]"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSchedule(schedule.id)}
-                              className="p-1 text-stone-400 hover:text-red-500"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                    <div className="hidden md:flex flex-col gap-1 text-[11px] text-stone-600">
+                      {daySchedules.map((schedule, i) => {
+                        const start = formatTimeCompact(schedule.start_time);
+                        const end = formatTimeCompact(schedule.end_time);
+                        const timeLabel = start && end ? `${start}-${end}` : start || end;
+                        return (
+                          <div key={schedule.id} className="flex items-center gap-1 truncate">
+                            <span
+                              className="inline-block w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: getColorForEducator(i).backgroundColor }}
+                            />
+                            <span className="font-semibold text-stone-700 truncate">
+                              {schedule.first_name}
+                            </span>
+                            {timeLabel && (
+                              <span className="text-stone-500">{timeLabel}</span>
+                            )}
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-xs text-stone-500 mb-2">
-                          <Clock size={12} />
-                          <span>
-                            {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                        );
+                      })}
+                      {dayTimeOff.map((request) => (
+                        <div key={`timeoff-${request.id}`} className="flex items-center gap-1 truncate">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                          <span className="font-semibold text-stone-700 truncate">
+                            {request.first_name}
                           </span>
-                          <span
-                            className="px-1.5 py-0.5 rounded-md font-medium text-[10px]"
-                            style={{ backgroundColor: 'var(--background)', color: 'var(--muted)' }}
-                          >
-                            {schedule.hours}h
-                          </span>
+                          <span className="text-emerald-700">{formatRequestType(request.request_type)}</span>
                         </div>
-
-                        {schedule.notes && (
-                          <div
-                            className="text-[10px] text-stone-500 p-1.5 rounded-lg line-clamp-2"
-                            style={{ backgroundColor: 'var(--background)' }}
-                          >
-                            {schedule.notes}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
       )}
-
       <AddShiftModal
         isOpen={isAddShiftOpen}
-        onClose={() => setIsAddShiftOpen(false)}
+        onClose={() => {
+          setIsAddShiftOpen(false);
+          setPresetShiftDate(null);
+        }}
         onSuccess={loadSchedules}
+        initialDate={presetShiftDate}
       />
+
+      <BaseModal
+        isOpen={isDayDetailOpen}
+        onClose={() => setIsDayDetailOpen(false)}
+        title={activeDayDetails ? `Schedule Details - ${activeDayDetails.label}` : 'Schedule Details'}
+      >
+        <div className="space-y-4">
+          {activeDayDetails && (activeDayDetails.shifts.length > 0 || activeDayDetails.timeOff.length > 0) ? (
+            <>
+              {activeDayDetails.shifts.length > 0 && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-stone-500 mb-2">Shifts</p>
+                  <div className="space-y-2">
+                    {activeDayDetails.shifts.map((shift) => {
+                      const start = formatTimeCompact(shift.start_time);
+                      const end = formatTimeCompact(shift.end_time);
+                      return (
+                        <div key={shift.id} className="rounded-xl border themed-border bg-white p-3">
+                          <div className="flex items-center justify-between gap-3 text-sm font-semibold text-stone-800">
+                            <span>{shift.first_name}</span>
+                            <div className="flex items-center gap-2 text-stone-600">
+                              <span>{start && end ? `${start}-${end}` : start || end}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsDayDetailOpen(false);
+                                  openEditModal(shift);
+                                }}
+                                className="p-1 text-stone-400 hover:text-[color:var(--primary-dark)]"
+                                aria-label="Edit shift"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsDayDetailOpen(false);
+                                  handleDeleteSchedule(shift.id);
+                                }}
+                                className="p-1 text-stone-400 hover:text-red-500"
+                                aria-label="Delete shift"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          {shift.notes && (
+                            <div className="text-xs text-stone-500 mt-1">{shift.notes}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeDayDetails.timeOff.length > 0 && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-stone-500 mb-2">Approved Time Off</p>
+                  <div className="space-y-2">
+                    {activeDayDetails.timeOff.map((request) => (
+                      <div key={`timeoff-${request.id}`} className="rounded-xl border themed-border bg-white p-3">
+                        <div className="flex items-center justify-between text-sm font-semibold text-stone-800">
+                          <span>{request.first_name}</span>
+                          <span className="text-emerald-700">{formatRequestType(request.request_type)}</span>
+                        </div>
+                        {request.reason && (
+                          <div className="text-xs text-stone-500 mt-1">{request.reason}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-stone-500">No shifts or approved time off for this day.</div>
+          )}
+
+          <div className="flex gap-3 pt-2 border-t themed-border">
+            <button
+              type="button"
+              onClick={() => {
+                if (activeDayDetails) {
+                  openAddShift(parseDateKey(activeDayDetails.key));
+                } else {
+                  openAddShift();
+                }
+                setIsDayDetailOpen(false);
+              }}
+              className="flex-1 px-4 py-2 rounded-xl text-white font-semibold"
+              style={{ backgroundColor: 'var(--primary)' }}
+            >
+              Add Shift
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDayDetailOpen(false)}
+              className="flex-1 px-4 py-2 rounded-xl border themed-border text-stone-600 font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </BaseModal>
 
       <BaseModal
         isOpen={isEditOpen}
@@ -435,6 +713,14 @@ export function StaffSchedulingPage() {
           </div>
         </form>
       </BaseModal>
+
     </Layout>
   );
 }
+
+
+
+
+
+
+

@@ -39,10 +39,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateUser = (nextUser) => {
+    if (!nextUser) {
+      return;
+    }
+    localStorage.setItem('user', JSON.stringify(nextUser));
+    setUser(nextUser);
+  };
+
   const value = {
     user,
     login,
     logout,
+    updateUser,
     isAdmin: user?.role === 'ADMIN',
     isEducator: user?.role === 'EDUCATOR',
   };

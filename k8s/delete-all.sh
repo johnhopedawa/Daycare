@@ -13,7 +13,6 @@ kubectl delete -f "$K8S_DIR/ingress/" --ignore-not-found=true
 kubectl delete -f "$K8S_DIR/services/" --ignore-not-found=true
 kubectl delete -f "$K8S_DIR/deployments/" --ignore-not-found=true
 kubectl delete -f "$K8S_DIR/jobs/" --ignore-not-found=true
-kubectl delete -f "$K8S_DIR/storage/" --ignore-not-found=true
 kubectl delete -f "$K8S_DIR/secrets/" --ignore-not-found=true
 
 echo ""

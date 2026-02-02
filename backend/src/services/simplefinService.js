@@ -184,7 +184,7 @@ async function fetchAccounts(accessUrl) {
  * @param {string} accessUrl - SimpleFIN Access URL
  * @param {string} accountId - SimpleFIN account ID
  * @param {number} startDate - Unix timestamp in seconds for transaction start
- * @returns {Promise<Array>} - Array of transaction objects
+ * @returns {Promise<object>} - { transactions, account }
  * @throws {Error} - If fetch fails
  */
 async function fetchTransactions(accessUrl, accountId, startDate) {
@@ -235,18 +235,25 @@ async function fetchTransactions(accessUrl, accountId, startDate) {
       throw new Error('Invalid response from SimpleFIN');
     }
 
-    // Find the specific account
-    const account = response.data.accounts.find(a => a.id === accountId);
+    // Find the specific account (normalize ID types for safety)
+    const accountIdKey = String(accountId);
+    const account = response.data.accounts.find((a) => {
+      const candidateId = a?.id ?? a?.account_id ?? a?.accountId;
+      if (candidateId === null || candidateId === undefined) {
+        return false;
+      }
+      return String(candidateId) === accountIdKey;
+    });
 
     if (!account) {
       console.warn(`[SimpleFIN] Account ${accountId} not found in response`);
-      return [];
+      return { transactions: [], account: null };
     }
 
     const transactions = account.transactions || [];
     console.log(`[SimpleFIN] Found ${transactions.length} transaction(s)`);
 
-    return transactions;
+    return { transactions, account };
   } catch (error) {
     if (error.response) {
       console.error('[SimpleFIN] Fetch transactions error:', {

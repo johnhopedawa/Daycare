@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
-import { motion } from 'framer-motion';
 import { Check, Clock, AlertCircle, UserCheck, Calendar, ToggleLeft, ToggleRight } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
 
-export function AttendancePage() {
+export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Attendance', subtitle = 'Track daily check-ins and absences' }) {
   const [children, setChildren] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ present: 0, checkedOut: 0, absent: 0, total: 0 });
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [attendanceError, setAttendanceError] = useState('');
   const [attendanceMode, setAttendanceMode] = useState(() => {
     return localStorage.getItem('attendanceMode') || 'automatic';
   });
@@ -32,11 +32,10 @@ export function AttendancePage() {
   const loadAttendance = useCallback(async () => {
     try {
       setLoading(true);
+      setAttendanceError('');
       const dateStr = formatDateForAPI(selectedDate);
-      const [attendanceRes, childrenRes] = await Promise.all([
-        api.get(`/attendance?start_date=${dateStr}&end_date=${dateStr}`),
-        api.get('/children?status=ACTIVE'),
-      ]);
+      const attendanceRes = await api.get(`/attendance?start_date=${dateStr}&end_date=${dateStr}`);
+      const childrenRes = await api.get('/children?status=ACTIVE');
 
       const attendanceData = attendanceRes.data.attendance || [];
       const childrenData = childrenRes.data.children || [];
@@ -51,7 +50,14 @@ export function AttendancePage() {
 
       setStats({ present, checkedOut, absent, total });
     } catch (error) {
-      console.error('Failed to load attendance:', error);
+      if (error.response?.status === 403) {
+        setAttendanceError(error.response?.data?.error || 'You are not scheduled for today.');
+        setAttendance([]);
+        setChildren([]);
+        setStats({ present: 0, checkedOut: 0, absent: 0, total: 0 });
+      } else {
+        console.error('Failed to load attendance:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -285,21 +291,19 @@ export function AttendancePage() {
 
   if (loading) {
     return (
-      <Layout title="Attendance" subtitle="Track daily check-ins and absences">
+      <LayoutComponent title={title} subtitle={subtitle}>
         <div className="flex items-center justify-center h-64">
           <div className="text-stone-500">Loading...</div>
         </div>
-      </Layout>
+      </LayoutComponent>
     );
   }
 
   return (
-    <Layout title="Attendance" subtitle="Track daily check-ins and absences">
+    <LayoutComponent title={title} subtitle={subtitle}>
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
@@ -311,12 +315,9 @@ export function AttendancePage() {
               <UserCheck size={24} className="text-[var(--card-text-1)]" />
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <div
           className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
@@ -328,12 +329,9 @@ export function AttendancePage() {
               <Check size={24} className="text-[var(--card-text-2)]" />
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <div
           className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
@@ -345,12 +343,9 @@ export function AttendancePage() {
               <Clock size={24} className="text-[var(--card-text-3)]" />
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+        <div
           className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
         >
           <div className="flex items-center justify-between">
@@ -362,7 +357,7 @@ export function AttendancePage() {
               <AlertCircle size={24} className="text-[var(--card-text-4)]" />
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Attendance Table */}
@@ -388,7 +383,11 @@ export function AttendancePage() {
           </div>
         </div>
 
-        {children.length === 0 ? (
+        {attendanceError ? (
+          <div className="p-12 text-center">
+            <p className="text-stone-500">{attendanceError}</p>
+          </div>
+        ) : children.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-stone-500">No active children found</p>
           </div>
@@ -771,7 +770,8 @@ export function AttendancePage() {
           </div>
         </div>
       </BaseModal>
-    </Layout>
+    </LayoutComponent>
   );
 }
+
 

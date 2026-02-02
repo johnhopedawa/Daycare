@@ -288,16 +288,16 @@ router.get('/staffing/coverage', requireAuth, requireAdmin, async (req, res) => 
 
     const result = await pool.query(
       `SELECT
-        schedule_date,
+        shift_date,
         COUNT(*) as scheduled_educators,
         SUM(EXTRACT(EPOCH FROM (end_time - start_time))/3600) as total_scheduled_hours,
-        COUNT(CASE WHEN status = 'CONFIRMED' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN status = 'ACCEPTED' THEN 1 END) as confirmed_count,
         COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_count
       FROM schedules
-      WHERE schedule_date >= COALESCE($1::date, CURRENT_DATE)
-        AND schedule_date <= COALESCE($2::date, CURRENT_DATE + 30)
-      GROUP BY schedule_date
-      ORDER BY schedule_date ASC`,
+      WHERE shift_date >= COALESCE($1::date, CURRENT_DATE)
+        AND shift_date <= COALESCE($2::date, CURRENT_DATE + 30)
+      GROUP BY shift_date
+      ORDER BY shift_date ASC`,
       [start_date, end_date]
     );
 
@@ -305,6 +305,32 @@ router.get('/staffing/coverage', requireAuth, requireAdmin, async (req, res) => 
   } catch (error) {
     console.error('Coverage report error:', error);
     res.status(500).json({ error: 'Failed to generate coverage report' });
+  }
+});
+
+// GET /api/reports/staff/hours
+// Educator self-service hours summary (schedule-based)
+router.get('/staff/hours', requireAuth, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) as scheduled_count,
+        SUM(hours) as scheduled_hours,
+        SUM(CASE WHEN shift_date < CURRENT_DATE AND status = 'ACCEPTED' THEN hours ELSE 0 END) as completed_hours,
+        COUNT(CASE WHEN shift_date < CURRENT_DATE AND status = 'ACCEPTED' THEN 1 END) as completed_count
+      FROM schedules
+      WHERE user_id = $1
+        AND shift_date >= COALESCE($2::date, '1900-01-01')
+        AND shift_date <= COALESCE($3::date, '2100-12-31')`,
+      [req.user.id, start_date, end_date]
+    );
+
+    res.json({ summary: result.rows[0] || {} });
+  } catch (error) {
+    console.error('Staff hours report error:', error);
+    res.status(500).json({ error: 'Failed to generate staff hours report' });
   }
 });
 

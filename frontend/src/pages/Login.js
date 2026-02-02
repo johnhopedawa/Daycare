@@ -22,7 +22,11 @@ function Login() {
 
       // Route based on user role
       if (user.role === 'PARENT') {
-        navigate('/parent/dashboard');
+        if (user.must_reset_password) {
+          navigate('/parent/reset-password', { replace: true });
+        } else {
+          navigate('/parent/dashboard');
+        }
       } else {
         navigate('/');
       }

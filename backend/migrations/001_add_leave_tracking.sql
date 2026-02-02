@@ -4,19 +4,19 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='annual_sick_days') THEN
-    ALTER TABLE users ADD COLUMN annual_sick_days INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN annual_sick_days DECIMAL(7,2) DEFAULT 0;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='annual_vacation_days') THEN
-    ALTER TABLE users ADD COLUMN annual_vacation_days INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN annual_vacation_days DECIMAL(7,2) DEFAULT 0;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='sick_days_remaining') THEN
-    ALTER TABLE users ADD COLUMN sick_days_remaining DECIMAL(5,2) DEFAULT 0;
+    ALTER TABLE users ADD COLUMN sick_days_remaining DECIMAL(7,2) DEFAULT 0;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='vacation_days_remaining') THEN
-    ALTER TABLE users ADD COLUMN vacation_days_remaining DECIMAL(5,2) DEFAULT 0;
+    ALTER TABLE users ADD COLUMN vacation_days_remaining DECIMAL(7,2) DEFAULT 0;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='carryover_enabled') THEN

@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Baby, LayoutDashboard, Calendar, Clock, ClipboardCheck, FileText, LogOut } from 'lucide-react';
+import { Baby, LayoutDashboard, Calendar, Clock, ClipboardCheck, FileText, LogOut, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './modals/ConfirmModal';
 
 const navItems = [
   { label: 'Dashboard', path: '/educator/dashboard', icon: LayoutDashboard },
   { label: 'My Schedule', path: '/educator/my-schedule', icon: Calendar },
   { label: 'My Hours', path: '/educator/my-hours', icon: Clock },
-  { label: 'Log Hours', path: '/educator/log-hours', icon: ClipboardCheck },
+  { label: 'Attendance', path: '/educator/attendance', icon: ClipboardCheck },
+  { label: 'Messages', path: '/educator/messages', icon: Mail },
   { label: 'Paystubs', path: '/educator/my-paystubs', icon: FileText },
 ];
 
@@ -15,6 +17,7 @@ export function EducatorLayout({ title, subtitle, children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -61,7 +64,7 @@ export function EducatorLayout({ title, subtitle, children }) {
               </span>
             )}
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:text-red-500 hover:bg-red-50 transition-colors border"
               style={{ color: 'var(--menu-text)', borderColor: 'var(--menu-border)' }}
             >
@@ -106,6 +109,14 @@ export function EducatorLayout({ title, subtitle, children }) {
 
         {children}
       </main>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign out"
+      />
     </div>
   );
 }

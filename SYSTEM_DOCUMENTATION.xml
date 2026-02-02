@@ -10,15 +10,16 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-01-21</last-updated>
-    <documentation-status>Updated to reflect migrations through 020, unified auth, notifications, events, and CORS allowlist</documentation-status>
+    <last-updated>2026-02-02</last-updated>
+    <documentation-status>Updated to reflect educator time-off summaries and detailed request modal</documentation-status>
+    <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>21</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 020_*.sql)</migration-pattern>
+    <total-migrations>28</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 027_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -35,6 +36,7 @@
         </column>
         <column name="hourly_rate" type="DECIMAL(10,2)" description="Educator hourly pay rate"/>
         <column name="is_active" type="BOOLEAN" default="true"/>
+        <column name="must_reset_password" type="BOOLEAN" default="false"/>
         <column name="annual_sick_days" type="INTEGER" default="0"/>
         <column name="annual_vacation_days" type="INTEGER" default="0"/>
         <column name="sick_days_remaining" type="DECIMAL(5,2)" default="0"/>
@@ -552,7 +554,7 @@
     <!-- Notifications (Migration 007) -->
     <table name="notifications">
       <description>Notification queue for email/SMS/in-app notifications</description>
-      <status>TABLE EXISTS - NO IMPLEMENTATION</status>
+      <status>EMAIL queue used; SMS pending; in-app notifications use app_notifications (Migration 022)</status>
       <columns>
         <column name="id" type="SERIAL" primary-key="true"/>
         <column name="notification_type" type="VARCHAR(50)">
@@ -576,6 +578,45 @@
       </columns>
     </table>
 
+    <!-- In-app Notifications (Migration 022) -->
+    <table name="app_notifications">
+      <description>In-app notification feed for admin users</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="recipient_id" type="INTEGER" references="users(id)" required="true"/>
+        <column name="notification_type" type="VARCHAR(50)" required="true"/>
+        <column name="title" type="VARCHAR(255)" required="true"/>
+        <column name="message" type="TEXT"/>
+        <column name="action_url" type="VARCHAR(255)"/>
+        <column name="metadata" type="JSONB"/>
+        <column name="is_read" type="BOOLEAN" default="false"/>
+        <column name="read_at" type="TIMESTAMP"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+      <status>ACTIVE - notifications from time off requests, schedule declines, and parent messages</status>
+    </table>
+
+    <!-- Time Off Requests (Migration 023) -->
+    <table name="time_off_requests">
+      <description>Educator time-off requests with admin approval workflow</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="user_id" type="INTEGER" references="users(id)" required="true"/>
+        <column name="start_date" type="DATE" required="true"/>
+        <column name="end_date" type="DATE" required="true"/>
+        <column name="request_type" type="VARCHAR(20)" required="true">
+          <constraints>CHECK IN ('SICK', 'VACATION', 'UNPAID')</constraints>
+        </column>
+        <column name="hours" type="NUMERIC(5,2)" description="Optional requested hours for single-day requests"/>
+        <column name="reason" type="TEXT"/>
+        <column name="status" type="VARCHAR(20)" default="PENDING"/>
+        <column name="reviewed_by" type="INTEGER" references="users(id)"/>
+        <column name="reviewed_at" type="TIMESTAMP"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+    </table>
+
     <!-- Business Expense Tracking (Migration 011) -->
     <table name="simplefin_connections">
       <description>SimpleFIN Bridge connections for business expense tracking</description>
@@ -589,6 +630,9 @@
         <column name="account_type" type="VARCHAR(20)" default="credit"/>
         <column name="opening_balance" type="NUMERIC(12,2)"/>
         <column name="opening_balance_date" type="DATE"/>
+        <column name="available_balance" type="NUMERIC(12,2)"/>
+        <column name="available_balance_date" type="DATE"/>
+        <column name="credit_limit" type="NUMERIC(12,2)" description="Optional manual credit limit for pending estimates"/>
         <column name="last_sync_at" type="TIMESTAMP"/>
         <column name="is_active" type="BOOLEAN" default="true"/>
         <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
@@ -637,8 +681,10 @@
       <route path="/" redirect-to="/dashboard"/>
       <route path="/login" component="Login"/>
       <route path="/parent/login" component="ParentLogin"/>
+      <route path="/parent/reset-password" component="ParentResetPassword"/>
       <route path="/dashboard" component="DashboardPage"/>
       <route path="/attendance" component="AttendancePage"/>
+      <route path="/events" component="EventsPage"/>
       <route path="/families" component="FamiliesPage"/>
       <route path="/billing" component="BillingPage"/>
       <route path="/payments" component="PaymentsPage"/>
@@ -658,11 +704,13 @@
       <route path="/educator/dashboard" component="EducatorDashboard"/>
       <route path="/educator/my-schedule" component="MySchedule"/>
       <route path="/educator/my-hours" component="MyHours"/>
-      <route path="/educator/log-hours" component="LogHours"/>
+      <route path="/educator/attendance" component="AttendancePage (EducatorLayout)"/>
+      <route path="/educator/messages" component="EducatorMessages"/>
       <route path="/educator/my-paystubs" component="MyPaystubs"/>
       <route path="/parent/dashboard" component="ParentDashboard"/>
       <route path="/parent/invoices" component="ParentInvoices"/>
       <route path="/parent/messages" component="ParentMessages"/>
+      <route path="/parent/events" component="ParentEvents"/>
       <route path="/parent/children" component="ParentChildren"/>
     </current-routes>
     <note>Role-gated routing enforced via RequireRole in App.js</note>
@@ -673,11 +721,13 @@
         <description>Main admin dashboard with metrics and widgets</description>
         <api-calls>
           <call endpoint="/children?status=ACTIVE"/>
-          <call endpoint="/attendance/today"/>
-          <call endpoint="/admin/users?role=EDUCATOR"/>
-          <call endpoint="/admin/time-entries?status=PENDING"/>
+          <call endpoint="/attendance?start_date={date}&end_date={date}"/>
+          <call endpoint="/schedules/admin/schedules?from={date}&to={date}"/>
+          <call endpoint="/notifications/unread-count"/>
+          <call endpoint="/invoices"/>
+          <call endpoint="/events?from={date}&to={date}"/>
         </api-calls>
-        <components-used>Layout, DashboardWidgets (MetricCard, AttendanceWidget, TimelineWidget, QuickActions)</components-used>
+        <components-used>Layout, MetricCard, BaseModal, AddChildModal, SendMessageModal, CreateEventModal</components-used>
         <responsive-features>
           <feature>Metric cards grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-4</feature>
           <feature>Main content grid: grid-cols-1 lg:grid-cols-3</feature>
@@ -706,6 +756,21 @@
         <status>COMPLETE - Check-in/out and absence workflows enabled</status>
       </page>
 
+      <page file="EventsPage.js">
+        <description>Admin events calendar with month view and event details</description>
+        <api-calls>
+          <call endpoint="GET /events?from={date}&to={date}"/>
+          <call endpoint="POST /events"/>
+        </api-calls>
+        <features>
+          <feature>Month grid with daily event counts</feature>
+          <feature>Agenda list for selected day</feature>
+          <feature>Create event modal</feature>
+          <feature>Event details modal</feature>
+        </features>
+        <status>ROUTED</status>
+      </page>
+
       <page file="FamiliesPage.js">
         <description>Family management with directories for children and parents</description>
         <api-calls>
@@ -716,6 +781,7 @@
           <call endpoint="PATCH /children/:id"/>
           <call endpoint="GET /parents/directory"/>
           <call endpoint="PATCH /parents/:id"/>
+          <call endpoint="POST /parents/:id/temp-password"/>
           <call endpoint="POST /children/:id/emergency-contacts"/>
           <call endpoint="DELETE /emergency-contacts/:id"/>
           <call endpoint="GET /files?linked_child_id={id}"/>
@@ -862,25 +928,25 @@
       </page>
 
       <page file="TimeEntriesApprovalPage.js">
-        <description>Admin approval workflow for educator time entries</description>
+        <description>Admin review of educator time-off requests with per-educator summaries</description>
         <api-calls>
-          <call endpoint="GET /admin/time-entries?status={status}&from={date}&to={date}"/>
-          <call endpoint="POST /admin/time-entries/:id/approve"/>
-          <call endpoint="POST /admin/time-entries/:id/reject"/>
-          <call endpoint="POST /admin/time-entries/batch-approve"/>
-          <call endpoint="GET /pay-periods"/>
+          <call endpoint="GET /time-off-requests?status={status}"/>
+          <call endpoint="GET /admin/users?role=EDUCATOR"/>
+          <call endpoint="POST /time-off-requests/:id/approve"/>
+          <call endpoint="POST /time-off-requests/:id/reject"/>
         </api-calls>
         <features>
-          <feature>Status filter (Pending, Approved, Rejected)</feature>
-          <feature>Pay period filter using date range</feature>
-          <feature>Batch approve pending entries</feature>
-          <feature>Reject with reason modal</feature>
+          <feature>Educator summary cards with approved/pending totals</feature>
+          <feature>Shows all educators, even with zero requests</feature>
+          <feature>Detail modal per educator (approved/pending/rejected)</feature>
+          <feature>Batch approve/reject grouped requests</feature>
+          <feature>Range display for multi-day requests</feature>
         </features>
-        <status>COMPLETE - Admin approval UI</status>
+        <status>COMPLETE - Time-off request review</status>
       </page>
 
       <page file="StaffSchedulingPage.js">
-        <description>Staff shift scheduling</description>
+        <description>Staff shift scheduling with monthly calendar view</description>
         <api-calls>
           <call endpoint="GET /schedules/admin/schedules?from={date}&to={date}&user_id={id}"/>
           <call endpoint="POST /schedules/admin/schedules"/>
@@ -891,20 +957,23 @@
         </api-calls>
         <modals-used>AddShiftModal</modals-used>
         <displays>
-          <item>Schedules grouped by date</item>
-          <item>Educator cards with shift times</item>
-          <item>Status indicators</item>
+          <item>Monthly calendar grid with daily event counts</item>
+          <item>Inline first-name + time labels (desktop)</item>
+          <item>Approved time-off (vacation/sick/unpaid) shown in calendar</item>
+          <item>Day detail modal with shift/time-off list</item>
         </displays>
         <features>
-          <feature>Date range filter</feature>
+          <feature>Month navigation</feature>
           <feature>Educator filter</feature>
+          <feature>Click any date to open detail modal</feature>
+          <feature>Add shift button inside day detail modal (prefilled date)</feature>
           <feature>Create single shift</feature>
           <feature>Create recurring schedules</feature>
           <feature>Edit schedules</feature>
           <feature>Delete schedules</feature>
           <feature>Notes field</feature>
         </features>
-        <status>COMPLETE - Create/edit/delete/recurring enabled</status>
+        <status>COMPLETE - Monthly view + create/edit/delete/recurring enabled</status>
       </page>
 
       <page file="ReportingPage.js">
@@ -950,10 +1019,12 @@
           <feature>Manual sync per connection</feature>
           <feature>Disconnect connections</feature>
           <feature>Last sync timestamp display</feature>
-          <feature>Account settings for credit/debit and opening balance</feature>
+          <feature>Account settings for credit/debit, opening balance, and manual credit limit</feature>
+          <feature>Account overview summary with dropdown filter (credit/debit grouped)</feature>
+          <feature>Available balance + unposted estimate (credit requires limit)</feature>
           <feature>Income and expense totals with net cash flow</feature>
           <feature>Cash flow snapshot by month or term</feature>
-          <feature>Reporting year controls and multi-account filters</feature>
+          <feature>Reporting year controls and account filter dropdown</feature>
           <feature>Transaction table with search, filters, and uncategorized toggle</feature>
           <feature>Auto-categorization rules by keyword for income or expenses</feature>
         </features>
@@ -973,7 +1044,7 @@
       <page file="FinanceTransactionsPage.js">
         <description>Transaction list with filters and search</description>
         <features>
-          <feature>Reporting year controls + account focus filters</feature>
+          <feature>Reporting year controls + account filter dropdown</feature>
           <feature>Search + type filters + uncategorized toggle</feature>
         </features>
         <status>ROUTED - /finance/transactions</status>
@@ -1036,6 +1107,7 @@
           <tab name="Preferences">Language, timezone, date format (not wired)</tab>
           <tab name="Billing">Tax rate and tax enabled settings (FUNCTIONAL)</tab>
           <tab name="Themes">Theme selection with color swatches (FUNCTIONAL)</tab>
+          <tab name="Debug">Password-gated SimpleFIN diagnostics (internal use)</tab>
         </tabs>
         <features>
           <feature>Load all available themes on mount</feature>
@@ -1044,21 +1116,13 @@
           <feature>Show Selected badge for pending selection</feature>
           <feature>Apply theme via PATCH /settings with theme_id</feature>
           <feature>Theme applies immediately via ThemeContext</feature>
+          <feature>Debug panel: view SimpleFIN status/connections and run sync with debug/force flags</feature>
+          <feature>Debug panel: reset daily sync limit counter</feature>
         </features>
         <status>PARTIAL - Password change, billing, and themes functional</status>
       </page>
 
       <!-- Additional Admin Pages (legacy - kept as reference, not routed) -->
-      <page file="AdminDashboard.js">
-        <description>Legacy admin dashboard with old UI</description>
-        <status>LEGACY - Not routed. Kept as reference only.</status>
-      </page>
-
-      <page file="AdminAttendance.js">
-        <description>Legacy attendance management page</description>
-        <status>LEGACY - Not routed. Kept as reference only.</status>
-      </page>
-
       <page file="AdminChildren.js">
         <description>Legacy children management page</description>
         <status>LEGACY - Not routed. Kept as reference only.</status>
@@ -1116,11 +1180,6 @@
         <status>EXISTS - May duplicate PaperworkPage</status>
       </page>
 
-      <page file="AdminReports.js">
-        <description>Reports page</description>
-        <status>EXISTS - May duplicate ReportingPage</status>
-      </page>
-
       <page file="AdminBusinessExpenses.js">
         <description>Business expenses page</description>
         <status>EXISTS - May duplicate BankAccountsPage</status>
@@ -1133,18 +1192,35 @@
       </page>
 
       <page file="MySchedule.js">
-        <description>Educator's personal schedule view</description>
-        <status>ROUTED</status>
-      </page>
-
-      <page file="LogHours.js">
-        <description>Educator time entry logging</description>
+        <description>Educator's personal schedule view with time-off request batching</description>
+        <features>
+          <feature>Monthly calendar with shift/time-off indicators</feature>
+          <feature>Selectable dates for time-off requests</feature>
+          <feature>Full-day selections submit as contiguous date ranges</feature>
+          <feature>Half-day selections submit as single-day requests</feature>
+        </features>
         <status>ROUTED</status>
       </page>
 
       <page file="MyHours.js">
-        <description>Educator's time entries view</description>
+        <description>Schedule-based hours summary and shift history</description>
         <status>ROUTED</status>
+      </page>
+
+      <page file="EducatorMessages.js">
+        <description>Educator inbox for parent messages</description>
+        <api-calls>
+          <call endpoint="GET /messages/inbox"/>
+          <call endpoint="PATCH /messages/:id/read"/>
+          <call endpoint="GET /messages/recipients"/>
+          <call endpoint="POST /messages/send"/>
+        </api-calls>
+        <status>ROUTED</status>
+      </page>
+
+      <page file="AttendancePage.js">
+        <description>Attendance page reused for educators (requires scheduled shift today)</description>
+        <status>ROUTED - /educator/attendance</status>
       </page>
 
       <page file="MyPaystubs.js">
@@ -1173,6 +1249,11 @@
         <status>ROUTED</status>
       </page>
 
+      <page file="ParentEvents.js">
+        <description>Parent read-only events calendar (month view)</description>
+        <status>ROUTED</status>
+      </page>
+
       <!-- Authentication Pages -->
       <page file="Login.js">
         <description>Staff login page</description>
@@ -1184,11 +1265,12 @@
         <status>ROUTED</status>
       </page>
 
-      <!-- Utility Pages -->
-      <page file="PlaceholderPage.js">
-        <description>Reusable placeholder for unimplemented pages</description>
-        <status>Template component</status>
+      <page file="ParentResetPassword.js">
+        <description>Parent password reset (token or forced reset flow)</description>
+        <status>ROUTED</status>
       </page>
+
+      <!-- Utility Pages -->
 
       <page file="Settings.js">
         <description>Alternative settings page</description>
@@ -1207,7 +1289,7 @@
         <features>
           <feature>Formatted current date display</feature>
           <feature>Search bar (visual only, hidden on mobile, shown md+)</feature>
-          <feature>Notifications bell (visual only)</feature>
+          <feature>Notifications bell with unread count + popover feed</feature>
           <feature>User avatar (visual only)</feature>
           <feature>Hamburger menu button for mobile sidebar toggle</feature>
           <feature>Responsive header layout (column on mobile, row on desktop)</feature>
@@ -1241,6 +1323,7 @@
         <menu-items>
           <item path="/dashboard" icon="LayoutDashboard">Daycare Dashboard</item>
           <item section="Operations" path="/attendance" icon="ClipboardCheck">Attendance</item>
+          <item section="Operations" path="/events" icon="Calendar">Events</item>
           <item section="Operations" path="/families" icon="Users">Families</item>
           <item section="Operations" path="/educators" icon="GraduationCap">Staff</item>
           <item section="Operations" path="/scheduling" icon="Calendar">Scheduling</item>
@@ -1262,9 +1345,6 @@
         <description>Reusable dashboard components</description>
         <exports>
           <widget name="MetricCard">Animated stat card with icon and value</widget>
-          <widget name="AttendanceWidget">Today's attendance list with status badges</widget>
-          <widget name="TimelineWidget">Activity timeline (placeholder with static data)</widget>
-          <widget name="QuickActions">Quick action buttons grid (visual only)</widget>
         </exports>
       </component>
     </components-directory>
@@ -1342,7 +1422,17 @@
 
       <modal file="CreateEventModal.js">
         <description>Create calendar event</description>
-        <status>EXISTS - Purpose unclear</status>
+        <status>FUNCTIONAL - Used in DashboardPage and EventsPage</status>
+      </modal>
+
+      <modal file="EventDetailsModal.js">
+        <description>Read-only event details modal</description>
+        <status>FUNCTIONAL - Used in EventsPage and ParentEvents</status>
+      </modal>
+
+      <modal file="ConfirmModal.js">
+        <description>Reusable confirm dialog (sign-out)</description>
+        <status>FUNCTIONAL - Used in Layouts/Sidebar</status>
       </modal>
 
       <modal file="UploadDocumentModal.js">
@@ -1553,6 +1643,7 @@
       <registration>Bootstrap-only: /auth/register creates the first ADMIN, then disables registration</registration>
       <rate-limiting>Auth endpoints (/auth/register, /auth/login, /auth/parent-reset-password) are rate-limited</rate-limiting>
       <parent-auth>Parents authenticate via unified /auth/login and receive tokens with parentId</parent-auth>
+      <forced-reset>Parents can be flagged with users.must_reset_password and must complete /auth/force-reset-password</forced-reset>
     </auth>
 
     <routes-directory>backend/src/routes/</routes-directory>
@@ -1577,6 +1668,9 @@
       <route-file>themes.js</route-file>
       <route-file>messages.js</route-file>
       <route-file>events.js</route-file>
+      <route-file>notifications.js</route-file>
+      <route-file>timeOffRequests.js</route-file>
+      <route-file>parentEvents.js</route-file>
       <route-file>parentDashboard.js</route-file>
       <route-file>parentInvoices.js</route-file>
       <route-file>parentDocuments.js</route-file>
@@ -1600,6 +1694,7 @@
       <utility-file>jwt.js</utility-file>
       <utility-file>encryption.js</utility-file>
       <utility-file>notifications.js</utility-file>
+      <utility-file>appNotifications.js</utility-file>
       <utility-file>owner.js</utility-file>
     </utility-files>
 
@@ -1687,7 +1782,7 @@
       <status>IMPLEMENTED - SMTP via Nodemailer</status>
       <service-file>backend/src/services/emailService.js</service-file>
       <processor>backend/src/utils/notifications.js (processPendingNotifications)</processor>
-      <table-ready>YES - notifications table with EMAIL/SMS/IN_APP types</table-ready>
+      <table-ready>YES - notifications table used for EMAIL queue; in-app uses app_notifications</table-ready>
       <environment-variables>
         <var name="SMTP_HOST" required="true">SMTP host</var>
         <var name="SMTP_PORT" required="true">SMTP port</var>
@@ -1696,7 +1791,7 @@
         <var name="SMTP_FROM" required="true">Default from address</var>
         <var name="SMTP_SECURE" required="false">true for SMTPS, false for STARTTLS</var>
       </environment-variables>
-      <notes>EMAIL notifications are sent; SMS and IN_APP delivery remain future work</notes>
+      <notes>EMAIL notifications are sent; SMS delivery remains future work</notes>
     </integration>
 
   </external-integrations>
@@ -1725,7 +1820,7 @@
         <var name="SMTP_FROM">Default from address</var>
         <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
         <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
-        <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 2)</var>
+        <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 7)</var>
       </optional>
     </environment-variables>
 
@@ -1739,8 +1834,8 @@
       <database-setup>
         <migration-command>node backend/src/db/migrate.js</migration-command>
         <migrations-directory>backend/migrations/</migrations-directory>
-        <naming-pattern>000_*.sql through 020_*.sql (sequential)</naming-pattern>
-        <total-migrations>21</total-migrations>
+        <naming-pattern>000_*.sql through 027_*.sql (sequential)</naming-pattern>
+        <total-migrations>28</total-migrations>
       </database-setup>
 
       <backend-server>
@@ -1749,6 +1844,7 @@
         <entry-point>backend/src/server.js</entry-point>
         <cors>Allowlist in production via ALLOWED_ORIGINS or FRONTEND_URL</cors>
         <health-check>GET /health</health-check>
+        <time-endpoint>GET /api/time</time-endpoint>
       </backend-server>
 
     <frontend-server>
@@ -1764,7 +1860,7 @@
   <current-state-assessment>
 
     <strengths>
-      <strength>Complete database schema with 20+ tables and 21 migrations</strength>
+      <strength>Complete database schema with 20+ tables and 28 migrations</strength>
       <strength>Comprehensive backend API with 100+ endpoints</strength>
       <strength>Clean MagicPattern UI design with Tailwind CSS</strength>
       <strength>Robust authentication with unified user table and parent profiles</strength>
@@ -1781,7 +1877,7 @@
       <weakness>Many modals exist but unclear which are wired to pages</weakness>
       <weakness>Billing templates feature has no frontend</weakness>
       <weakness>Many reports available in backend but not shown in UI</weakness>
-      <weakness>SMS and in-app notifications not implemented</weakness>
+      <weakness>SMS notifications not implemented</weakness>
       <weakness>No automated tests</weakness>
       <weakness>No API documentation</weakness>
       <weakness>Legacy/deprecated code not cleaned up (document_categories)</weakness>
@@ -1827,9 +1923,9 @@
 
       <issue category="Features">
         <title>Notification Delivery Gaps</title>
-        <description>Email notifications are implemented, but SMS/in-app delivery and templates are limited</description>
+        <description>Email notifications are implemented; SMS delivery and template standardization remain limited</description>
         <impact>Communication is email-only and lacks multi-channel coverage</impact>
-        <recommendation>Add SMS provider, build in-app inbox feed, and standardize templates with tracking</recommendation>
+        <recommendation>Add SMS provider and standardize templates with tracking</recommendation>
       </issue>
 
       <issue category="Testing">
@@ -1853,13 +1949,13 @@
   <summary>
 
     <overview>
-      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 21 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, but still has duplicate legacy Admin* pages and partial modal wiring. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, messaging, events, and business expense tracking via SimpleFIN/Firefly III.
+      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 25 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, plus in-app notifications, time-off requests, and events calendars. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, messaging, events, and business expense tracking via SimpleFIN/Firefly III.
     </overview>
 
     <key-architectural-decisions>
       <decision>Unified authentication via users table; parents are linked via parents.user_id and tokens include parentId</decision>
       <decision>Many-to-many parent-child relationships via parent_children junction table</decision>
-      <decision>Migration-based schema evolution (21 migrations applied)</decision>
+      <decision>Migration-based schema evolution (25 migrations applied)</decision>
       <decision>Scheduled tasks only run in production mode</decision>
       <decision>Document categories hardcoded in code, not database-driven</decision>
       <decision>Modular route structure with separate parent portal routes</decision>

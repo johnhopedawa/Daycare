@@ -1,0 +1,142 @@
+import React, { useState } from 'react';
+import { Sidebar } from './Sidebar';
+import { motion } from 'framer-motion';
+import { Search, Bell, Menu } from 'lucide-react';
+
+export function Layout({ children, title, subtitle, actionBar }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return (
+    <div
+      className="min-h-screen font-sans relative"
+      style={{
+        backgroundColor: 'var(--background)',
+        backgroundImage: 'var(--app-gradient)',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        backgroundAttachment: 'fixed',
+        color: 'var(--text)',
+      }}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ backgroundColor: 'var(--app-backdrop)' }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+        <main className="lg:pl-64 min-h-screen transition-all duration-300">
+          <div
+            className="max-w-7xl mx-auto"
+            style={{ padding: 'var(--layout-padding)' }}
+          >
+          {/* Header */}
+          <header
+            className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+            style={{ marginBottom: 'var(--layout-gap)' }}
+          >
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {/* Mobile Hamburger Menu */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border hover:shadow-md transition-all"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--muted)',
+                }}
+              >
+                <Menu size={20} />
+              </button>
+
+              <div>
+                <motion.h2
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-2xl sm:text-3xl font-bold font-quicksand mb-1"
+                >
+                  {title}
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-sm sm:text-base font-medium"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  {subtitle || currentDate}
+                </motion.p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
+              <div className="relative hidden md:block">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  size={18}
+                  style={{ color: 'var(--muted)' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="pl-10 pr-4 py-2.5 rounded-2xl border focus:outline-none focus:ring-2 text-sm w-32 lg:w-48 xl:w-64 shadow-sm placeholder:text-stone-400"
+                  style={{
+                    backgroundColor: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    '--tw-ring-color': 'rgba(var(--primary-rgb), 0.5)',
+                  }}
+                />
+              </div>
+              <button
+                className="w-10 h-10 rounded-xl border flex items-center justify-center hover:shadow-md transition-all relative flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--muted)',
+                }}
+              >
+                <Bell size={20} />
+                <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-400 rounded-full border border-white"></span>
+              </button>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold border shadow-sm flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--primary-dark)',
+                  borderColor: 'var(--surface)',
+                }}
+              >
+                S
+              </div>
+            </div>
+          </header>
+
+          {actionBar ? (
+            <div style={{ marginBottom: 'var(--layout-gap)' }}>
+              {actionBar}
+            </div>
+          ) : null}
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            {children}
+          </motion.div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Baby, LayoutDashboard, Users, FileText, Mail, LogOut } from 'lucide-react';
+import { Baby, LayoutDashboard, Users, FileText, Mail, Calendar, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ConfirmModal } from './modals/ConfirmModal';
 
 const navItems = [
   { label: 'Dashboard', path: '/parent/dashboard', icon: LayoutDashboard },
   { label: 'My Children', path: '/parent/children', icon: Users },
   { label: 'Invoices', path: '/parent/invoices', icon: FileText },
+  { label: 'Events', path: '/parent/events', icon: Calendar },
   { label: 'Messages', path: '/parent/messages', icon: Mail },
 ];
 
@@ -14,6 +16,7 @@ export function ParentLayout({ title, subtitle, children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -60,7 +63,7 @@ export function ParentLayout({ title, subtitle, children }) {
               </span>
             )}
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:text-red-500 hover:bg-red-50 transition-colors border"
               style={{ color: 'var(--menu-text)', borderColor: 'var(--menu-border)' }}
             >
@@ -105,6 +108,14 @@ export function ParentLayout({ title, subtitle, children }) {
 
         {children}
       </main>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign out"
+      />
     </div>
   );
 }

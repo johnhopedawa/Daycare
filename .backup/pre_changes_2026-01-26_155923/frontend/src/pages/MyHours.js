@@ -1,0 +1,129 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
+import { EducatorLayout } from '../components/EducatorLayout';
+
+function MyHours() {
+  const [entries, setEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadEntries();
+  }, []);
+
+  useEffect(() => {
+    if (statusFilter) {
+      setFilteredEntries(entries.filter(e => e.status === statusFilter));
+    } else {
+      setFilteredEntries(entries);
+    }
+  }, [statusFilter, entries]);
+
+  const loadEntries = async () => {
+    try {
+      const response = await api.get('/time-entries/mine');
+      setEntries(response.data.timeEntries);
+      setFilteredEntries(response.data.timeEntries);
+    } catch (error) {
+      console.error('Load entries error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this entry?')) return;
+
+    try {
+      await api.delete(`/time-entries/${id}`);
+      loadEntries();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete entry');
+    }
+  };
+
+  if (loading) {
+    return (
+      <EducatorLayout title="My Hours" subtitle="Track logged hours">
+        <div className="themed-surface p-6 rounded-3xl text-center">Loading...</div>
+      </EducatorLayout>
+    );
+  }
+
+  return (
+    <EducatorLayout title="My Hours" subtitle="Review recent time entries">
+      <div className="flex-between mb-2">
+        <button onClick={() => navigate('/log-hours')}>Log New Hours</button>
+      </div>
+
+      <div className="filters">
+        <div className="form-group">
+          <label>Filter by Status</label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All</option>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredEntries.length === 0 ? (
+        <div className="card">
+          <p>No time entries found</p>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Hours</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredEntries.map((entry) => (
+              <tr key={entry.id}>
+                <td>{new Date(entry.entry_date).toLocaleDateString()}</td>
+                <td>{entry.start_time || '-'}</td>
+                <td>{entry.end_time || '-'}</td>
+                <td>{entry.total_hours}</td>
+                <td>{entry.notes || '-'}</td>
+                <td>
+                  <span className={`badge ${entry.status.toLowerCase()}`}>
+                    {entry.status}
+                  </span>
+                  {entry.status === 'REJECTED' && entry.rejection_reason && (
+                    <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                      Reason: {entry.rejection_reason}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {entry.status === 'PENDING' && (
+                    <button
+                      className="btn-sm danger"
+                      onClick={() => handleDelete(entry.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </EducatorLayout>
+  );
+}
+
+export default MyHours;

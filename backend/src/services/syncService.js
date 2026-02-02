@@ -1,5 +1,5 @@
 /**
- * SimpleFIN → Firefly III Transaction Sync Service
+ * SimpleFIN -> Firefly III Transaction Sync Service
  *
  * Handles:
  * - Fetching transactions from SimpleFIN
@@ -14,7 +14,8 @@ const simplefinService = require('./simplefinService');
 const fireflyService = require('./fireflyService');
 
 const DEFAULT_SYNC_DAYS = 30;
-const DEFAULT_LOOKBACK_DAYS = 2;
+const DEFAULT_LOOKBACK_DAYS = 7;
+const SYNC_TIMEZONE = process.env.SYNC_TIMEZONE || 'UTC';
 
 function getLookbackDays() {
   const raw = Number.parseInt(process.env.SYNC_LOOKBACK_DAYS, 10);
@@ -24,20 +25,135 @@ function getLookbackDays() {
   return DEFAULT_LOOKBACK_DAYS;
 }
 
+function parseSimplefinNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeSimplefinDate(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+  if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    const ms = num < 1e12 ? num * 1000 : num;
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+}
+
+function formatDateInTimeZone(seconds) {
+  if (!Number.isFinite(seconds)) {
+    return null;
+  }
+  const date = new Date(seconds * 1000);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SYNC_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(date);
+}
+
+function coerceSimplefinTimestamp(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    const ms = num < 1e12 ? num * 1000 : num;
+    return Math.floor(ms / 1000);
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return Math.floor(date.getTime() / 1000);
+}
+
+function getSimplefinPostedSeconds(txn) {
+  if (!txn || typeof txn !== 'object') {
+    return null;
+  }
+  const candidates = [
+    txn.transacted,
+    txn.transacted_at,
+    txn.transactedAt,
+    txn.date,
+    txn.transaction_date,
+    txn.transactionDate,
+    txn['transaction-date'],
+    txn.posted,
+    txn.posted_at,
+    txn.postedAt
+  ];
+
+  for (const candidate of candidates) {
+    const seconds = coerceSimplefinTimestamp(candidate);
+    if (seconds !== null) {
+      return seconds;
+    }
+  }
+  return null;
+}
+
+function extractCreditLimit(account) {
+  return parseSimplefinNumber(
+    account['credit-limit']
+    || account.credit_limit
+    || account.creditLimit
+    || account.creditLimitAmount
+    || account.limit
+  );
+}
+
 /**
  * Sync transactions for a single SimpleFIN connection
  *
  * @param {number} connectionId - SimpleFIN connection ID
  * @returns {Promise<object>} - Sync results: { imported, skipped, total }
  */
-async function syncConnection(connectionId) {
+async function syncConnection(connectionId, options = {}) {
+  const debugEnabled = options && options.debug;
+  const forceSync = options && options.force;
+  const debugInfo = debugEnabled
+    ? {
+        connectionId,
+        force: !!forceSync,
+        lookbackDays: null,
+        hasSyncHistory: false,
+        lastSyncAtBefore: null,
+        startDate: null,
+        startDateUnix: null,
+        transactionsFetched: 0,
+        latestPosted: null,
+        lastSyncAtAfter: null,
+        skippedDuplicates: 0,
+        skippedInvalid: 0,
+        skippedErrors: 0,
+        errorSamples: [],
+      }
+    : null;
+
   try {
     console.log(`[Sync] Starting sync for connection ${connectionId}`);
 
     // Fetch connection details
     const connResult = await pool.query(
       `SELECT sc.id, sc.user_id, sc.access_url, sc.simplefin_account_id,
-              sc.firefly_account_id, sc.last_sync_at, sc.account_name,
+              sc.firefly_account_id, sc.last_sync_at, sc.account_name, sc.account_type,
               u.first_name, u.last_name
        FROM simplefin_connections sc
        JOIN users u ON u.id = sc.user_id
@@ -89,10 +205,17 @@ async function syncConnection(connectionId) {
       [connectionId]
     );
     const hasSyncHistory = syncHistoryResult.rows.length > 0;
+    if (debugInfo) {
+      debugInfo.hasSyncHistory = hasSyncHistory;
+    }
 
     // Determine start date (last sync with history or fallback window), as UNIX timestamp seconds
     const now = new Date();
     const lookbackDays = getLookbackDays();
+    if (debugInfo) {
+      debugInfo.lookbackDays = lookbackDays;
+      debugInfo.lastSyncAtBefore = connection.last_sync_at || null;
+    }
     let lastSync = null;
 
     if (connection.last_sync_at && hasSyncHistory) {
@@ -124,11 +247,15 @@ async function syncConnection(connectionId) {
     }
 
     console.log(`[Sync] Fetching transactions since ${startDate} for "${connection.account_name}"`);
+    if (debugInfo) {
+      debugInfo.startDate = startDate;
+      debugInfo.startDateUnix = startDateUnix;
+    }
 
     // Fetch transactions from SimpleFIN
-    let transactions;
+    let syncPayload;
     try {
-      transactions = await simplefinService.fetchTransactions(
+      syncPayload = await simplefinService.fetchTransactions(
         accessUrl,
         connection.simplefin_account_id,
         startDateUnix
@@ -138,19 +265,97 @@ async function syncConnection(connectionId) {
       throw new Error(`SimpleFIN sync failed: ${error.message}`);
     }
 
+    const transactions = syncPayload?.transactions || [];
+    const account = syncPayload?.account || null;
+    if (debugInfo) {
+      debugInfo.transactionsFetched = transactions.length;
+    }
+
+    if (account) {
+      const rawBalance = parseSimplefinNumber(
+        account.balance || account.current_balance || account.currentBalance
+      );
+      const balanceDate = normalizeSimplefinDate(
+        account['balance-date'] || account.balance_date || account.balanceDate
+      );
+      const rawAvailableBalance = parseSimplefinNumber(
+        account['available-balance'] || account.available_balance || account.availableBalance
+      );
+      const availableBalanceDate = normalizeSimplefinDate(
+        account['available-balance-date']
+        || account.available_balance_date
+        || account.availableBalanceDate
+        || account['balance-date']
+        || account.balance_date
+        || account.balanceDate
+      );
+      const creditLimit = extractCreditLimit(account);
+      const normalizedBalance = connection.account_type === 'credit' && rawBalance !== null
+        ? Math.abs(rawBalance)
+        : rawBalance;
+      const normalizedAvailableBalance = connection.account_type === 'credit' && rawAvailableBalance !== null
+        ? Math.abs(rawAvailableBalance)
+        : rawAvailableBalance;
+
+      const balanceUpdates = [];
+      const balanceValues = [];
+
+      if (normalizedBalance !== null) {
+        balanceValues.push(normalizedBalance);
+        balanceUpdates.push(`balance = $${balanceValues.length}`);
+      }
+      if (balanceDate) {
+        balanceValues.push(balanceDate);
+        balanceUpdates.push(`balance_date = $${balanceValues.length}`);
+      }
+      if (normalizedAvailableBalance !== null) {
+        balanceValues.push(normalizedAvailableBalance);
+        balanceUpdates.push(`available_balance = $${balanceValues.length}`);
+      }
+      if (availableBalanceDate) {
+        balanceValues.push(availableBalanceDate);
+        balanceUpdates.push(`available_balance_date = $${balanceValues.length}`);
+      }
+      if (creditLimit !== null) {
+        balanceValues.push(Math.abs(creditLimit));
+        balanceUpdates.push(`credit_limit = $${balanceValues.length}`);
+      }
+
+      if (balanceUpdates.length) {
+        balanceValues.push(connectionId);
+        await pool.query(
+          `UPDATE simplefin_connections
+           SET ${balanceUpdates.join(', ')},
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $${balanceValues.length}`,
+          balanceValues
+        );
+      }
+    }
+
     console.log(`[Sync] Found ${transactions.length} transaction(s)`);
 
     let imported = 0;
     let skipped = 0;
     let latestPosted = null;
+    let skippedDuplicates = 0;
+    let skippedInvalid = 0;
+    let skippedErrors = 0;
 
     for (const txn of transactions) {
+      let postedSeconds = null;
       try {
-        if (Number.isFinite(txn.posted)) {
-          latestPosted = latestPosted === null
-            ? txn.posted
-            : Math.max(latestPosted, txn.posted);
+        postedSeconds = getSimplefinPostedSeconds(txn);
+        if (!postedSeconds) {
+          console.warn('[Sync] Transaction missing posted date, skipping');
+          skipped++;
+          skippedInvalid++;
+          continue;
         }
+
+        latestPosted = latestPosted === null
+          ? postedSeconds
+          : Math.max(latestPosted, postedSeconds);
 
         // SimpleFIN transaction ID (for deduplication)
         const simplefinTxnId = txn.id;
@@ -158,19 +363,23 @@ async function syncConnection(connectionId) {
         if (!simplefinTxnId) {
           console.warn('[Sync] Transaction missing ID, skipping');
           skipped++;
+          skippedInvalid++;
           continue;
         }
 
         // Check if already synced (deduplication)
-        const existingCheck = await pool.query(
-          'SELECT id FROM transaction_sync_log WHERE connection_id = $1 AND simplefin_transaction_id = $2',
-          [connectionId, simplefinTxnId]
-        );
+        if (!forceSync) {
+          const existingCheck = await pool.query(
+            'SELECT id FROM transaction_sync_log WHERE connection_id = $1 AND simplefin_transaction_id = $2',
+            [connectionId, simplefinTxnId]
+          );
 
-        if (existingCheck.rows.length > 0) {
-          // Already imported
-          skipped++;
-          continue;
+          if (existingCheck.rows.length > 0) {
+            // Already imported
+            skipped++;
+            skippedDuplicates++;
+            continue;
+          }
         }
 
         // SimpleFIN transaction fields:
@@ -182,13 +391,14 @@ async function syncConnection(connectionId) {
         // - memo: additional notes
 
         // Convert Unix timestamp to YYYY-MM-DD
-        const transactionDate = new Date(txn.posted * 1000).toISOString().split('T')[0];
+        const transactionDate = formatDateInTimeZone(postedSeconds);
 
         // Amount (SimpleFIN: negative for debits/expenses, positive for credits)
         const rawAmount = Number(txn.amount || 0);
         if (!Number.isFinite(rawAmount) || rawAmount === 0) {
           console.warn('[Sync] Transaction amount missing or zero, skipping');
           skipped++;
+          skippedInvalid++;
           continue;
         }
         const amount = Math.abs(rawAmount);
@@ -221,7 +431,8 @@ async function syncConnection(connectionId) {
           await pool.query(
             `INSERT INTO transaction_sync_log
              (connection_id, simplefin_transaction_id, synced_at)
-             VALUES ($1, $2, CURRENT_TIMESTAMP)`,
+             VALUES ($1, $2, CURRENT_TIMESTAMP)
+             ON CONFLICT (connection_id, simplefin_transaction_id) DO NOTHING`,
             [connectionId, simplefinTxnId]
           );
 
@@ -229,23 +440,53 @@ async function syncConnection(connectionId) {
         } else {
           // Firefly returned null (duplicate)
           skipped++;
+          skippedDuplicates++;
         }
       } catch (txnError) {
         console.error('[Sync] Error processing transaction:', txnError.message);
         skipped++;
+        skippedErrors++;
+        if (debugInfo && debugInfo.errorSamples.length < 10) {
+          debugInfo.errorSamples.push({
+            id: txn.id || null,
+            posted: postedSeconds,
+            amount: txn.amount ?? null,
+            description: txn.payee || txn.description || null,
+            error: txnError.message || 'Unknown error'
+          });
+        }
         // Continue with next transaction
       }
     }
 
+    if (debugInfo) {
+      debugInfo.latestPosted = latestPosted;
+    }
+
     const syncCompletedAt = new Date();
+
     await pool.query(
       'UPDATE simplefin_connections SET last_sync_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
       [connectionId, syncCompletedAt]
     );
 
+    if (debugInfo) {
+      debugInfo.lastSyncAtAfter = syncCompletedAt
+        ? syncCompletedAt.toISOString()
+        : connection.last_sync_at || null;
+      debugInfo.skippedDuplicates = skippedDuplicates;
+      debugInfo.skippedInvalid = skippedInvalid;
+      debugInfo.skippedErrors = skippedErrors;
+    }
+
     console.log(`[Sync] Completed for connection ${connectionId}: ${imported} imported, ${skipped} skipped`);
 
-    return { imported, skipped, total: transactions.length };
+    return {
+      imported,
+      skipped,
+      total: transactions.length,
+      ...(debugInfo ? { debug: debugInfo } : {})
+    };
   } catch (error) {
     console.error(`[Sync] Error syncing connection ${connectionId}:`, error);
     throw error;

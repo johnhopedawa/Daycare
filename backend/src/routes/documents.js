@@ -5,6 +5,7 @@ const { generatePaystub, generateReceipt } = require('../services/pdfGenerator')
 const { generatePayrollSummary } = require('../services/excelGenerator');
 const { generatePdfToken, verifyToken } = require('../utils/jwt');
 const { getReceiptData, ensureReceipt } = require('../services/receiptService');
+const { getDaycareSettings } = require('../services/settingsService');
 
 const router = express.Router();
 
@@ -44,7 +45,9 @@ const buildReceiptContext = async (id, options = {}) => {
     amount: data.amount,
     payment_date: data.payment_date,
     payment_method: data.payment_method,
-    notes: data.notes
+    notes: data.notes,
+    status: data.status,
+    invoice_id: data.invoice_id
   };
 
   const parent = {
@@ -52,13 +55,93 @@ const buildReceiptContext = async (id, options = {}) => {
     last_name: data.last_name,
     email: data.email,
     phone: data.phone,
-    child_names: data.child_names
+    child_names: data.child_names,
+    address_line1: data.address_line1,
+    address_line2: data.address_line2,
+    city: data.city,
+    province: data.province,
+    postal_code: data.postal_code
+  };
+
+  let lineItems = data.line_items;
+  if (typeof lineItems === 'string') {
+    try {
+      lineItems = JSON.parse(lineItems);
+    } catch (error) {
+      lineItems = [];
+    }
+  }
+  if (!Array.isArray(lineItems)) {
+    lineItems = [];
+  }
+
+  const invoice = data.invoice_number
+    ? {
+        invoice_number: data.invoice_number,
+        invoice_date: data.invoice_date,
+        line_items: lineItems,
+        subtotal: data.subtotal,
+        tax_rate: data.tax_rate,
+        tax_amount: data.tax_amount,
+        total_amount: data.total_amount,
+        amount_paid: data.amount_paid,
+        balance_due: data.balance_due,
+        status: data.invoice_status,
+        payment_terms: data.payment_terms,
+        notes: data.invoice_notes,
+        child_name: [data.invoice_child_first_name, data.invoice_child_last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim()
+      }
+    : null;
+
+  const settings = await getDaycareSettings(pool);
+  const daycare = {
+    name:
+      settings.daycare_name ||
+      settings.name ||
+      process.env.DAYCARE_NAME ||
+      'Daycare Management System',
+    address_line1: settings.address_line1 || process.env.DAYCARE_ADDRESS_LINE1,
+    address_line2: settings.address_line2 || process.env.DAYCARE_ADDRESS_LINE2,
+    city: settings.city || process.env.DAYCARE_CITY,
+    province: settings.province || process.env.DAYCARE_PROVINCE,
+    postal_code: settings.postal_code || process.env.DAYCARE_POSTAL_CODE,
+    phone1: settings.phone1 || process.env.DAYCARE_PHONE1,
+    phone2: settings.phone2 || process.env.DAYCARE_PHONE2,
+    contact_name: settings.contact_name || process.env.DAYCARE_CONTACT_NAME,
+    contact_phone: settings.contact_phone || process.env.DAYCARE_CONTACT_PHONE,
+    contact_email: settings.contact_email || process.env.DAYCARE_CONTACT_EMAIL,
+    signature_name:
+      settings.signature_name ||
+      process.env.DAYCARE_SIGNATURE_NAME ||
+      settings.contact_name ||
+      process.env.DAYCARE_CONTACT_NAME,
+    signature_image: settings.signature_image,
+    signature_mode: settings.signature_mode
   };
 
   const childName = data.child_names || `${data.first_name} ${data.last_name}`.trim();
   const filename = `Receipt_${formatYearMonth(data.payment_date)}_${sanitizeFileNamePart(childName)}.pdf`;
 
-  return { payment, parent, filename };
+  return { payment, parent, invoice, settings, daycare, filename };
+};
+
+const buildDaycareContext = async () => {
+  const settings = await getDaycareSettings(pool);
+  return {
+    name:
+      settings.daycare_name ||
+      settings.name ||
+      process.env.DAYCARE_NAME ||
+      'Daycare Management System',
+    address_line1: settings.address_line1 || process.env.DAYCARE_ADDRESS_LINE1,
+    address_line2: settings.address_line2 || process.env.DAYCARE_ADDRESS_LINE2,
+    city: settings.city || process.env.DAYCARE_CITY,
+    province: settings.province || process.env.DAYCARE_PROVINCE,
+    postal_code: settings.postal_code || process.env.DAYCARE_POSTAL_CODE,
+  };
 };
 
 // === PAYSTUBS ===
@@ -113,7 +196,12 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
     // Get paystub with related data
     const result = await pool.query(
       `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date,
-              u.first_name, u.last_name, u.email
+              u.first_name, u.last_name, u.email,
+              u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
+              u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
+              u.annual_sick_days, u.annual_vacation_days,
+              u.sick_days_remaining, u.vacation_days_remaining,
+              po.created_at AS payout_created_at
        FROM paystubs ps
        JOIN payouts po ON ps.payout_id = po.id
        JOIN pay_periods pp ON ps.pay_period_id = pp.id
@@ -138,13 +226,28 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
       hourly_rate: data.hourly_rate,
       gross_amount: data.gross_amount,
       deductions: data.deductions,
-      net_amount: data.net_amount
+      net_amount: data.net_amount,
+      payout_created_at: data.payout_created_at
     };
 
     const user = {
       first_name: data.first_name,
       last_name: data.last_name,
-      email: data.email
+      email: data.email,
+      address_line1: data.address_line1,
+      address_line2: data.address_line2,
+      city: data.city,
+      province: data.province,
+      postal_code: data.postal_code,
+      ytd_gross: data.ytd_gross,
+      ytd_cpp: data.ytd_cpp,
+      ytd_ei: data.ytd_ei,
+      ytd_tax: data.ytd_tax,
+      ytd_hours: data.ytd_hours,
+      annual_sick_days: data.annual_sick_days,
+      annual_vacation_days: data.annual_vacation_days,
+      sick_days_remaining: data.sick_days_remaining,
+      vacation_days_remaining: data.vacation_days_remaining
     };
 
     const payPeriod = {
@@ -153,7 +256,9 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
       end_date: data.end_date
     };
 
-    const pdfBuffer = await generatePaystub(payout, user, payPeriod);
+    const daycare = await buildDaycareContext();
+
+    const pdfBuffer = await generatePaystub(payout, user, payPeriod, { daycare });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=paystub-${data.stub_number}.pdf`);
@@ -161,6 +266,66 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Get paystub PDF error:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+// Generate a sample paystub (today) using YTD values
+router.get('/paystubs/sample', requireAuth, async (req, res) => {
+  try {
+    const requestedId = req.query.user_id ? Number(req.query.user_id) : null;
+    const targetUserId = req.user.role === 'ADMIN' && requestedId ? requestedId : req.user.id;
+
+    if (!Number.isFinite(targetUserId)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+
+    const userResult = await pool.query(
+      `SELECT id, first_name, last_name, email,
+              address_line1, address_line2, city, province, postal_code,
+              ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
+              annual_sick_days, annual_vacation_days,
+              sick_days_remaining, vacation_days_remaining
+       FROM users
+       WHERE id = $1`,
+      [targetUserId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (req.user.role !== 'ADMIN' && targetUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const user = userResult.rows[0];
+    const today = new Date();
+    const todayIso = today.toISOString().split('T')[0];
+
+    const payout = {
+      total_hours: 0,
+      hourly_rate: 0,
+      gross_amount: 0,
+      deductions: 0,
+      net_amount: 0,
+      payout_created_at: todayIso,
+    };
+
+    const payPeriod = {
+      name: 'Sample (Today)',
+      start_date: todayIso,
+      end_date: todayIso,
+    };
+
+    const daycare = await buildDaycareContext();
+    const pdfBuffer = await generatePaystub(payout, user, payPeriod, { daycare });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename=paystub-sample.pdf');
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Generate sample paystub error:', error);
+    res.status(500).json({ error: 'Failed to generate sample paystub' });
   }
 });
 
@@ -308,7 +473,11 @@ router.get('/parent-payments/:id/receipt-pdf', requireAuth, requireAdmin, async 
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    const pdfBuffer = await generateReceipt(context.payment, context.parent);
+    const pdfBuffer = await generateReceipt(context.payment, context.parent, {
+      invoice: context.invoice,
+      settings: context.settings,
+      daycare: context.daycare
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${context.filename}"`);
@@ -337,7 +506,11 @@ router.get('/receipt-open', async (req, res) => {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    const pdfBuffer = await generateReceipt(context.payment, context.parent);
+    const pdfBuffer = await generateReceipt(context.payment, context.parent, {
+      invoice: context.invoice,
+      settings: context.settings,
+      daycare: context.daycare
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${context.filename}"`);

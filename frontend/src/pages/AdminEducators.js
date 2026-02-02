@@ -9,12 +9,17 @@ function AdminEducators() {
     password: '',
     firstName: '',
     lastName: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    province: '',
+    postalCode: '',
     paymentType: 'HOURLY',
     payFrequency: 'BI_WEEKLY',
     hourlyRate: '',
     salaryAmount: '',
-    annualSickDays: '10',
-    annualVacationDays: '10',
+    annualSickDays: '80',
+    annualVacationDays: '80',
     carryoverEnabled: false,
     dateEmployed: '',
     sin: '',
@@ -48,7 +53,7 @@ function AdminEducators() {
     try {
       await api.post('/admin/users', {
         ...formData,
-        // Set initial remaining days to annual days
+        // Set initial remaining hours to annual hours
         sickDaysRemaining: formData.annualSickDays,
         vacationDaysRemaining: formData.annualVacationDays,
       });
@@ -58,12 +63,17 @@ function AdminEducators() {
         password: '',
         firstName: '',
         lastName: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        province: '',
+        postalCode: '',
         paymentType: 'HOURLY',
         payFrequency: 'BI_WEEKLY',
         hourlyRate: '',
         salaryAmount: '',
-        annualSickDays: '10',
-        annualVacationDays: '10',
+        annualSickDays: '80',
+        annualVacationDays: '80',
         carryoverEnabled: false,
         dateEmployed: '',
         sin: '',
@@ -88,8 +98,13 @@ function AdminEducators() {
       payFrequency: educator.pay_frequency || 'BI_WEEKLY',
       hourlyRate: educator.hourly_rate || '',
       salaryAmount: educator.salary_amount || '',
-      annualSickDays: educator.annual_sick_days || 10,
-      annualVacationDays: educator.annual_vacation_days || 10,
+      addressLine1: educator.address_line1 || '',
+      addressLine2: educator.address_line2 || '',
+      city: educator.city || '',
+      province: educator.province || '',
+      postalCode: educator.postal_code || '',
+      annualSickDays: educator.annual_sick_days || 80,
+      annualVacationDays: educator.annual_vacation_days || 80,
       sickDaysRemaining: educator.sick_days_remaining || 0,
       vacationDaysRemaining: educator.vacation_days_remaining || 0,
       carryoverEnabled: educator.carryover_enabled || false,
@@ -191,6 +206,51 @@ function AdminEducators() {
             </div>
 
             <div className="form-group">
+              <label>Address Line 1</label>
+              <input
+                type="text"
+                value={formData.addressLine1}
+                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Address Line 2</label>
+              <input
+                type="text"
+                value={formData.addressLine2}
+                onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>City</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Province</label>
+              <input
+                type="text"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Postal Code</label>
+              <input
+                type="text"
+                value={formData.postalCode}
+                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
               <label>Payment Type *</label>
               <select
                 value={formData.paymentType}
@@ -243,7 +303,7 @@ function AdminEducators() {
             )}
 
             <div className="form-group">
-              <label>Annual Sick Days</label>
+              <label>Annual Sick Hours</label>
               <input
                 type="number"
                 value={formData.annualSickDays}
@@ -252,7 +312,7 @@ function AdminEducators() {
             </div>
 
             <div className="form-group">
-              <label>Annual Vacation Days</label>
+              <label>Annual Vacation Hours</label>
               <input
                 type="number"
                 value={formData.annualVacationDays}
@@ -357,7 +417,7 @@ function AdminEducators() {
             <th>Name</th>
             <th>Email</th>
             <th>Rate</th>
-            <th>Sick/Vacation Days</th>
+            <th>Sick/Vacation Hours</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -465,10 +525,53 @@ function AdminEducators() {
                           </div>
                         )}
                       </div>
+                      <h4 style={{ marginTop: '1rem' }}>Address</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '0.5rem' }}>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label>Address Line 1</label>
+                          <input
+                            type="text"
+                            value={editForm.addressLine1}
+                            onChange={(e) => setEditForm({ ...editForm, addressLine1: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                          <label>Address Line 2</label>
+                          <input
+                            type="text"
+                            value={editForm.addressLine2}
+                            onChange={(e) => setEditForm({ ...editForm, addressLine2: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>City</label>
+                          <input
+                            type="text"
+                            value={editForm.city}
+                            onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Province</label>
+                          <input
+                            type="text"
+                            value={editForm.province}
+                            onChange={(e) => setEditForm({ ...editForm, province: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Postal Code</label>
+                          <input
+                            type="text"
+                            value={editForm.postalCode}
+                            onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                          />
+                        </div>
+                      </div>
                       <h4 style={{ marginTop: '1rem' }}>Time Off</h4>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem' }}>
                         <div className="form-group">
-                          <label>Annual Sick Days</label>
+                          <label>Annual Sick Hours</label>
                           <input
                             type="number"
                             value={editForm.annualSickDays}
@@ -476,7 +579,7 @@ function AdminEducators() {
                           />
                         </div>
                         <div className="form-group">
-                          <label>Annual Vacation Days</label>
+                          <label>Annual Vacation Hours</label>
                           <input
                             type="number"
                             value={editForm.annualVacationDays}
@@ -495,7 +598,7 @@ function AdminEducators() {
                           </label>
                         </div>
                         <div className="form-group">
-                          <label>Sick Days Remaining</label>
+                          <label>Sick Hours Remaining</label>
                           <input
                             type="number"
                             step="0.5"
@@ -504,7 +607,7 @@ function AdminEducators() {
                           />
                         </div>
                         <div className="form-group">
-                          <label>Vacation Days Remaining</label>
+                          <label>Vacation Hours Remaining</label>
                           <input
                             type="number"
                             step="0.5"
