@@ -1095,7 +1095,7 @@ export function FamiliesPage() {
           setTempPasswordError('');
         }}
         title={`Edit ${selectedFamily ? getFamilyDisplayName(selectedFamily) : 'Family'}`}
-        contentClassName="pb-0"
+        contentClassName="pb-0 sm:pb-0"
       >
         <form onSubmit={handleEditSubmit} className="space-y-6">
           <div>

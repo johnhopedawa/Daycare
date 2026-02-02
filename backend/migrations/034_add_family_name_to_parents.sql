@@ -1,2 +1,2 @@
 ALTER TABLE parents
-ADD COLUMN family_name VARCHAR(150);
+ADD COLUMN IF NOT EXISTS family_name VARCHAR(150);

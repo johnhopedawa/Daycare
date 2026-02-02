@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
-import { DollarSign, Download } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import api from '../utils/api';
 import { BaseModal } from '../components/modals/BaseModal';
 
@@ -102,6 +102,16 @@ export function PaymentsPage() {
     return fullName || 'Family';
   };
 
+  const getPaymentNumber = (payment) => {
+    const number = payment.receipt_number
+      || payment.receiptNumber
+      || payment.payment_number
+      || payment.paymentNumber;
+    if (number) return number;
+    if (payment.id) return `PAY-${payment.id}`;
+    return '-';
+  };
+
   const handleFamilyChange = (familyId) => {
     const family = families.find((item) => getFamilyId(item) === familyId);
     const parentId = getPrimaryParentId(family);
@@ -188,6 +198,19 @@ export function PaymentsPage() {
     }
   };
 
+  const openInvoicePdf = async (invoiceId) => {
+    if (!invoiceId) return;
+    try {
+      const response = await api.post(`/invoices/${invoiceId}/pdf-link`);
+      if (response.data?.url) {
+        window.open(response.data.url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open invoice PDF:', error);
+      alert(error.response?.data?.error || 'Failed to open invoice PDF');
+    }
+  };
+
   const formatCurrency = (value) => {
     const amount = parseFloat(value || 0);
     return `$${amount.toFixed(2)}`;
@@ -207,8 +230,8 @@ export function PaymentsPage() {
     switch (key) {
       case 'family':
         return getPaymentFamilyLabel(payment).toLowerCase();
-      case 'invoice':
-        return (payment.invoice_number || '').toString().toLowerCase();
+      case 'payment':
+        return getPaymentNumber(payment).toString().toLowerCase();
       case 'amount':
         return parseFloat(payment.amount || 0);
       case 'date':
@@ -331,7 +354,7 @@ export function PaymentsPage() {
                   <thead style={{ backgroundColor: 'var(--background)' }}>
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Family', 'family')}</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Invoice', 'invoice')}</th>
+                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Payment #', 'payment')}</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Amount', 'amount')}</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Date', 'date')}</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Method', 'method')}</th>
@@ -346,7 +369,13 @@ export function PaymentsPage() {
                           {getPaymentFamilyLabel(payment)}
                         </td>
                         <td className="px-6 py-4 text-sm text-stone-600">
-                          {payment.invoice_number || '-'}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadReceipt(payment)}
+                            className="text-[var(--primary-dark)] hover:text-[var(--primary)] font-semibold"
+                          >
+                            {getPaymentNumber(payment)}
+                          </button>
                         </td>
                         <td className="px-6 py-4 text-sm text-stone-700">
                           {formatCurrency(payment.amount)}
@@ -366,23 +395,28 @@ export function PaymentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {payment.status === 'PENDING' ? (
-                            <button
-                              onClick={() => handleMarkPaymentPaid(payment.id)}
-                              className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
-                              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
-                            >
-                              Mark Paid
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleDownloadReceipt(payment)}
-                              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border themed-border text-stone-600 text-xs font-bold themed-hover transition-colors"
-                            >
-                              <Download size={14} />
-                              Receipt
-                            </button>
-                          )}
+                          <div className="inline-flex items-center gap-2">
+                            {payment.invoice_id ? (
+                              <button
+                                onClick={() => openInvoicePdf(payment.invoice_id)}
+                                className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
+                                style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                              >
+                                Invoice
+                              </button>
+                            ) : (
+                              <span className="text-xs font-semibold text-stone-400">No invoice</span>
+                            )}
+                            {payment.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleMarkPaymentPaid(payment.id)}
+                                className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
+                                style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -453,7 +487,7 @@ export function PaymentsPage() {
                         <thead style={{ backgroundColor: 'var(--background)' }}>
                           <tr>
                             <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Family', 'family')}</th>
-                            <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Invoice', 'invoice')}</th>
+                            <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Payment #', 'payment')}</th>
                             <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Amount', 'amount')}</th>
                             <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Date', 'date')}</th>
                             <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">{renderPaymentHeader('Method', 'method')}</th>
@@ -468,7 +502,13 @@ export function PaymentsPage() {
                                 {getPaymentFamilyLabel(payment)}
                               </td>
                               <td className="px-6 py-4 text-sm text-stone-600">
-                                {payment.invoice_number || '-'}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadReceipt(payment)}
+                                  className="text-[var(--primary-dark)] hover:text-[var(--primary)] font-semibold"
+                                >
+                                  {getPaymentNumber(payment)}
+                                </button>
                               </td>
                               <td className="px-6 py-4 text-sm text-stone-700">
                                 {formatCurrency(payment.amount)}
@@ -488,23 +528,28 @@ export function PaymentsPage() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-right">
-                                {payment.status === 'PENDING' ? (
-                                  <button
-                                    onClick={() => handleMarkPaymentPaid(payment.id)}
-                                    className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
-                                    style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
-                                  >
-                                    Mark Paid
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleDownloadReceipt(payment)}
-                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white border themed-border text-stone-600 text-xs font-bold themed-hover transition-colors"
-                                  >
-                                    <Download size={14} />
-                                    Receipt
-                                  </button>
-                                )}
+                                <div className="inline-flex items-center gap-2">
+                                  {payment.invoice_id ? (
+                                    <button
+                                      onClick={() => openInvoicePdf(payment.invoice_id)}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
+                                      style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                                    >
+                                      Invoice
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs font-semibold text-stone-400">No invoice</span>
+                                  )}
+                                  {payment.status === 'PENDING' && (
+                                    <button
+                                      onClick={() => handleMarkPaymentPaid(payment.id)}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold themed-hover transition-colors"
+                                      style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                                    >
+                                      Mark Paid
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}

@@ -354,9 +354,6 @@ export function BillingPage() {
                   <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                     {renderInvoiceHeader('Balance Due', 'balance_due', closedInvoiceSort, setClosedInvoiceSort)}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    {renderInvoiceHeader('Status', 'status', closedInvoiceSort, setClosedInvoiceSort)}
-                  </th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
                     Actions
                   </th>
@@ -385,9 +382,6 @@ export function BillingPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
                       ${parseFloat(invoice.balance_due || 0).toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(invoice.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
