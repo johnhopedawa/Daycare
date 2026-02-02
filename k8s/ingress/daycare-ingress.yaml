@@ -4,9 +4,13 @@ metadata:
   name: daycare-ingress
   namespace: littlesparrows
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
+  tls:
+  - hosts:
+    - littlesparrowsacademy.com
+    secretName: cloudflare-origin-tls
   rules:
   - host: littlesparrowsacademy.com
     http:

@@ -158,6 +158,16 @@ spec:
 ```
 The ingress routes `/api` to the backend and `/` to the frontend.
 
+### Cloudflare Origin TLS
+
+Create the Cloudflare origin TLS secret in the same namespace as the ingress:
+
+```bash
+kubectl -n littlesparrows create secret tls cloudflare-origin-tls \
+  --cert=cf-origin.crt \
+  --key=cf-origin.key
+```
+
 ### Frontend API URL (Build Time)
 
 The frontend uses `REACT_APP_API_URL` at build time. If you deploy behind ingress,
