@@ -55,6 +55,18 @@ echo ""
 echo "0. Creating namespace..."
 kubectl apply -f "$K8S_DIR/namespace.yaml"
 
+CF_CERT="$K8S_DIR/secrets/cf-origin.crt"
+CF_KEY="$K8S_DIR/secrets/cf-origin.key"
+if [[ -f "$CF_CERT" && -f "$CF_KEY" ]]; then
+    echo "0.1 Applying Cloudflare origin TLS secret..."
+    kubectl -n "$NAMESPACE" create secret tls cloudflare-origin-tls \
+      --cert="$CF_CERT" \
+      --key="$CF_KEY" \
+      --dry-run=client -o yaml | kubectl apply -f -
+else
+    echo "0.1 Cloudflare origin cert/key not found; skipping TLS secret."
+fi
+
 echo "1. Creating secrets..."
 kubectl apply -f "$K8S_DIR/secrets/"
 
