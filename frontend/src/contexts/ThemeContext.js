@@ -18,6 +18,8 @@ const defaultTheme = {
     border: '#FFE5D9',
     on_primary: '#FFFFFF',
     on_accent: '#7A3B2A',
+    success: '#2F9E6A',
+    danger: '#D04B45',
     card_colors: ['#E5D4ED', '#B8E6D5', '#FFF4CC', '#FFDCC8'],
     card_text_colors: ['#44403C', '#44403C', '#44403C', '#44403C'],
   },
@@ -199,6 +201,8 @@ const applyTheme = (theme) => {
   root.style.setProperty('--menu-active-text', menuActiveText);
   root.style.setProperty('--menu-accent', menuAccent);
   root.style.setProperty('--menu-shadow', menuShadow);
+  root.style.setProperty('--success', palette.success || defaultTheme.palette.success);
+  root.style.setProperty('--danger', palette.danger || defaultTheme.palette.danger);
 
   let cardColors = defaultTheme.palette.card_colors;
   if (Array.isArray(palette.card_colors) && palette.card_colors.length > 0) {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
@@ -164,6 +165,10 @@ export function TimeEntriesApprovalPage() {
   const [activeEducator, setActiveEducator] = useState(null);
   const [rejectingBatch, setRejectingBatch] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const educatorIdParam = searchParams.get('educatorId');
+  const requestIdParam = searchParams.get('requestId');
 
   const avatarStyles = [
     { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
@@ -259,6 +264,42 @@ export function TimeEntriesApprovalPage() {
       return nameA.localeCompare(nameB);
     });
   }, [educators, requests]);
+
+  useEffect(() => {
+    if (requestIdParam) {
+      const matchByRequest = educatorSummaries.find((educator) =>
+        educator.requests.some((request) => String(request.id) === String(requestIdParam))
+      );
+      if (matchByRequest) {
+        setActiveEducator(matchByRequest);
+        return;
+      }
+    }
+
+    if (!educatorIdParam) {
+      return;
+    }
+    if (activeEducator && String(activeEducator.user_id) === String(educatorIdParam)) {
+      return;
+    }
+    const match = educatorSummaries.find(
+      (educator) => String(educator.user_id) === String(educatorIdParam)
+    );
+    if (match) {
+      setActiveEducator(match);
+    }
+  }, [educatorIdParam, requestIdParam, educatorSummaries, activeEducator]);
+
+  const closeActiveEducator = () => {
+    setActiveEducator(null);
+    if (!educatorIdParam && !requestIdParam) {
+      return;
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('educatorId');
+    nextParams.delete('requestId');
+    navigate({ pathname: '/time-entries', search: nextParams.toString() }, { replace: true });
+  };
 
   const activeGroups = useMemo(() => {
     if (!activeEducator) return { approved: [], pending: [], rejected: [] };
@@ -388,7 +429,7 @@ export function TimeEntriesApprovalPage() {
 
       <BaseModal
         isOpen={Boolean(activeEducator)}
-        onClose={() => setActiveEducator(null)}
+        onClose={closeActiveEducator}
         title={
           activeEducator
             ? `Time Off Details - ${activeEducator.first_name} ${activeEducator.last_name}`

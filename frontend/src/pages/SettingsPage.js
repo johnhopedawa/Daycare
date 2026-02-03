@@ -596,6 +596,25 @@ export function SettingsPage() {
                   Billing
                 </h3>
 
+                <div className="mb-6 p-4 rounded-2xl border border-[#FFE5D9]/60 bg-[#FFF8F3]">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <h4 className="font-semibold text-stone-800">Firefly III</h4>
+                      <p className="text-sm text-stone-600">
+                        Open Firefly to manage expense accounts and access tokens.
+                      </p>
+                    </div>
+                    <a
+                      href="/firefly-redirect"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl bg-white border themed-border text-sm font-semibold text-stone-700 hover:bg-[#FFE5D9] transition-colors"
+                    >
+                      Open Firefly
+                    </a>
+                  </div>
+                </div>
+
                 <div className="mt-10 pt-2">
 
                   {daycareMessage && (

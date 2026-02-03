@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: firefly-ingress
+  namespace: littlesparrows
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+  - hosts:
+    - firefly.littlesparrowsacademy.com
+    secretName: cloudflare-origin-tls
+  rules:
+  - host: firefly.littlesparrowsacademy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: firefly
+            port:
+              number: 8080

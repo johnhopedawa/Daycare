@@ -23,6 +23,13 @@ spec:
             name: backend
             port:
               number: 5000
+      - path: /firefly-redirect
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
       - path: /
         pathType: Prefix
         backend:
@@ -40,6 +47,13 @@ spec:
             name: backend
             port:
               number: 5000
+      - path: /firefly-redirect
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
       - path: /
         pathType: Prefix
         backend:

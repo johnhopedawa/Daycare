@@ -158,6 +158,27 @@ spec:
 ```
 The ingress routes `/api` to the backend and `/` to the frontend.
 
+### Firefly Subdomain (Recommended)
+
+Firefly is routed via its own subdomain to avoid path conflicts.
+
+1) Update `ingress/firefly-ingress.yaml` to your desired subdomain:
+```yaml
+spec:
+  rules:
+  - host: firefly.littlesparrowsacademy.com
+```
+2) Ensure the Cloudflare origin TLS cert includes the subdomain and update the
+`cloudflare-origin-tls` secret if needed.
+3) Rebuild the frontend image with:
+```bash
+REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com
+```
+4) Apply the ingress:
+```bash
+kubectl -n littlesparrows apply -f ingress/firefly-ingress.yaml
+```
+
 ### Cloudflare Origin TLS
 
 Create the Cloudflare origin TLS secret in the same namespace as the ingress:

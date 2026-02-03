@@ -11,6 +11,7 @@ export function MetricCard({
   themeIndex,
   variant = 'accent',
   onClick,
+  footer,
 }) {
   if (variant === 'neutral') {
     return (
@@ -35,6 +36,11 @@ export function MetricCard({
             <h3 className="text-2xl font-semibold text-stone-900">
               {value}
             </h3>
+            {footer && (
+              <div className="mt-2 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+                {footer}
+              </div>
+            )}
           </div>
           <div
             className="p-2 rounded-xl border bg-[var(--surface)]"
@@ -77,6 +83,11 @@ export function MetricCard({
           <h3 className="text-3xl font-bold text-stone-800 font-quicksand">
             {value}
           </h3>
+          {footer && (
+            <div className="mt-2 text-xs font-semibold" style={{ color: 'var(--muted)' }}>
+              {footer}
+            </div>
+          )}
         </div>
         <div className="p-3 bg-white/40 rounded-2xl text-stone-700 backdrop-blur-sm">
           <Icon size={24} />

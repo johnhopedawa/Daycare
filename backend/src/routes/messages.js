@@ -8,6 +8,17 @@ const router = express.Router();
 
 router.use(requireAuth, requireStaff);
 
+const parseReadFlag = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase().trim();
+    if (['true', '1', 'yes'].includes(normalized)) return true;
+    if (['false', '0', 'no'].includes(normalized)) return false;
+  }
+  return null;
+};
+
 const getStaffIdsForOwner = async (ownerId) => {
   const staffResult = await pool.query(
     'SELECT id FROM users WHERE id = $1 OR created_by = $1',
@@ -114,6 +125,72 @@ router.get('/unread-count', async (req, res) => {
   } catch (error) {
     console.error('Get unread count error:', error);
     res.status(500).json({ error: 'Failed to load unread count' });
+  }
+});
+
+// Update read status for selected messages (staff)
+router.patch('/bulk-update', async (req, res) => {
+  try {
+    const ownerId = getOwnerId(req.user);
+    const staffIds = await getStaffIdsForOwner(ownerId);
+    const isRead = parseReadFlag(req.body?.is_read);
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id))
+      : [];
+
+    if (staffIds.length === 0) {
+      return res.status(404).json({ error: 'Messages not found' });
+    }
+
+    if (typeof isRead !== 'boolean') {
+      return res.status(400).json({ error: 'is_read must be true or false' });
+    }
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'Message IDs are required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE messages
+       SET is_read = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($2::int[]) AND to_user_id = ANY($3::int[])
+       RETURNING id, is_read`,
+      [isRead, ids, staffIds]
+    );
+
+    res.json({ updated: result.rows });
+  } catch (error) {
+    console.error('Bulk update messages error:', error);
+    res.status(500).json({ error: 'Failed to update messages' });
+  }
+});
+
+// Mark all staff inbox messages read/unread
+router.patch('/mark-all', async (req, res) => {
+  try {
+    const ownerId = getOwnerId(req.user);
+    const staffIds = await getStaffIdsForOwner(ownerId);
+    const isRead = parseReadFlag(req.body?.is_read);
+
+    if (staffIds.length === 0) {
+      return res.json({ updated: 0 });
+    }
+
+    if (typeof isRead !== 'boolean') {
+      return res.status(400).json({ error: 'is_read must be true or false' });
+    }
+
+    const result = await pool.query(
+      `UPDATE messages
+       SET is_read = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE to_user_id = ANY($2::int[])`,
+      [isRead, staffIds]
+    );
+
+    res.json({ updated: result.rowCount });
+  } catch (error) {
+    console.error('Mark all messages error:', error);
+    res.status(500).json({ error: 'Failed to update messages' });
   }
 });
 

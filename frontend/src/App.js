@@ -17,6 +17,7 @@ import { FinanceAccountsPage } from './pages/FinanceAccountsPage';
 import { FinanceCategoriesPage } from './pages/FinanceCategoriesPage';
 import { PaperworkPage } from './pages/PaperworkPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { FireflyRedirectPage } from './pages/FireflyRedirectPage';
 import { useAuth } from './contexts/AuthContext';
 import ParentLogin from './pages/ParentLogin';
 import ParentDashboard from './pages/ParentDashboard';
@@ -204,6 +205,14 @@ export function App() {
             element={
               <RequireRole roles={['ADMIN']}>
                 <SettingsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/firefly-redirect"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <FireflyRedirectPage />
               </RequireRole>
             }
           />

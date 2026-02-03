@@ -20,6 +20,7 @@ import {
   LogOut,
   Baby,
   X,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ConfirmModal } from './modals/ConfirmModal';
@@ -32,8 +33,8 @@ const OPERATIONS_DASHBOARD = {
 };
 
 const FINANCE_DASHBOARD = {
-  icon: LayoutDashboard,
-  label: 'Finance Dashboard',
+  icon: Mail,
+  label: 'Messages',
   path: '/finance',
 };
 

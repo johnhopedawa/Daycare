@@ -4,6 +4,19 @@ const pool = require('../db/pool');
 const { requireAuth, requireAdmin, requireStaff } = require('../middleware/auth');
 const { getOwnerId } = require('../utils/owner');
 
+const ABSENT_STATUSES = new Set(['ABSENT', 'SICK', 'VACATION']);
+
+const isPresentRecord = (record) => {
+  const status = String(record.status || '').toUpperCase();
+  if (ABSENT_STATUSES.has(status)) {
+    return false;
+  }
+  if (record.check_in_time || record.check_out_time) {
+    return true;
+  }
+  return ['PRESENT', 'LATE'].includes(status);
+};
+
 const requireScheduledStaff = async (req, res, next) => {
   if (req.user?.role === 'ADMIN') {
     return next();
@@ -109,6 +122,68 @@ router.get('/today', requireAuth, requireStaff, requireScheduledStaff, async (re
   } catch (error) {
     console.error('Get today attendance error:', error);
     res.status(500).json({ error: 'Failed to get today\'s attendance' });
+  }
+});
+
+// GET /api/attendance/compliance
+// Determine if scheduled staff count meets the kids-to-staff ratio for the day
+router.get('/compliance', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { date, ratio_kids, ratio_staff } = req.query;
+    const parsedKids = ratio_kids !== undefined ? Number.parseFloat(ratio_kids) : null;
+    const parsedStaff = ratio_staff !== undefined ? Number.parseFloat(ratio_staff) : null;
+
+    if (parsedKids !== null && (!Number.isFinite(parsedKids) || parsedKids <= 0)) {
+      return res.status(400).json({ error: 'ratio_kids must be a positive number' });
+    }
+    if (parsedStaff !== null && (!Number.isFinite(parsedStaff) || parsedStaff <= 0)) {
+      return res.status(400).json({ error: 'ratio_staff must be a positive number' });
+    }
+
+    const ratioKids = parsedKids ?? 4;
+    const ratioStaff = parsedStaff ?? 1;
+    const targetDate = date || null;
+    const ownerId = getOwnerId(req.user);
+
+    const attendanceResult = await pool.query(
+      `SELECT a.status, a.check_in_time, a.check_out_time
+       FROM attendance a
+       JOIN children c ON a.child_id = c.id
+       WHERE a.attendance_date = COALESCE($1::date, CURRENT_DATE)
+         AND c.created_by = $2`,
+      [targetDate, ownerId]
+    );
+
+    const presentCount = attendanceResult.rows.filter(isPresentRecord).length;
+
+    const staffResult = await pool.query(
+      `SELECT COUNT(DISTINCT s.user_id) as staff_scheduled
+       FROM schedules s
+       WHERE s.shift_date = COALESCE($1::date, CURRENT_DATE)
+         AND s.status = 'ACCEPTED'
+         AND s.created_by = $2`,
+      [targetDate, ownerId]
+    );
+
+    const staffScheduled = Number.parseInt(staffResult.rows[0]?.staff_scheduled || 0, 10);
+    const kidsPerStaff = ratioKids / ratioStaff;
+    const requiredStaff = kidsPerStaff > 0 ? Math.ceil(presentCount / kidsPerStaff) : 0;
+
+    res.json({
+      date: targetDate || new Date().toISOString().split('T')[0],
+      ratio: {
+        kids: ratioKids,
+        staff: ratioStaff,
+        kids_per_staff: kidsPerStaff,
+      },
+      kids_present: presentCount,
+      staff_scheduled: staffScheduled,
+      required_staff: requiredStaff,
+      in_compliance: staffScheduled >= requiredStaff,
+    });
+  } catch (error) {
+    console.error('Attendance compliance error:', error);
+    res.status(500).json({ error: 'Failed to calculate staffing compliance' });
   }
 });
 

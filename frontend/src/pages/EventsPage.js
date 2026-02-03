@@ -34,6 +34,10 @@ export function EventsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const monthTitle = useMemo(
+    () => currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    [currentMonth]
+  );
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -74,21 +78,21 @@ export function EventsPage() {
   return (
     <Layout title="Events" subtitle="Plan and share daycare events">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl border themed-border bg-white">
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-            className="px-3 py-2 rounded-xl border themed-border text-sm font-semibold text-stone-600"
+            className="px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:text-stone-800"
           >
             Prev
           </button>
-          <div className="text-lg font-bold text-stone-800">
-            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          <div className="text-sm font-semibold text-stone-700 min-w-[140px] text-center">
+            {monthTitle}
           </div>
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-            className="px-3 py-2 rounded-xl border themed-border text-sm font-semibold text-stone-600"
+            className="px-3 py-2 rounded-xl text-sm font-medium text-stone-600 hover:text-stone-800"
           >
             Next
           </button>
@@ -106,50 +110,45 @@ export function EventsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
         <div className="themed-surface rounded-3xl p-5">
-          <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-stone-500 mb-3 text-center">
+          <div className="calendar-grid">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
-              <div key={label}>{label}</div>
+              <div key={label} className="calendar-header">{label}</div>
             ))}
-          </div>
-          <div className="grid grid-cols-7 gap-2">
+
             {buildCalendarGrid(currentMonth).map((day, idx) => {
               if (!day) {
-                return <div key={`empty-${idx}`} className="h-20" />;
+                return <div key={`empty-${idx}`} className="calendar-day calendar-day--empty" />;
               }
               const key = formatDateKey(day);
               const dayEvents = eventsByDate.get(key) || [];
               const isSelected = key === selectedKey;
               const isToday = key === formatDateKey(new Date());
+              const hasEvents = dayEvents.length > 0;
 
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setSelectedDate(day)}
-                  className={`h-20 rounded-2xl border p-2 text-left transition-colors ${
-                    isSelected ? 'border-[var(--primary)] bg-[var(--background)]' : 'themed-border bg-white'
+                  className={`calendar-day ${hasEvents ? 'calendar-day--scheduled' : ''} ${
+                    isToday ? 'calendar-day--today' : ''
                   }`}
+                  style={isSelected ? { borderColor: 'var(--primary)', backgroundColor: 'var(--background)' } : undefined}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold ${
-                        isToday ? 'text-[var(--primary-dark)]' : 'text-stone-600'
-                      }`}
-                    >
-                      {day.getDate()}
-                    </span>
+                  <div className="flex items-center justify-between calendar-day-header">
+                    <span className="calendar-day-number">{day.getDate()}</span>
                     {dayEvents.length > 0 && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--card-1)] text-[var(--card-text-1)]">
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-lg"
+                        style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                      >
                         {dayEvents.length}
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 space-y-1">
+                  <div className="hidden md:flex flex-col gap-1 text-[11px] text-stone-600">
                     {dayEvents.slice(0, 2).map((event) => (
-                      <div
-                        key={event.id}
-                        className="text-[10px] text-stone-500 truncate"
-                      >
+                      <div key={event.id} className="truncate">
                         {event.title}
                       </div>
                     ))}

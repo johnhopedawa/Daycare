@@ -120,16 +120,14 @@ export function Layout({ children, title, subtitle, actionBar }) {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <main className="lg:pl-72 min-h-screen transition-all duration-300">
-          <div
-            className="max-w-7xl mx-auto"
-            style={{ padding: 'var(--layout-padding)' }}
-          >
+          <div style={{ padding: 'var(--layout-padding)' }}>
+            <div className="max-w-6xl mx-auto w-full">
           {/* Header */}
           <header
-            className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+            className="flex flex-wrap items-start justify-between gap-4"
             style={{ marginBottom: 'var(--layout-gap)' }}
           >
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* Mobile Hamburger Menu */}
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -143,7 +141,7 @@ export function Layout({ children, title, subtitle, actionBar }) {
                 <Menu size={20} />
               </button>
 
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-2xl sm:text-3xl font-bold font-quicksand mb-1">
                   {title}
                 </h2>
@@ -156,7 +154,7 @@ export function Layout({ children, title, subtitle, actionBar }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-end w-full sm:w-auto">
               <div className="relative hidden md:block">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2"
@@ -278,6 +276,7 @@ export function Layout({ children, title, subtitle, actionBar }) {
           ) : null}
 
           <div>{children}</div>
+          </div>
           </div>
         </main>
       </div>

@@ -10,8 +10,8 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-02-02</last-updated>
-    <documentation-status>Updated to reflect educator time-off summaries and detailed request modal</documentation-status>
+    <last-updated>2026-02-03</last-updated>
+    <documentation-status>Updated with merged finance snapshot, staffing compliance ratio, and time-off requests panel/modal on dashboard</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -719,14 +719,19 @@
     <pages-directory path="pages/">
       <!-- Admin Dashboard & Core Pages -->
       <page file="DashboardPage.js">
-        <description>Main admin dashboard with metrics and widgets</description>
+        <description>Main admin dashboard with ops metrics, staffing compliance, and finance snapshot</description>
         <api-calls>
           <call endpoint="/children?status=ACTIVE"/>
           <call endpoint="/attendance?start_date={date}&end_date={date}"/>
+          <call endpoint="/attendance/compliance?date={date}&ratio_kids={kids}&ratio_staff={staff}"/>
           <call endpoint="/schedules/admin/schedules?from={date}&to={date}"/>
           <call endpoint="/notifications/unread-count"/>
           <call endpoint="/invoices"/>
           <call endpoint="/events?from={date}&to={date}"/>
+          <call endpoint="/business-expenses?start={date}&end={date}&limit={n}"/>
+          <call endpoint="/time-off-requests?status=ALL"/>
+          <call endpoint="/time-off-requests/:id/approve"/>
+          <call endpoint="/time-off-requests/:id/reject"/>
         </api-calls>
         <components-used>Layout, MetricCard, BaseModal, AddChildModal, SendMessageModal, CreateEventModal</components-used>
         <responsive-features>
@@ -735,6 +740,13 @@
           <feature>Widget heights: h-[300px] sm:h-[350px] md:h-[400px]</feature>
           <feature>Responsive spacing: gap-6 md:gap-8</feature>
         </responsive-features>
+        <notes>
+          <note date="2026-02-03">/finance now serves as the admin Messages inbox; finance KPIs remain in the dashboard snapshot.</note>
+          <note date="2026-02-03">Dashboard widgets updated: Present Today, Staff Scheduled, In Compliance (ratio popup), Pending Tasks. Attendance CTA added to header action bar.</note>
+          <note date="2026-02-03">Finance snapshot panel replaces arrivals/absences; includes expense category pie chart, cash flow snapshot, and profit indicator.</note>
+          <note date="2026-02-03">Time Off Requests panel replaces Staff Coverage; shows up to 2 items, includes a Time Requests header button, and opens an inline Time Off Details modal for approvals.</note>
+          <note date="2026-02-03">Upcoming Events panel replaces Today's Events; shows next 2 upcoming events with a See More button when additional events exist.</note>
+        </notes>
         <status>COMPLETE - Fully responsive</status>
       </page>
 
@@ -1033,13 +1045,22 @@
       </page>
 
       <page file="FinanceDashboardPage.js">
-        <description>Finance landing page with KPIs, cash flow, and category insights</description>
+        <description>Admin messages inbox with list + detail view</description>
         <features>
-          <feature>Overview stats (income, expenses, net, uncategorized)</feature>
-          <feature>Cash flow snapshot chart</feature>
-          <feature>Top categories summary</feature>
+          <feature>Left inbox list with read/unread filters and multi-select</feature>
+          <feature>Bulk mark read/unread for selected or all messages</feature>
+          <feature>Message detail panel with sender, timestamp, and body</feature>
         </features>
-        <status>ROUTED - /finance</status>
+        <api-calls>
+          <call endpoint="GET /messages/inbox?limit={n}"/>
+          <call endpoint="PATCH /messages/:id/read"/>
+          <call endpoint="PATCH /messages/bulk-update"/>
+          <call endpoint="PATCH /messages/mark-all"/>
+        </api-calls>
+        <notes>
+          <note date="2026-02-03">/finance repurposed from finance KPIs to an admin messages inbox.</note>
+        </notes>
+        <status>ROUTED - /finance (Messages)</status>
       </page>
 
       <page file="FinanceTransactionsPage.js">
@@ -1332,7 +1353,7 @@
           <item section="Operations" path="/pay" icon="DollarSign">Pay Periods</item>
           <item section="Operations" path="/time-entries" icon="Clock">Time Entries</item>
           <item section="Operations" path="/settings" icon="Settings">Settings</item>
-          <item path="/finance" icon="LayoutDashboard">Finance Dashboard</item>
+          <item path="/finance" icon="Mail">Messages</item>
           <item section="Finance" path="/finance/transactions" icon="Wallet">Transactions</item>
           <item section="Finance" path="/finance/accounts" icon="Landmark">Bank Accounts</item>
           <item section="Finance" path="/finance/categories" icon="Tag">Categories</item>
@@ -1733,21 +1754,23 @@
       <status>BACKEND COMPLETE - Frontend in BankAccountsPage</status>
     </integration>
 
-    <integration name="Firefly III">
-      <description>Personal finance manager for business expenses</description>
-      <service-file>backend/src/services/fireflyService.js</service-file>
-      <purpose>Store and categorize business expenses from SimpleFIN</purpose>
-      <operations>
-        <operation>Create expense accounts</operation>
-        <operation>Post transactions</operation>
-        <operation>Link to SimpleFIN accounts</operation>
-      </operations>
-      <environment-variables>
-        <var name="FIREFLY_BASE_URL" required="true">Firefly III instance URL</var>
-        <var name="FIREFLY_SERVICE_PAT" required="true">Personal Access Token</var>
-      </environment-variables>
-      <status>BACKEND COMPLETE</status>
-    </integration>
+      <integration name="Firefly III">
+        <description>Personal finance manager for business expenses</description>
+        <service-file>backend/src/services/fireflyService.js</service-file>
+        <purpose>Store and categorize business expenses from SimpleFIN</purpose>
+        <operations>
+          <operation>Create expense accounts</operation>
+          <operation>Post transactions</operation>
+          <operation>Link to SimpleFIN accounts</operation>
+        </operations>
+        <environment-variables>
+          <var name="FIREFLY_BASE_URL" required="true">Firefly III instance URL</var>
+          <var name="FIREFLY_SERVICE_PAT" required="true">Personal Access Token</var>
+        </environment-variables>
+        <note>Firefly UI can be routed behind the main domain (e.g., /firefly) or, preferably, a dedicated subdomain (e.g., firefly.littlesparrowsacademy.com). Link from Settings via REACT_APP_FIREFLY_URL (or the /firefly-redirect route).</note>
+        <note>Traefik Prefix routing on /firefly also matches /firefly-redirect. Ensure /firefly-redirect routes to the frontend (higher priority or explicit rule), or change the Firefly path to /firefly/.</note>
+        <status>BACKEND COMPLETE</status>
+      </integration>
 
     <integration name="PDF Generation">
       <description>Generate PDFs for paystubs, invoices, receipts</description>
@@ -1813,7 +1836,8 @@
         <var name="FRONTEND_URL">Single frontend origin (fallback for CORS allowlist)</var>
         <var name="FIREFLY_BASE_URL">Firefly III instance URL (for business expenses)</var>
         <var name="FIREFLY_SERVICE_PAT">Firefly III Personal Access Token</var>
-        <var name="REACT_APP_API_URL">Frontend API base URL (default: http://localhost:5000/api)</var>
+          <var name="REACT_APP_API_URL">Frontend API base URL (default: /api)</var>
+          <var name="REACT_APP_FIREFLY_URL">Frontend link to Firefly III UI (default: /firefly)</var>
         <var name="SMTP_HOST">SMTP host</var>
         <var name="SMTP_PORT">SMTP port</var>
         <var name="SMTP_USER">SMTP username</var>
