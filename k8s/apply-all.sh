@@ -50,8 +50,11 @@ kubectl apply -f "$K8S_DIR/services/frontend-service.yaml"
 kubectl apply -f "$K8S_DIR/deployments/firefly.yaml"
 kubectl apply -f "$K8S_DIR/services/firefly-service.yaml"
 
-echo "Restarting Firefly to pull latest image..."
-kubectl -n "$NAMESPACE" rollout restart deployment/firefly
+echo "Restarting backend to pull latest image..."
+kubectl -n "$NAMESPACE" rollout restart deployment/backend
+
+echo "Restarting frontend to pull latest image..."
+kubectl -n "$NAMESPACE" rollout restart deployment/frontend
 
 echo "Waiting for deployments to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/backend --timeout=300s
