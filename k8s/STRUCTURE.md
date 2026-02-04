@@ -9,6 +9,8 @@ k8s/
 |- namespace.yaml               # Namespace for all resources
 |- secrets/
 |  `- daycare-secrets.yaml        # Passwords, JWT, encryption key
+|- crds/
+|  `- kustomization.yaml          # Traefik CRDs
 |- storage/
 |  |- postgres-pvc.yaml           # Persistent volume claim
 |  `- firefly-upload-pvc.yaml     # Firefly III upload storage

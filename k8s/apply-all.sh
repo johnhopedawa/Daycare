@@ -10,6 +10,11 @@ NAMESPACE="littlesparrows"
 
 echo "Applying all Kubernetes manifests..."
 
+if [ -d "$K8S_DIR/crds" ]; then
+  echo "Applying CRDs..."
+  kubectl apply -k "$K8S_DIR/crds"
+fi
+
 kubectl apply -f "$K8S_DIR/namespace.yaml"
 
 CF_CERT="$K8S_DIR/secrets/cf-origin.crt"
@@ -44,6 +49,9 @@ kubectl apply -f "$K8S_DIR/deployments/frontend.yaml"
 kubectl apply -f "$K8S_DIR/services/frontend-service.yaml"
 kubectl apply -f "$K8S_DIR/deployments/firefly.yaml"
 kubectl apply -f "$K8S_DIR/services/firefly-service.yaml"
+
+echo "Restarting Firefly to pull latest image..."
+kubectl -n "$NAMESPACE" rollout restart deployment/firefly
 
 echo "Waiting for deployments to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/backend --timeout=300s

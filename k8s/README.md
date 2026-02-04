@@ -7,6 +7,7 @@ Organized k8s manifests for deploying the Daycare Management System.
 ```
 k8s/
 |- namespace.yaml           # Namespace for all resources
+|- crds/                    # CRDs (Traefik middleware)
 |- secrets/                 # Secret configurations (passwords, JWT secret)
 |- storage/                 # PersistentVolumeClaims
 |- deployments/             # Deployment manifests
@@ -37,7 +38,8 @@ k8s/
 ```
 
 This will:
-1. Build Docker images
+1. Apply CRDs (Traefik middleware)
+2. Build Docker images
 2. Push to registry
 3. Apply all manifests in correct order
 4. Wait for services to be ready
@@ -50,7 +52,7 @@ This will:
 nano secrets/daycare-secrets.yaml
 # Change postgres-password, jwt-secret, and encryption-key
 
-# 2. Apply all manifests
+# 2. Apply all manifests (includes CRDs)
 ./apply-all.sh
 
 # 3. Wait for postgres to be ready

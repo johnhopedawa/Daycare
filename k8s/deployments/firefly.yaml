@@ -47,7 +47,7 @@ spec:
       containers:
       - name: firefly
         image: fireflyiii/core:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
           name: http
