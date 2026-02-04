@@ -19,6 +19,9 @@ export function FireflyRedirectPage() {
     if (isLocalHost || port === '3000') {
       return `${protocol}//${hostname}:8080`;
     }
+    if (hostname.endsWith('littlesparrowsacademy.com')) {
+      return 'https://firefly.littlesparrowsacademy.com';
+    }
     return '/firefly';
   };
   const envFireflyUrl = process.env.REACT_APP_FIREFLY_URL;
