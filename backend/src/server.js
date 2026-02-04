@@ -24,6 +24,7 @@ const messagesRoutes = require('./routes/messages');
 const eventsRoutes = require('./routes/events');
 const notificationsRoutes = require('./routes/notifications');
 const timeOffRequestsRoutes = require('./routes/timeOffRequests');
+const developerRoutes = require('./routes/developer');
 
 // Parent portal routes
 const parentDashboardRoutes = require('./routes/parentDashboard');
@@ -112,6 +113,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/time-off-requests', timeOffRequestsRoutes);
+app.use('/api/developer', developerRoutes);
 
 // Parent portal routes (unified auth via /api/auth/login)
 app.use('/api/parent', parentDashboardRoutes);

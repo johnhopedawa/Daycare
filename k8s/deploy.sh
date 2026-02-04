@@ -11,6 +11,7 @@ echo ""
 DOCKERHUB_USER=${DOCKERHUB_USER:-"johnhopedawa"}
 BACKEND_IMAGE="$DOCKERHUB_USER/daycare-backend:latest"
 FRONTEND_IMAGE="$DOCKERHUB_USER/daycare-frontend:latest"
+FRONTEND_FIREFLY_URL=${REACT_APP_FIREFLY_URL:-"https://firefly.littlesparrowsacademy.com"}
 K8S_DIR="$(cd "$(dirname "$0")" && pwd)"
 NAMESPACE="littlesparrows"
 
@@ -34,7 +35,7 @@ if [ "$SKIP_BUILD" = false ]; then
     docker build -t $BACKEND_IMAGE ./backend
 
     echo "Building frontend..."
-    docker build -t $FRONTEND_IMAGE ./frontend
+    docker build -t $FRONTEND_IMAGE --build-arg REACT_APP_FIREFLY_URL="$FRONTEND_FIREFLY_URL" ./frontend
 
     echo ""
     echo "Pushing images to Docker Hub..."
@@ -93,9 +94,14 @@ echo "6. Deploying frontend..."
 kubectl apply -f "$K8S_DIR/deployments/frontend.yaml"
 kubectl apply -f "$K8S_DIR/services/frontend-service.yaml"
 
+echo "6.1 Deploying Firefly..."
+kubectl apply -f "$K8S_DIR/deployments/firefly.yaml"
+kubectl apply -f "$K8S_DIR/services/firefly-service.yaml"
+
 echo "Waiting for deployments to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/backend --timeout=300s
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/frontend --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/firefly --timeout=300s
 
 echo "7. Deploying ingress..."
 kubectl apply -f "$K8S_DIR/ingress/"

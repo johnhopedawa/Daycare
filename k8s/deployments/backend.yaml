@@ -4,7 +4,7 @@ metadata:
   name: backend
   namespace: littlesparrows
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -49,6 +49,13 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: encryption-key
+        - name: FIREFLY_SERVICE_PAT
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: firefly-service-pat
+        - name: FIREFLY_BASE_URL
+          value: "http://firefly:8080"
         - name: FRONTEND_URL
           value: "https://littlesparrowsacademy.com"
         - name: ALLOWED_ORIGINS
@@ -75,8 +82,8 @@ spec:
           failureThreshold: 3
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "256Mi"
+            cpu: "300m"

@@ -84,7 +84,9 @@ The images need to be accessible to your k3s cluster. Options:
 # Build and push
 cd ..
 docker build -t johnhopedawa/daycare-backend:latest ./backend
-docker build -t johnhopedawa/daycare-frontend:latest ./frontend
+docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
+  ./frontend
 docker push johnhopedawa/daycare-backend:latest
 docker push johnhopedawa/daycare-frontend:latest
 ```
@@ -94,7 +96,9 @@ docker push johnhopedawa/daycare-frontend:latest
 ```bash
 cd ..
 docker build -t daycare-backend:latest ./backend
-docker build -t daycare-frontend:latest ./frontend
+docker build -t daycare-frontend:latest \
+  --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
+  ./frontend
 
 # Import to k3s
 docker save daycare-backend:latest | sudo k3s ctr images import -
@@ -116,6 +120,9 @@ stringData:
   postgres-db: daycare
   jwt-secret: YOUR_LONG_RANDOM_STRING_HERE
   encryption-key: YOUR_64_HEX_CHAR_KEY
+  firefly-service-pat: YOUR_FIREFLY_SERVICE_PAT
+  firefly-app-key: base64:YOUR_FIREFLY_APP_KEY
+  firefly-site-owner: admin@littlesparrowsacademy.com
 ```
 
 Generate a strong JWT secret:
@@ -161,6 +168,8 @@ The ingress routes `/api` to the backend and `/` to the frontend.
 ### Firefly Subdomain (Recommended)
 
 Firefly is routed via its own subdomain to avoid path conflicts.
+The subdomain is protected by a Traefik forward-auth middleware that
+requires a developer unlock cookie issued by the backend.
 
 1) Update `ingress/firefly-ingress.yaml` to your desired subdomain:
 ```yaml
@@ -172,11 +181,13 @@ spec:
 `cloudflare-origin-tls` secret if needed.
 3) Rebuild the frontend image with:
 ```bash
-REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com
+docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
+  ./frontend
 ```
-4) Apply the ingress:
+4) Apply the ingress (includes the Firefly auth middleware):
 ```bash
-kubectl -n littlesparrows apply -f ingress/firefly-ingress.yaml
+kubectl -n littlesparrows apply -f ingress/
 ```
 
 ### Cloudflare Origin TLS
@@ -265,7 +276,9 @@ createAdmin();
 # Rebuild images
 cd ..
 docker build -t johnhopedawa/daycare-backend:latest ./backend
-docker build -t johnhopedawa/daycare-frontend:latest ./frontend
+docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
+  ./frontend
 docker push johnhopedawa/daycare-backend:latest
 docker push johnhopedawa/daycare-frontend:latest
 

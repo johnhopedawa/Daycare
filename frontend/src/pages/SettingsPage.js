@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { User, Lock, Bell, Globe, Percent, Palette, Bug, Building2 } from 'lucide-react';
 import api from '../utils/api';
+import { DEVELOPER_PASSWORD, setDeveloperUnlocked } from '../utils/developerAccess';
 import { useTheme } from '../contexts/ThemeContext';
 
 export function SettingsPage() {
@@ -54,7 +55,6 @@ export function SettingsPage() {
   const [debugResetting, setDebugResetting] = useState(false);
   const { setTheme, density, setDensity } = useTheme();
 
-  const DEBUG_PASSWORD = '12345';
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -63,7 +63,7 @@ export function SettingsPage() {
     { id: 'preferences', label: 'Preferences', icon: Globe },
     { id: 'billing', label: 'Billing', icon: Percent },
     { id: 'themes', label: 'Themes', icon: Palette },
-    { id: 'debug', label: 'Debug', icon: Bug },
+    { id: 'developer', label: 'Developer', icon: Bug },
   ];
 
   useEffect(() => {
@@ -377,15 +377,22 @@ export function SettingsPage() {
     }
   };
 
-  const handleDebugUnlock = (e) => {
+  const handleDebugUnlock = async (e) => {
     e.preventDefault();
-    if (debugPassword === DEBUG_PASSWORD) {
+    if (debugPassword !== DEVELOPER_PASSWORD) {
+      setDebugError('Incorrect developer password.');
+      return;
+    }
+
+    try {
+      await api.post('/developer/unlock', { password: debugPassword });
       setDebugUnlocked(true);
+      setDeveloperUnlocked();
       setDebugError('');
       setDebugSyncResult(null);
       loadDebugData();
-    } else {
-      setDebugError('Incorrect debug password.');
+    } catch (error) {
+      setDebugError(error.response?.data?.error || 'Failed to unlock developer access.');
     }
   };
 
@@ -595,25 +602,6 @@ export function SettingsPage() {
                 <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-6">
                   Billing
                 </h3>
-
-                <div className="mb-6 p-4 rounded-2xl border border-[#FFE5D9]/60 bg-[#FFF8F3]">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold text-stone-800">Firefly III</h4>
-                      <p className="text-sm text-stone-600">
-                        Open Firefly to manage expense accounts and access tokens.
-                      </p>
-                    </div>
-                    <a
-                      href="/firefly-redirect"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 rounded-xl bg-white border themed-border text-sm font-semibold text-stone-700 hover:bg-[#FFE5D9] transition-colors"
-                    >
-                      Open Firefly
-                    </a>
-                  </div>
-                </div>
 
                 <div className="mt-10 pt-2">
 
@@ -1164,27 +1152,27 @@ export function SettingsPage() {
               </div>
             )}
 
-            {activeTab === 'debug' && (
+            {activeTab === 'developer' && (
               <div>
                 <h3 className="font-quicksand font-bold text-2xl text-stone-800 mb-6">
-                  Debug Panel
+                  Developer Panel
                 </h3>
 
                 {!debugUnlocked ? (
                   <form onSubmit={handleDebugUnlock} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-stone-700 mb-2">
-                        Debug Password
+                        Developer Password
                       </label>
                       <input
                         type="password"
                         value={debugPassword}
                         onChange={(e) => setDebugPassword(e.target.value)}
                         className="w-full px-4 py-3 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF9B85] focus:border-transparent"
-                        placeholder="Enter debug password"
+                        placeholder="Enter developer password"
                       />
                       <p className="text-xs text-stone-500 mt-2">
-                        Use the shared debug password to unlock diagnostics.
+                        Use the shared developer password to unlock diagnostics.
                       </p>
                     </div>
                     {debugError && (
@@ -1196,11 +1184,29 @@ export function SettingsPage() {
                       type="submit"
                       className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors"
                     >
-                      Unlock Debug
+                      Unlock Developer
                     </button>
                   </form>
                 ) : (
                   <div className="space-y-6">
+                    <div className="p-4 rounded-2xl border border-[#FFE5D9]/60 bg-[#FFF8F3]">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <h4 className="font-semibold text-stone-800">Firefly III</h4>
+                          <p className="text-sm text-stone-600">
+                            Open Firefly to manage expense accounts and access tokens.
+                          </p>
+                        </div>
+                        <a
+                          href="/firefly-redirect"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 rounded-xl bg-white border themed-border text-sm font-semibold text-stone-700 hover:bg-[#FFE5D9] transition-colors"
+                        >
+                          Open Firefly
+                        </a>
+                      </div>
+                    </div>
                     {debugError && (
                       <div className="p-3 rounded-xl bg-red-50 text-red-700 border border-red-200">
                         {debugError}
@@ -1214,7 +1220,7 @@ export function SettingsPage() {
                         disabled={debugLoading}
                         className="px-4 py-2 bg-[#FF9B85] text-white font-semibold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {debugLoading ? 'Refreshing...' : 'Refresh Debug Data'}
+                        {debugLoading ? 'Refreshing...' : 'Refresh Developer Data'}
                       </button>
                       {debugSyncLimit && (
                         <span className="text-sm text-stone-600">

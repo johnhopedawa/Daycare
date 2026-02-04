@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: firefly
+  namespace: littlesparrows
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: firefly
+  template:
+    metadata:
+      labels:
+        app: firefly
+    spec:
+      initContainers:
+      - name: init-firefly-db
+        image: postgres:15-alpine
+        env:
+        - name: PGHOST
+          value: postgres
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: postgres-user
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: postgres-password
+        - name: PGDATABASE
+          value: postgres
+        - name: FIREFLY_DB
+          value: firefly
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h "$PGHOST" -U "$PGUSER"; do
+            echo "Waiting for postgres...";
+            sleep 2;
+          done;
+          if ! psql -tAc "SELECT 1 FROM pg_database WHERE datname='${FIREFLY_DB}'" | grep -q 1; then
+            createdb "${FIREFLY_DB}";
+          fi
+      containers:
+      - name: firefly
+        image: fireflyiii/core:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DB_CONNECTION
+          value: pgsql
+        - name: DB_HOST
+          value: postgres
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_DATABASE
+          value: firefly
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: postgres-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: postgres-password
+        - name: APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: firefly-app-key
+        - name: SITE_OWNER
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: firefly-site-owner
+        - name: TZ
+          value: "UTC"
+        - name: TRUSTED_PROXIES
+          value: "**"
+        - name: APP_ENV
+          value: production
+        - name: APP_URL
+          value: "https://firefly.littlesparrowsacademy.com"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 6
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: firefly-upload
+          mountPath: /var/www/html/storage/upload
+      volumes:
+      - name: firefly-upload
+        persistentVolumeClaim:
+          claimName: firefly-upload-pvc

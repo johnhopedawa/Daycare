@@ -5,6 +5,7 @@ metadata:
   namespace: littlesparrows
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: littlesparrows-firefly-auth@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:

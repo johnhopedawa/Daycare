@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import api from '../utils/api';
+import { clearDeveloperUnlocked } from '../utils/developerAccess';
 
 const AuthContext = createContext();
 
@@ -34,8 +35,10 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    api.post('/developer/lock').catch(() => {});
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearDeveloperUnlocked();
     setUser(null);
   };
 

@@ -1,0 +1,11 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: firefly-auth
+  namespace: littlesparrows
+spec:
+  forwardAuth:
+    address: http://backend:5000/api/developer/authorize
+    trustForwardHeader: true
+    authRequestHeaders:
+      - Cookie

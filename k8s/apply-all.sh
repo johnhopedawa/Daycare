@@ -42,10 +42,13 @@ kubectl apply -f "$K8S_DIR/deployments/backend.yaml"
 kubectl apply -f "$K8S_DIR/services/backend-service.yaml"
 kubectl apply -f "$K8S_DIR/deployments/frontend.yaml"
 kubectl apply -f "$K8S_DIR/services/frontend-service.yaml"
+kubectl apply -f "$K8S_DIR/deployments/firefly.yaml"
+kubectl apply -f "$K8S_DIR/services/firefly-service.yaml"
 
 echo "Waiting for deployments to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/backend --timeout=300s
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/frontend --timeout=300s
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/firefly --timeout=300s
 
 kubectl apply -f "$K8S_DIR/ingress/"
 

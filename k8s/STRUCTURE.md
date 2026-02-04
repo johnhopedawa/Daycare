@@ -10,17 +10,22 @@ k8s/
 |- secrets/
 |  `- daycare-secrets.yaml        # Passwords, JWT, encryption key
 |- storage/
-|  `- postgres-pvc.yaml           # Persistent volume claim
+|  |- postgres-pvc.yaml           # Persistent volume claim
+|  `- firefly-upload-pvc.yaml     # Firefly III upload storage
 |- deployments/
 |  |- postgres.yaml               # PostgreSQL StatefulSet
 |  |- backend.yaml                # Backend API Deployment
-|  `- frontend.yaml               # Frontend Deployment
+|  |- frontend.yaml               # Frontend Deployment
+|  `- firefly.yaml                # Firefly III Deployment
 |- services/
 |  |- postgres-service.yaml       # Postgres Service
 |  |- backend-service.yaml        # Backend Service
-|  `- frontend-service.yaml       # Frontend Service
+|  |- frontend-service.yaml       # Frontend Service
+|  `- firefly-service.yaml        # Firefly III Service
 |- ingress/
-|  `- daycare-ingress.yaml        # Traefik Ingress
+|  |- daycare-ingress.yaml        # Traefik Ingress
+|  |- firefly-ingress.yaml        # Firefly III Ingress
+|  `- firefly-auth-middleware.yaml # Firefly access gate
 |- jobs/
 |  `- db-migration.yaml           # Database migration job
 |- scripts/                       # Utility scripts (admin, backups)
@@ -67,6 +72,7 @@ kubectl -n littlesparrows apply -f deployments/backend.yaml
    - Change `postgres-password`
    - Change `jwt-secret` (use `openssl rand -base64 32`)
    - Change `encryption-key` (use `openssl rand -hex 32`)
+   - Set `firefly-service-pat`, `firefly-app-key`, and `firefly-site-owner`
 
 2. **Edit deployments/backend.yaml**:
    - Set `FRONTEND_URL` to your domain

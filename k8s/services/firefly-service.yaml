@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: firefly
+  namespace: littlesparrows
+spec:
+  selector:
+    app: firefly
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
