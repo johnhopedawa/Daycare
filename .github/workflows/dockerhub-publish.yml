@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      FRONTEND_API_URL: ${{ secrets.REACT_APP_API_URL || 'https://littlesparrowsacademy.com/api' }}
+      FRONTEND_FIREFLY_URL: ${{ secrets.REACT_APP_FIREFLY_URL || 'https://firefly.littlesparrowsacademy.com' }}
     strategy:
       matrix:
         include:
@@ -57,6 +59,9 @@ jobs:
           context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            REACT_APP_API_URL=${{ env.FRONTEND_API_URL }}
+            REACT_APP_FIREFLY_URL=${{ env.FRONTEND_FIREFLY_URL }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ github.sha }}
