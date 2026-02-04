@@ -50,6 +50,7 @@ TBD/
 
 # k8s secrets (local only)
 k8s/secrets/dockerhub-credentials.yaml
+k8s/secrets/daycare-secrets.yaml
 
 # TLS certs (local only)
 cf-origin.crt
