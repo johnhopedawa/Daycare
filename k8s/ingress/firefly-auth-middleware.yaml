@@ -5,7 +5,7 @@ metadata:
   namespace: littlesparrows
 spec:
   forwardAuth:
-    address: http://backend:5000/api/developer/authorize
+    address: http://backend.littlesparrows.svc.cluster.local:5000/api/developer/authorize
     trustForwardHeader: true
     authRequestHeaders:
       - Cookie
