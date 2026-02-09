@@ -46,7 +46,7 @@ function ParentResetPassword() {
       } else {
         await api.post('/auth/parent-reset-password', { token, newPassword });
         setMessage({ type: 'success', text: 'Password reset successfully. You can now log in.' });
-        setTimeout(() => navigate('/login', { replace: true }), 1500);
+        setTimeout(() => navigate('/parents', { replace: true }), 1500);
       }
     } catch (error) {
       setMessage({
@@ -60,17 +60,15 @@ function ParentResetPassword() {
 
   return (
     <main
-      className="min-h-screen flex items-center justify-center px-4 py-12"
-      style={{ backgroundColor: 'var(--background)', color: 'var(--text)' }}
+      className="parent-portal-shell min-h-screen flex items-center justify-center px-4 py-12"
     >
       <div
-        className="w-full max-w-md rounded-3xl border p-8 shadow-[0_12px_30px_-20px_var(--menu-shadow)]"
-        style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+        className="parent-card w-full max-w-md rounded-xl border border-gray-100 p-8"
       >
-        <h1 className="text-2xl font-quicksand font-bold mb-2">
+        <h1 className="parent-text text-2xl font-bold mb-2">
           {isForcedReset ? 'Set a New Password' : 'Reset Your Password'}
         </h1>
-        <p className="text-sm mb-6" style={{ color: 'var(--muted)' }}>
+        <p className="parent-text-muted text-sm mb-6">
           {isForcedReset
             ? 'For security, update your temporary password before continuing.'
             : 'Enter a new password for your parent portal account.'}
@@ -90,34 +88,33 @@ function ParentResetPassword() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-stone-700 mb-2">
+            <label className="parent-text block text-sm font-semibold mb-2">
               New Password
             </label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border themed-border themed-ring bg-white"
+              className="parent-input w-full px-4 py-3 rounded-xl themed-ring"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-stone-700 mb-2">
+            <label className="parent-text block text-sm font-semibold mb-2">
               Confirm Password
             </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border themed-border themed-ring bg-white"
+              className="parent-input w-full px-4 py-3 rounded-xl themed-ring"
               required
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 text-white font-bold rounded-xl shadow-md transition-colors disabled:opacity-60"
-            style={{ backgroundColor: 'var(--primary)' }}
+            className="parent-button-primary w-full px-4 py-3 font-bold rounded-xl shadow-md transition-colors disabled:opacity-60"
           >
             {loading ? 'Resetting...' : 'Reset Password'}
           </button>

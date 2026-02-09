@@ -6,6 +6,41 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Daycare Management System" />
     <title>Daycare Management</title>
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search || '');
+          var override = params.get('mode');
+          var host = window.location.hostname || '';
+          var isPortal = override === 'portal' ? true : override === 'public' ? false : host.indexOf('portal.') === 0;
+          if (isPortal) {
+            return;
+          }
+          var links = [
+            { id: 'public-weebly-sites', href: 'https://cdn2.editmysite.com/css/sites.css?buildTime=1715364408' },
+            { id: 'public-weebly-fancybox', href: 'https://cdn2.editmysite.com/css/old/fancybox.css?1715364408' },
+            { id: 'public-weebly-social-icons', href: 'https://cdn2.editmysite.com/css/social-icons.css?buildtime=1715364408' },
+            { id: 'public-main-style', href: '/files/main_style.css' },
+            { id: 'public-fonts', href: '/fonts.css' },
+            { id: 'public-overrides', href: '/public-overrides.css' },
+          ];
+          var head = document.head || document.getElementsByTagName('head')[0];
+          links.forEach(function (item) {
+            if (document.getElementById(item.id)) {
+              return;
+            }
+            var link = document.createElement('link');
+            link.id = item.id;
+            link.rel = 'stylesheet';
+            link.href = item.href;
+            link.dataset.publicSite = 'true';
+            head.appendChild(link);
+          });
+        } catch (e) {
+          // no-op
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

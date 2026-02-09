@@ -1,0 +1,72 @@
+-- Migration 036: Seed theme inspired by Little Sparrows public website
+
+SELECT setval(
+  pg_get_serial_sequence('themes', 'id'),
+  COALESCE((SELECT MAX(id) FROM themes), 1),
+  true
+);
+
+INSERT INTO themes (name, slug, description, palette, fonts)
+VALUES (
+  'Little Sparrows Public',
+  'little-sparrows-public',
+  'Parent portal style aligned to uploaded Little Sparrows visual reference',
+  '{
+    "primary": "#5BBCC0",
+    "primary_dark": "#318285",
+    "accent": "#E0F5F4",
+    "background": "#F7F7F5",
+    "surface": "#FFFFFF",
+    "text": "#1F2937",
+    "muted": "#6B7280",
+    "border": "#E5E7EB",
+    "on_primary": "#FFFFFF",
+    "on_accent": "#2A696B",
+    "card_colors": ["#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF"],
+    "card_text_colors": ["#1F2937", "#1F2937", "#1F2937", "#1F2937"],
+    "parent_background_image": "none",
+    "parent_overlay": "rgba(0, 0, 0, 0)",
+    "parent_shell_bg": "#F7F7F5",
+    "parent_shell_gradient": "none",
+    "parent_text": "#1F2937",
+    "parent_text_muted": "#6B7280",
+    "parent_card_base": "#FFFFFF",
+    "parent_card_alpha": 1,
+    "parent_card_alpha_strong": 1,
+    "parent_card_border": "#F3F4F6",
+    "parent_card_shadow": "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "parent_card_shadow_strong": "0 4px 10px rgba(0, 0, 0, 0.08)",
+    "parent_header_bg": "#FFFFFF",
+    "parent_header_border": "#F3F4F6",
+    "parent_nav_text": "#6B7280",
+    "parent_nav_active_text": "#318285",
+    "parent_nav_indicator": "#5BBCC0",
+    "parent_soft_bg": "#F0F9FA",
+    "parent_soft_bg_hover": "#E0F5F4",
+    "parent_pill_bg": "#E0F5F4",
+    "parent_pill_text": "#2A696B",
+    "parent_table_head_bg": "#F9FAFB",
+    "parent_table_row_hover": "#F9FAFB",
+    "parent_input_bg": "#FFFFFF",
+    "parent_input_border": "#E5E7EB",
+    "parent_button_bg": "#5BBCC0",
+    "parent_button_hover": "#3EA1A3",
+    "parent_button_text": "#FFFFFF",
+    "parent_focus_ring": "rgba(91, 188, 190, 0.28)",
+    "parent_icon_bg": "#F0F9FA",
+    "parent_icon_text": "#5BBCC0",
+    "parent_icon_border": "#E0F5F4"
+  }'::jsonb,
+  '{
+    "heading": "Inter",
+    "body": "Inter",
+    "script": "Dancing Script",
+    "import_url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap"
+  }'::jsonb
+)
+ON CONFLICT (slug) DO UPDATE
+SET name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    palette = EXCLUDED.palette,
+    fonts = EXCLUDED.fonts,
+    updated_at = CURRENT_TIMESTAMP;

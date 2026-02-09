@@ -3,6 +3,9 @@ import api from '../utils/api';
 import { useAuth } from './AuthContext';
 
 const ThemeContext = createContext();
+const GOOGLE_FONTS_BASE_URL = 'https://fonts.googleapis.com/css2';
+const THEME_FONT_WEIGHTS = '300;400;500;600;700';
+const LITTLE_SPARROWS_THEME_SLUG = 'little-sparrows-public';
 
 const defaultTheme = {
   id: 1,
@@ -26,8 +29,9 @@ const defaultTheme = {
   fonts: {
     heading: 'Quicksand',
     body: 'Inter',
+    script: 'Dancing Script',
     import_url:
-      'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap',
+      'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;500;600;700&display=swap',
   },
 };
 
@@ -104,6 +108,14 @@ const mixHexColors = (baseHex, blendHex, blendWeight = 0.5) => {
     .padStart(2, '0')}`;
 };
 
+const parseOpacity = (value, fallback) => {
+  const parsed = Number.parseFloat(value);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, 0), 1);
+};
+
 const ensureFontImport = (importUrl) => {
   if (!importUrl) {
     return;
@@ -121,6 +133,57 @@ const ensureFontImport = (importUrl) => {
   link.rel = 'stylesheet';
   link.href = importUrl;
   document.head.appendChild(link);
+};
+
+const stripFontQuotes = (value) => String(value || '').trim().replace(/^["']|["']$/g, '');
+
+const sanitizeFontFamily = (value, fallback) => {
+  const normalized = stripFontQuotes(value);
+  if (normalized && !/^[A-Za-z0-9\- ]+$/.test(normalized)) {
+    return stripFontQuotes(fallback);
+  }
+  if (!normalized) {
+    return stripFontQuotes(fallback);
+  }
+  return normalized;
+};
+
+const buildFontStack = (fontFamily, fallbackStack) => {
+  const normalized = stripFontQuotes(fontFamily);
+  if (!normalized) {
+    return fallbackStack;
+  }
+  const quotedFont = normalized.includes(' ') ? `"${normalized}"` : normalized;
+  return `${quotedFont}, ${fallbackStack}`;
+};
+
+const buildGoogleFontsImportUrl = (fontFamilies) => {
+  const uniqueFamilies = Array.from(
+    new Set(
+      (fontFamilies || [])
+        .map((family) => stripFontQuotes(family))
+        .filter((family) => /^[A-Za-z0-9\- ]+$/.test(family))
+    )
+  );
+
+  if (uniqueFamilies.length === 0) {
+    return null;
+  }
+
+  const queries = uniqueFamilies.map((family) => (
+    `family=${family.trim().replace(/\s+/g, '+')}:wght@${THEME_FONT_WEIGHTS}`
+  ));
+
+  return `${GOOGLE_FONTS_BASE_URL}?${queries.join('&')}&display=swap`;
+};
+
+const resolveThemeFontImportUrl = (fonts) => {
+  const explicitImportUrl = typeof fonts?.import_url === 'string' ? fonts.import_url.trim() : '';
+  if (explicitImportUrl) {
+    return explicitImportUrl;
+  }
+
+  return buildGoogleFontsImportUrl([fonts?.heading, fonts?.body, fonts?.script]);
 };
 
 const applyTheme = (theme) => {
@@ -201,6 +264,107 @@ const applyTheme = (theme) => {
   root.style.setProperty('--menu-active-text', menuActiveText);
   root.style.setProperty('--menu-accent', menuAccent);
   root.style.setProperty('--menu-shadow', menuShadow);
+
+  const parentBackgroundImage = palette.parent_background_image || 'none';
+  const parentOverlay = palette.parent_overlay || 'rgba(0, 0, 0, 0)';
+  const parentShellBg = palette.parent_shell_bg || '#f7f7f5';
+  const parentShellGradient = palette.parent_shell_gradient
+    || 'none';
+  const parentText = palette.parent_text || '#1f2937';
+  const parentTextMuted = palette.parent_text_muted || '#6b7280';
+
+  const parentCardBaseColor = palette.parent_card_base || palette.surface || '#ffffff';
+  const parentCardBaseRgb = hexToRgb(parentCardBaseColor) || '255, 255, 255';
+
+  const parentBorderBaseColor = palette.parent_border_base || palette.parent_card_border || '#f3f4f6';
+  const parentBorderRgb = hexToRgb(parentBorderBaseColor) || '243, 244, 246';
+
+  const parentSoftBaseColor = palette.parent_soft_base || palette.parent_button_bg || '#5bbcbe';
+  const parentSoftRgb = hexToRgb(parentSoftBaseColor) || '91, 188, 190';
+
+  const parentPillBaseColor = palette.parent_pill_base || palette.parent_button_bg || '#5bbcbe';
+  const parentPillRgb = hexToRgb(parentPillBaseColor) || '91, 188, 190';
+
+  const parentCardBg = palette.parent_card_bg
+    || `rgba(${parentCardBaseRgb}, ${parseOpacity(palette.parent_card_alpha, 1)})`;
+  const parentCardBgStrong = palette.parent_card_bg_strong
+    || `rgba(${parentCardBaseRgb}, ${parseOpacity(palette.parent_card_alpha_strong, 1)})`;
+  const parentCardBorder = palette.parent_card_border
+    || `rgba(${parentBorderRgb}, ${parseOpacity(palette.parent_border_alpha, 1)})`;
+  const parentSoftBg = palette.parent_soft_bg
+    || `rgba(${parentSoftRgb}, ${parseOpacity(palette.parent_soft_alpha, 0.12)})`;
+  const parentSoftBgHover = palette.parent_soft_bg_hover
+    || `rgba(${parentSoftRgb}, ${parseOpacity(palette.parent_soft_hover_alpha, 0.18)})`;
+  const parentPillBg = palette.parent_pill_bg
+    || `rgba(${parentPillRgb}, ${parseOpacity(palette.parent_pill_alpha, 0.18)})`;
+  const parentPillText = palette.parent_pill_text || parentText;
+  const parentTableHeadBg = palette.parent_table_head_bg
+    || '#f9fafb';
+  const parentInputBg = palette.parent_input_bg || '#ffffff';
+  const parentInputBorder = palette.parent_input_border
+    || '#e5e7eb';
+  const parentButtonBg = palette.parent_button_bg || '#5bbcbe';
+  const parentButtonHover = palette.parent_button_hover || '#3ea1a3';
+  const parentButtonText = palette.parent_button_text || palette.on_primary || defaultTheme.palette.on_primary;
+  const parentHeaderBg = palette.parent_header_bg || '#ffffff';
+  const parentHeaderBorder = palette.parent_header_border || parentCardBorder;
+  const parentNavText = palette.parent_nav_text || '#6b7280';
+  const parentNavActiveText = palette.parent_nav_active_text || '#318285';
+  const parentNavIndicator = palette.parent_nav_indicator || '#5bbcbe';
+  const parentBrandColor = palette.parent_brand_color || parentNavIndicator;
+  const parentIconBg = palette.parent_icon_bg || parentSoftBg;
+  const parentIconText = palette.parent_icon_text || '#5bbcbe';
+  const parentIconBorder = palette.parent_icon_border || parentCardBorder;
+  const parentCardShadow = palette.parent_card_shadow || '0 1px 2px rgba(0, 0, 0, 0.04)';
+  const parentCardShadowStrong = palette.parent_card_shadow_strong || '0 4px 10px rgba(0, 0, 0, 0.08)';
+  const parentCardHoverBorder = palette.parent_card_hover_border || '#dbe5e8';
+  const parentTableRowHover = palette.parent_table_row_hover || parentSoftBg;
+  const parentPillBorder = palette.parent_pill_border || '#bceceb';
+  const parentFocusRing = palette.parent_focus_ring || `rgba(${primaryRgb || parentSoftRgb}, 0.28)`;
+  const parentButtonSoftBg = palette.parent_button_soft_bg || parentInputBg;
+  const parentButtonSoftText = palette.parent_button_soft_text || '#318285';
+  const parentButtonSoftBorder = palette.parent_button_soft_border || '#bceceb';
+  const parentButtonSoftHover = palette.parent_button_soft_hover || parentSoftBg;
+
+  root.style.setProperty('--parent-bg-image', parentBackgroundImage);
+  root.style.setProperty('--parent-bg-overlay', parentOverlay);
+  root.style.setProperty('--parent-shell-bg', parentShellBg);
+  root.style.setProperty('--parent-shell-gradient', parentShellGradient);
+  root.style.setProperty('--parent-text', parentText);
+  root.style.setProperty('--parent-text-muted', parentTextMuted);
+  root.style.setProperty('--parent-card-bg', parentCardBg);
+  root.style.setProperty('--parent-card-bg-strong', parentCardBgStrong);
+  root.style.setProperty('--parent-card-border', parentCardBorder);
+  root.style.setProperty('--parent-soft-bg', parentSoftBg);
+  root.style.setProperty('--parent-soft-bg-hover', parentSoftBgHover);
+  root.style.setProperty('--parent-pill-bg', parentPillBg);
+  root.style.setProperty('--parent-pill-text', parentPillText);
+  root.style.setProperty('--parent-table-head-bg', parentTableHeadBg);
+  root.style.setProperty('--parent-input-bg', parentInputBg);
+  root.style.setProperty('--parent-input-border', parentInputBorder);
+  root.style.setProperty('--parent-button-bg', parentButtonBg);
+  root.style.setProperty('--parent-button-hover', parentButtonHover);
+  root.style.setProperty('--parent-button-text', parentButtonText);
+  root.style.setProperty('--parent-header-bg', parentHeaderBg);
+  root.style.setProperty('--parent-header-border', parentHeaderBorder);
+  root.style.setProperty('--parent-nav-text', parentNavText);
+  root.style.setProperty('--parent-nav-active-text', parentNavActiveText);
+  root.style.setProperty('--parent-nav-indicator', parentNavIndicator);
+  root.style.setProperty('--parent-brand-color', parentBrandColor);
+  root.style.setProperty('--parent-icon-bg', parentIconBg);
+  root.style.setProperty('--parent-icon-text', parentIconText);
+  root.style.setProperty('--parent-icon-border', parentIconBorder);
+  root.style.setProperty('--parent-card-shadow', parentCardShadow);
+  root.style.setProperty('--parent-card-shadow-strong', parentCardShadowStrong);
+  root.style.setProperty('--parent-card-hover-border', parentCardHoverBorder);
+  root.style.setProperty('--parent-table-row-hover', parentTableRowHover);
+  root.style.setProperty('--parent-pill-border', parentPillBorder);
+  root.style.setProperty('--parent-focus-ring', parentFocusRing);
+  root.style.setProperty('--parent-button-soft-bg', parentButtonSoftBg);
+  root.style.setProperty('--parent-button-soft-text', parentButtonSoftText);
+  root.style.setProperty('--parent-button-soft-border', parentButtonSoftBorder);
+  root.style.setProperty('--parent-button-soft-hover', parentButtonSoftHover);
+
   root.style.setProperty('--success', palette.success || defaultTheme.palette.success);
   root.style.setProperty('--danger', palette.danger || defaultTheme.palette.danger);
 
@@ -277,9 +441,25 @@ const applyTheme = (theme) => {
     root.style.setProperty(`--card-text-${index + 1}`, color);
   });
 
-  root.style.setProperty('--font-heading', fonts.heading || defaultTheme.fonts.heading);
-  root.style.setProperty('--font-body', fonts.body || defaultTheme.fonts.body);
-  ensureFontImport(fonts.import_url);
+  const isLittleSparrowsTheme = String(theme?.slug || '').toLowerCase() === LITTLE_SPARROWS_THEME_SLUG;
+  let headingFont = sanitizeFontFamily(fonts.heading, defaultTheme.fonts.heading);
+  const bodyFont = sanitizeFontFamily(fonts.body, defaultTheme.fonts.body);
+  const scriptFont = sanitizeFontFamily(fonts.script, defaultTheme.fonts.script);
+  if (isLittleSparrowsTheme) {
+    // Keep admin/educator typography aligned with parent portal for this theme.
+    headingFont = bodyFont;
+  }
+  const fontImportUrl = resolveThemeFontImportUrl({
+    ...fonts,
+    heading: headingFont,
+    body: bodyFont,
+    script: scriptFont,
+  });
+
+  root.style.setProperty('--font-heading', buildFontStack(headingFont, 'sans-serif'));
+  root.style.setProperty('--font-body', buildFontStack(bodyFont, 'system-ui, sans-serif'));
+  root.style.setProperty('--font-script', buildFontStack(scriptFont, 'cursive'));
+  ensureFontImport(fontImportUrl || defaultTheme.fonts.import_url);
 };
 
 const getInitialDensity = () => {

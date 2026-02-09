@@ -76,17 +76,17 @@ function ParentEvents() {
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-            className="px-3 py-2 rounded-xl border themed-border text-sm font-semibold text-stone-600"
+            className="parent-button-soft px-3 py-2 rounded-xl text-sm font-semibold"
           >
             Prev
           </button>
-          <div className="text-lg font-bold text-stone-800">
+          <div className="text-lg font-bold parent-text">
             {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </div>
           <button
             type="button"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-            className="px-3 py-2 rounded-xl border themed-border text-sm font-semibold text-stone-600"
+            className="parent-button-soft px-3 py-2 rounded-xl text-sm font-semibold"
           >
             Next
           </button>
@@ -94,8 +94,8 @@ function ParentEvents() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
-        <div className="themed-surface rounded-3xl p-5">
-          <div className="grid grid-cols-7 gap-2 text-xs font-semibold text-stone-500 mb-3 text-center">
+        <div className="parent-card rounded-xl border border-gray-100 p-5">
+          <div className="grid grid-cols-7 gap-2 text-xs font-semibold parent-text-muted mb-3 text-center">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
               <div key={label}>{label}</div>
             ))}
@@ -108,22 +108,19 @@ function ParentEvents() {
               const key = formatDateKey(day);
               const dayEvents = eventsByDate.get(key) || [];
               const isSelected = key === selectedKey;
-              const isToday = key === formatDateKey(new Date());
 
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setSelectedDate(day)}
-                  className={`h-20 rounded-2xl border p-2 text-left transition-colors ${
-                    isSelected ? 'border-[var(--primary)] bg-[var(--background)]' : 'themed-border bg-white'
+                  className={`h-20 rounded-xl border p-2 text-left transition-colors ${
+                    isSelected ? 'bg-teal-50 border-teal-200' : 'bg-white border-gray-100 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-semibold ${
-                        isToday ? 'text-[var(--primary-dark)]' : 'text-stone-600'
-                      }`}
+                      className="text-xs font-semibold parent-text"
                     >
                       {day.getDate()}
                     </span>
@@ -137,13 +134,13 @@ function ParentEvents() {
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
-                        className="text-[10px] text-stone-500 truncate"
+                        className="text-[10px] parent-text-muted truncate"
                       >
                         {event.title}
                       </div>
                     ))}
                     {dayEvents.length > 2 && (
-                      <div className="text-[10px] text-stone-400">+ more</div>
+                      <div className="text-[10px] parent-text-muted">+ more</div>
                     )}
                   </div>
                 </button>
@@ -152,21 +149,21 @@ function ParentEvents() {
           </div>
         </div>
 
-        <div className="themed-surface rounded-3xl p-5">
+        <div className="parent-card rounded-xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Agenda</p>
-              <p className="text-lg font-bold text-stone-800">
+              <p className="text-xs font-semibold parent-text-muted uppercase tracking-wide">Agenda</p>
+              <p className="text-lg font-bold parent-text">
                 {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
               </p>
             </div>
-            <CalendarDays size={18} className="text-stone-400" />
+            <CalendarDays size={18} className="parent-text-muted" />
           </div>
 
           {loading ? (
-            <div className="text-sm text-stone-500">Loading events...</div>
+            <div className="text-sm parent-text-muted">Loading events...</div>
           ) : selectedEvents.length === 0 ? (
-            <div className="text-sm text-stone-500">No events scheduled for this day.</div>
+            <div className="text-sm parent-text-muted">No events scheduled for this day.</div>
           ) : (
             <div className="space-y-3">
               {selectedEvents.map((event) => (
@@ -174,14 +171,14 @@ function ParentEvents() {
                   key={event.id}
                   type="button"
                   onClick={() => setSelectedEvent(event)}
-                  className="w-full text-left p-4 rounded-2xl border themed-border bg-white hover:bg-[var(--background)] transition-colors"
+                  className="w-full text-left p-4 rounded-xl border border-gray-100 hover:border-teal-200 hover:bg-teal-50 transition-colors"
                 >
-                  <p className="text-sm font-semibold text-stone-800">{event.title}</p>
-                  <p className="text-xs text-stone-500 mt-1">
+                  <p className="text-sm font-semibold parent-text">{event.title}</p>
+                  <p className="text-xs parent-text-muted mt-1">
                     {event.start_time ? event.start_time.slice(0, 5) : 'All day'}
                   </p>
                   {event.location && (
-                    <p className="text-xs text-stone-400 mt-1">{event.location}</p>
+                    <p className="text-xs parent-text-muted mt-1">{event.location}</p>
                   )}
                 </button>
               ))}

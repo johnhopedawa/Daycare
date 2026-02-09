@@ -10,8 +10,9 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const settings = await getDaycareSettings(pool);
     const themes = await getAllThemes(pool);
-    const activeTheme = await getActiveTheme(pool);
-    res.json({ settings, themes, active_theme: activeTheme });
+    const activeTheme = await getActiveTheme(pool, { role: 'ADMIN' });
+    const activeParentTheme = await getActiveTheme(pool, { role: 'PARENT' });
+    res.json({ settings, themes, active_theme: activeTheme, active_parent_theme: activeParentTheme });
   } catch (error) {
     console.error('Get settings error:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -24,6 +25,7 @@ router.patch('/', requireAuth, requireAdmin, async (req, res) => {
       tax_rate,
       tax_enabled,
       theme_id,
+      parent_theme_id,
       daycare_name,
       address_line1,
       address_line2,
@@ -66,6 +68,19 @@ router.patch('/', requireAuth, requireAdmin, async (req, res) => {
       parsedThemeId = parsed;
     }
 
+    let parsedParentThemeId = null;
+    if (parent_theme_id !== undefined) {
+      const parsed = parseInt(parent_theme_id, 10);
+      if (!Number.isFinite(parsed)) {
+        return res.status(400).json({ error: 'Parent theme id must be a number' });
+      }
+      const theme = await getThemeById(pool, parsed);
+      if (!theme) {
+        return res.status(400).json({ error: 'Selected parent theme does not exist' });
+      }
+      parsedParentThemeId = parsed;
+    }
+
     const normalizeText = (value) => {
       if (value === undefined) {
         return undefined;
@@ -95,6 +110,10 @@ router.patch('/', requireAuth, requireAdmin, async (req, res) => {
 
     if (theme_id !== undefined) {
       addUpdate('theme_id', parsedThemeId);
+    }
+
+    if (parent_theme_id !== undefined) {
+      addUpdate('parent_theme_id', parsedParentThemeId);
     }
 
     const textFields = {
@@ -156,9 +175,10 @@ router.patch('/', requireAuth, requireAdmin, async (req, res) => {
     `;
 
     const result = await pool.query(query, params);
-    const activeTheme = await getActiveTheme(pool);
+    const activeTheme = await getActiveTheme(pool, { role: 'ADMIN' });
+    const activeParentTheme = await getActiveTheme(pool, { role: 'PARENT' });
 
-    res.json({ settings: result.rows[0], active_theme: activeTheme });
+    res.json({ settings: result.rows[0], active_theme: activeTheme, active_parent_theme: activeParentTheme });
   } catch (error) {
     console.error('Update settings error:', error);
     res.status(500).json({ error: 'Failed to update settings' });

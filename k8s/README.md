@@ -87,6 +87,9 @@ The images need to be accessible to your k3s cluster. Options:
 cd ..
 docker build -t johnhopedawa/daycare-backend:latest ./backend
 docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_API_URL=https://littlesparrowsacademy.com/api \
+  --build-arg REACT_APP_PORTAL_BASE_URL=https://littlesparrowsacademy.com \
+  --build-arg REACT_APP_PUBLIC_BASE_URL=https://littlesparrowsacademy.com \
   --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
   ./frontend
 docker push johnhopedawa/daycare-backend:latest
@@ -99,6 +102,9 @@ docker push johnhopedawa/daycare-frontend:latest
 cd ..
 docker build -t daycare-backend:latest ./backend
 docker build -t daycare-frontend:latest \
+  --build-arg REACT_APP_API_URL=https://littlesparrowsacademy.com/api \
+  --build-arg REACT_APP_PORTAL_BASE_URL=https://littlesparrowsacademy.com \
+  --build-arg REACT_APP_PUBLIC_BASE_URL=https://littlesparrowsacademy.com \
   --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
   ./frontend
 
@@ -184,6 +190,9 @@ spec:
 3) Rebuild the frontend image with:
 ```bash
 docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_API_URL=https://littlesparrowsacademy.com/api \
+  --build-arg REACT_APP_PORTAL_BASE_URL=https://littlesparrowsacademy.com \
+  --build-arg REACT_APP_PUBLIC_BASE_URL=https://littlesparrowsacademy.com \
   --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
   ./frontend
 ```
@@ -202,10 +211,14 @@ kubectl -n littlesparrows create secret tls cloudflare-origin-tls \
   --key=cf-origin.key
 ```
 
-### Frontend API URL (Build Time)
+### Frontend URLs (Build Time)
 
-The frontend uses `REACT_APP_API_URL` at build time. If you deploy behind ingress,
-set it to `https://littlesparrowsacademy.com/api` when building the frontend image.
+For single-host behavior (same as local dev routing), build the frontend with:
+
+- `REACT_APP_API_URL=https://littlesparrowsacademy.com/api`
+- `REACT_APP_PORTAL_BASE_URL=https://littlesparrowsacademy.com`
+- `REACT_APP_PUBLIC_BASE_URL=https://littlesparrowsacademy.com`
+- `REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com`
 
 ## Verification
 
@@ -231,7 +244,7 @@ kubectl -n littlesparrows get ingress
 Once deployed:
 
 1. **Via Ingress** (if DNS configured):
-   - http://littlesparrowsacademy.com
+   - https://littlesparrowsacademy.com
 
 2. **Via Port Forward** (for testing):
    ```bash
@@ -279,6 +292,9 @@ createAdmin();
 cd ..
 docker build -t johnhopedawa/daycare-backend:latest ./backend
 docker build -t johnhopedawa/daycare-frontend:latest \
+  --build-arg REACT_APP_API_URL=https://littlesparrowsacademy.com/api \
+  --build-arg REACT_APP_PORTAL_BASE_URL=https://littlesparrowsacademy.com \
+  --build-arg REACT_APP_PUBLIC_BASE_URL=https://littlesparrowsacademy.com \
   --build-arg REACT_APP_FIREFLY_URL=https://firefly.littlesparrowsacademy.com \
   ./frontend
 docker push johnhopedawa/daycare-backend:latest

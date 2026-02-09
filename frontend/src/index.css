@@ -1,5 +1,5 @@
 /* URL IMPORTS (SUCH AS FONT IMPORTS) SHOULD BE KEPT ABOVE TAILWIND IMPORTS */
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 
 /* TAILWIND IMPORTS - DO NOT DELETE */
 @tailwind base;
@@ -21,6 +21,7 @@
   --on-accent: #7A3B2A;
   --font-heading: 'Quicksand', sans-serif;
   --font-body: 'Inter', sans-serif;
+  --font-script: 'Dancing Script', cursive;
   --card-1: #E5D4ED;
   --card-2: #B8E6D5;
   --card-3: #FFF4CC;
@@ -37,6 +38,44 @@
   --menu-active-text: #E07A5F;
   --menu-accent: #FF9B85;
   --menu-shadow: rgba(255, 229, 217, 0.4);
+  --parent-bg-image: none;
+  --parent-bg-overlay: rgba(0, 0, 0, 0);
+  --parent-shell-bg: #f7f7f5;
+  --parent-shell-gradient: none;
+  --parent-text: #1f2937;
+  --parent-text-muted: #6b7280;
+  --parent-card-bg: #ffffff;
+  --parent-card-bg-strong: #ffffff;
+  --parent-card-border: #f3f4f6;
+  --parent-soft-bg: #f0f9fa;
+  --parent-soft-bg-hover: #e0f5f4;
+  --parent-pill-bg: #e0f5f4;
+  --parent-pill-text: #2a696b;
+  --parent-table-head-bg: #f9fafb;
+  --parent-input-bg: #ffffff;
+  --parent-input-border: #e5e7eb;
+  --parent-button-bg: #5bbcbe;
+  --parent-button-hover: #3ea1a3;
+  --parent-button-text: #ffffff;
+  --parent-header-bg: #ffffff;
+  --parent-header-border: #f3f4f6;
+  --parent-nav-text: #6b7280;
+  --parent-nav-active-text: #318285;
+  --parent-nav-indicator: #5bbcbe;
+  --parent-brand-color: #5bbcbe;
+  --parent-icon-bg: #f0f9fa;
+  --parent-icon-text: #5bbcbe;
+  --parent-icon-border: #dbeafe;
+  --parent-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --parent-card-shadow-strong: 0 4px 10px rgba(0, 0, 0, 0.08);
+  --parent-card-hover-border: #dbe5e8;
+  --parent-table-row-hover: #f9fafb;
+  --parent-pill-border: #bceceb;
+  --parent-focus-ring: rgba(91, 188, 190, 0.28);
+  --parent-button-soft-bg: #ffffff;
+  --parent-button-soft-text: #318285;
+  --parent-button-soft-border: #bceceb;
+  --parent-button-soft-hover: #f0f9fa;
   --app-backdrop: rgba(0, 0, 0, 0);
   --app-gradient: none;
   --layout-padding: clamp(1rem, 2vw + 1rem, 2.5rem);
@@ -63,12 +102,26 @@
   color: var(--on-primary);
 }
 
+.parent-portal-shell ::selection {
+  background: var(--parent-button-bg);
+  color: var(--parent-button-text);
+}
+
+.parent-portal-shell ::-moz-selection {
+  background: var(--parent-button-bg);
+  color: var(--parent-button-text);
+}
+
 .font-quicksand {
   font-family: var(--font-heading);
 }
 
 .font-sans {
   font-family: var(--font-body);
+}
+
+.font-script {
+  font-family: var(--font-script);
 }
 
 .section-title {
@@ -179,6 +232,151 @@
 .menu-tab-active {
   background-color: var(--menu-active-bg);
   color: var(--menu-active-text);
+}
+
+.parent-portal-shell {
+  position: relative;
+  isolation: auto;
+  color: var(--parent-text);
+  background-color: var(--parent-shell-bg);
+}
+
+.parent-portal-shell::before {
+  content: none;
+}
+
+.parent-portal-shell::after {
+  content: none;
+}
+
+.parent-glass-header {
+  background-color: var(--parent-header-bg);
+  border-color: var(--parent-header-border);
+  box-shadow: var(--parent-card-shadow);
+}
+
+.parent-nav-shell {
+  border-color: var(--parent-header-border);
+  background-color: var(--parent-header-bg);
+}
+
+.parent-brand {
+  color: var(--parent-brand-color);
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.parent-card {
+  background-color: var(--parent-card-bg);
+  border: 1px solid var(--parent-card-border);
+  box-shadow: var(--parent-card-shadow);
+  transition: box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.parent-card:hover {
+  box-shadow: var(--parent-card-shadow-strong);
+  border-color: var(--parent-card-hover-border);
+}
+
+.parent-card-strong {
+  background-color: var(--parent-card-bg-strong);
+  border: 1px solid var(--parent-card-border);
+  box-shadow: var(--parent-card-shadow-strong);
+}
+
+.parent-nav-link {
+  color: var(--parent-nav-text);
+  position: relative;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.parent-nav-link:hover {
+  color: var(--parent-nav-active-text);
+  background-color: transparent;
+}
+
+.parent-nav-link-active {
+  color: var(--parent-nav-active-text);
+  border-bottom-color: var(--parent-nav-indicator);
+}
+
+.parent-nav-link-active::after {
+  content: none;
+}
+
+.parent-text {
+  color: var(--parent-text);
+}
+
+.parent-text-muted {
+  color: var(--parent-text-muted);
+}
+
+.parent-table-head {
+  background-color: var(--parent-table-head-bg);
+}
+
+.parent-table-row:hover {
+  background-color: var(--parent-table-row-hover);
+}
+
+.parent-pill {
+  background-color: var(--parent-pill-bg);
+  color: var(--parent-pill-text);
+  border: 1px solid var(--parent-pill-border);
+}
+
+.parent-icon-chip {
+  background-color: var(--parent-icon-bg);
+  color: var(--parent-icon-text);
+  border: 1px solid var(--parent-icon-border);
+}
+
+.parent-button-primary {
+  background-color: var(--parent-button-bg);
+  color: var(--parent-button-text);
+  box-shadow: 0 6px 14px -10px rgba(17, 41, 43, 0.35);
+}
+
+.parent-button-primary:hover {
+  background-color: var(--parent-button-hover);
+}
+
+.parent-button-soft {
+  background-color: var(--parent-button-soft-bg);
+  color: var(--parent-button-soft-text);
+  border: 1px solid var(--parent-button-soft-border);
+}
+
+.parent-button-soft:hover {
+  background-color: var(--parent-button-soft-hover);
+}
+
+.parent-input {
+  background-color: var(--parent-input-bg);
+  color: var(--parent-text);
+  border: 1px solid var(--parent-input-border);
+}
+
+.parent-input:focus,
+.parent-input:focus-visible {
+  outline: none;
+  border-color: var(--parent-button-bg);
+  box-shadow: 0 0 0 2px var(--parent-focus-ring);
+}
+
+.parent-input::placeholder {
+  color: var(--parent-text-muted);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom scrollbar for sidebar */

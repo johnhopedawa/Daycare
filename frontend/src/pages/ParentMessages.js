@@ -62,7 +62,7 @@ function ParentMessages() {
   if (loading) {
     return (
       <ParentLayout title="Messages" subtitle="Stay in touch with your daycare">
-        <div className="flex items-center justify-center h-48 text-stone-500">Loading...</div>
+        <div className="flex items-center justify-center h-48 parent-text-muted">Loading...</div>
       </ParentLayout>
     );
   }
@@ -72,7 +72,7 @@ function ParentMessages() {
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => setShowCompose(!showCompose)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#FF9B85] text-white text-sm font-semibold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-colors"
+          className="parent-button-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition-colors"
         >
           <MailPlus size={16} />
           {showCompose ? 'Cancel' : 'Compose Message'}
@@ -80,26 +80,26 @@ function ParentMessages() {
       </div>
 
       {showCompose && (
-        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 mb-6">
-          <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-4">
+        <div className="parent-card p-6 rounded-xl border border-gray-100 mb-6">
+          <h3 className="font-bold text-xl parent-text mb-4">
             New Message to Daycare
           </h3>
           <form onSubmit={sendMessage} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-stone-600 mb-2">Message</label>
+              <label className="block text-sm font-semibold parent-text-muted mb-2">Message</label>
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 rows="4"
                 required
-                className="w-full px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/40 bg-white resize-none"
+                className="parent-input w-full px-4 py-3 rounded-xl resize-none"
                 placeholder="Write your message..."
               />
             </div>
             <button
               type="submit"
               disabled={sending}
-              className="px-5 py-3 rounded-2xl bg-[#FF9B85] text-white text-sm font-semibold shadow-lg shadow-[#FF9B85]/30 hover:bg-[#E07A5F] transition-colors disabled:opacity-60"
+              className="parent-button-primary px-5 py-3 rounded-xl text-sm font-semibold shadow-md transition-colors disabled:opacity-60"
             >
               {sending ? 'Sending...' : 'Send Message'}
             </button>
@@ -108,7 +108,7 @@ function ParentMessages() {
       )}
 
       {messages.length === 0 ? (
-        <div className="bg-white p-8 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center text-stone-500">
+        <div className="parent-card p-8 rounded-xl border border-gray-100 text-center parent-text-muted">
           No messages yet.
         </div>
       ) : (
@@ -117,23 +117,23 @@ function ParentMessages() {
             <button
               key={msg.id}
               type="button"
-              className={`w-full text-left p-6 rounded-3xl border shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] transition-colors ${
+              className={`w-full text-left p-6 rounded-xl border transition-colors ${
                 msg.parent_read
-                  ? 'bg-white border-[#FFE5D9]/30'
-                  : 'bg-[#FFF4CC] border-[#FFE5D9]'
+                  ? 'parent-card'
+                  : 'parent-card-strong'
               }`}
               onClick={() => !msg.parent_read && markAsRead(msg.id)}
             >
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                <p className="font-semibold text-stone-800">{msg.subject}</p>
-                <span className="text-xs text-stone-500">
+                <p className="font-semibold parent-text">{msg.subject}</p>
+                <span className="text-xs parent-text-muted">
                   {new Date(msg.created_at).toLocaleDateString()}
                 </span>
               </div>
-              <p className="text-sm text-stone-500 mb-2">
+              <p className="text-sm parent-text-muted mb-2">
                 From: {msg.staff_first_name} {msg.staff_last_name}
               </p>
-              <p className="text-sm text-stone-700">{msg.message}</p>
+              <p className="text-sm parent-text">{msg.message}</p>
             </button>
           ))}
         </div>
@@ -141,7 +141,7 @@ function ParentMessages() {
 
       <button
         onClick={() => navigate('/parent/dashboard')}
-        className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-[#E07A5F]"
+        className="mt-6 inline-flex items-center gap-2 text-sm font-semibold parent-text-muted hover:opacity-90 transition-opacity"
       >
         <ArrowLeft size={16} />
         Back to Dashboard

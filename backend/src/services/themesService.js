@@ -17,19 +17,21 @@ const getThemeById = async (client, id) => {
   return result.rows[0] || null;
 };
 
-const getActiveTheme = async (client) => {
+const getActiveTheme = async (client, options = {}) => {
   const runner = client || pool;
+  const normalizedRole = String(options.role || '').toUpperCase();
   const settingsResult = await runner.query(
-    'SELECT theme_id FROM daycare_settings WHERE id = 1'
+    'SELECT theme_id, parent_theme_id FROM daycare_settings WHERE id = 1'
   );
-  const themeId = settingsResult.rows[0]?.theme_id || 1;
-  const themeResult = await runner.query(
-    'SELECT * FROM themes WHERE id = $1',
-    [themeId]
-  );
+  const settings = settingsResult.rows[0] || {};
+  const defaultThemeId = settings.theme_id || 1;
+  const themeId = normalizedRole === 'PARENT'
+    ? (settings.parent_theme_id || defaultThemeId)
+    : defaultThemeId;
+  const themeResult = await getThemeById(runner, themeId);
 
-  if (themeResult.rows.length > 0) {
-    return themeResult.rows[0];
+  if (themeResult) {
+    return themeResult;
   }
 
   const fallbackResult = await runner.query(
@@ -38,8 +40,53 @@ const getActiveTheme = async (client) => {
   return fallbackResult.rows[0] || null;
 };
 
+const updateThemeById = async (client, id, updates) => {
+  const runner = client || pool;
+  const fields = [];
+  const values = [];
+
+  const addField = (field, value, cast = '') => {
+    values.push(value);
+    const index = values.length;
+    fields.push(`${field} = $${index}${cast}`);
+  };
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
+    addField('name', updates.name);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'slug')) {
+    addField('slug', updates.slug);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'description')) {
+    addField('description', updates.description);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'palette')) {
+    addField('palette', JSON.stringify(updates.palette), '::jsonb');
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'fonts')) {
+    addField('fonts', JSON.stringify(updates.fonts), '::jsonb');
+  }
+
+  if (fields.length === 0) {
+    return getThemeById(runner, id);
+  }
+
+  values.push(id);
+  const idIndex = values.length;
+  const result = await runner.query(
+    `UPDATE themes
+     SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $${idIndex}
+     RETURNING *`,
+    values
+  );
+
+  return result.rows[0] || null;
+};
+
 module.exports = {
   getAllThemes,
   getThemeById,
   getActiveTheme,
+  updateThemeById,
 };

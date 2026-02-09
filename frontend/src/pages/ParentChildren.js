@@ -30,7 +30,7 @@ function ParentChildren() {
     if (Array.isArray(allergies.common)) {
       const common = allergies.common.filter(Boolean).join(', ');
       const other = allergies.other ? `Other: ${allergies.other}` : '';
-      return [common, other].filter(Boolean).join(' · ');
+      return [common, other].filter(Boolean).join(' | ');
     }
     return JSON.stringify(allergies);
   };
@@ -38,7 +38,7 @@ function ParentChildren() {
   if (loading) {
     return (
       <ParentLayout title="My Children" subtitle="Profiles and details">
-        <div className="flex items-center justify-center h-48 text-stone-500">Loading...</div>
+        <div className="flex items-center justify-center h-48 parent-text-muted">Loading...</div>
       </ParentLayout>
     );
   }
@@ -46,7 +46,7 @@ function ParentChildren() {
   return (
     <ParentLayout title="My Children" subtitle="Profiles and details">
       {children.length === 0 ? (
-        <div className="bg-white p-8 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 text-center text-stone-500">
+        <div className="parent-card p-8 rounded-xl border border-gray-100 text-center parent-text-muted">
           No children found.
         </div>
       ) : (
@@ -60,51 +60,51 @@ function ParentChildren() {
             return (
               <div
                 key={child.id}
-                className="bg-white p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30"
+                className="parent-card p-6 rounded-xl border border-gray-100"
               >
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                  <h3 className="font-quicksand font-bold text-xl text-stone-800">
+                  <h3 className="font-bold text-xl parent-text">
                     {child.first_name} {child.last_name}
                   </h3>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#E5D4ED] text-[#8E55A5]">
+                  <span className="parent-pill px-3 py-1 rounded-full text-xs font-medium">
                     {child.status}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-stone-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm parent-text-muted">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#FFF4CC] text-[#B45309] flex items-center justify-center">
+                    <div className="parent-icon-chip w-10 h-10 rounded-lg flex items-center justify-center">
                       <Calendar size={18} />
                     </div>
                     <div>
-                      <p className="font-semibold text-stone-700">Date of Birth</p>
+                      <p className="font-semibold parent-text">Date of Birth</p>
                       <p>{new Date(child.date_of_birth).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#B8E6D5] text-[#2D6A4F] flex items-center justify-center">
+                    <div className="parent-icon-chip w-10 h-10 rounded-lg flex items-center justify-center">
                       <Calendar size={18} />
                     </div>
                     <div>
-                      <p className="font-semibold text-stone-700">Enrollment Date</p>
+                      <p className="font-semibold parent-text">Enrollment Date</p>
                       <p>{new Date(child.enrollment_start_date).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div>
-                    <p className="font-semibold text-stone-700">Monthly Rate</p>
+                    <p className="font-semibold parent-text">Monthly Rate</p>
                     <p>${monthlyRate}</p>
                   </div>
                 </div>
 
                 {allergyText && (
-                  <div className="mt-4 p-4 rounded-2xl bg-[#FFF4CC]/60 text-sm text-stone-700">
+                  <div className="mt-4 p-4 rounded-xl parent-button-soft text-sm">
                     <span className="font-semibold">Allergies:</span> {allergyText}
                   </div>
                 )}
 
                 {child.medical_notes && (
-                  <div className="mt-4 text-sm text-stone-700">
-                    <p className="font-semibold text-stone-700">Medical Notes</p>
+                  <div className="mt-4 text-sm parent-text">
+                    <p className="font-semibold parent-text">Medical Notes</p>
                     <p>{child.medical_notes}</p>
                   </div>
                 )}
@@ -116,7 +116,7 @@ function ParentChildren() {
 
       <button
         onClick={() => navigate('/parent/dashboard')}
-        className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-[#E07A5F]"
+        className="mt-6 inline-flex items-center gap-2 text-sm font-semibold parent-text-muted hover:opacity-90 transition-opacity"
       >
         <ArrowLeft size={16} />
         Back to Dashboard

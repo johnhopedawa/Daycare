@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { Baby } from 'lucide-react';
+import { fetchPublicTheme } from '../utils/themeLoader';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -9,8 +11,33 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
+  const { setTheme } = useTheme();
   const navigate = useNavigate();
+  const hasLoadedThemeRef = useRef(false);
+
+  useEffect(() => {
+    if (hasLoadedThemeRef.current) {
+      return undefined;
+    }
+    hasLoadedThemeRef.current = true;
+    let cancelled = false;
+    const loadStaffTheme = async () => {
+      try {
+        const theme = await fetchPublicTheme('staff');
+        if (!cancelled && theme) {
+          setTheme(theme);
+        }
+      } catch (error) {
+        // Keep current theme if public theme lookup fails.
+      }
+    };
+
+    loadStaffTheme();
+    return () => {
+      cancelled = true;
+    };
+  }, [setTheme]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,16 +47,18 @@ function Login() {
     try {
       const user = await login(email, password);
 
-      // Route based on user role
       if (user.role === 'PARENT') {
-        if (user.must_reset_password) {
-          navigate('/parent/reset-password', { replace: true });
-        } else {
-          navigate('/parent/dashboard');
-        }
-      } else {
-        navigate('/');
+        logout();
+        setError('This login is for staff. Please use the Parent Portal.');
+        return;
       }
+
+      if (user.role === 'EDUCATOR') {
+        navigate('/educator/dashboard');
+        return;
+      }
+
+      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     } finally {
@@ -38,19 +67,35 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF8F3] flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-3xl shadow-[0_4px_20px_-4px_rgba(255,229,217,0.5)] border border-[#FFE5D9]/30 w-full max-w-md">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: 'var(--background)', color: 'var(--text)' }}
+    >
+      <div
+        className="w-full max-w-md p-8 rounded-3xl border themed-border"
+        style={{
+          backgroundColor: 'var(--surface)',
+          boxShadow: 'var(--panel-shadow-soft)',
+        }}
+      >
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#FF9B85] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#FF9B85]/30">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
+              style={{
+                backgroundColor: 'var(--primary)',
+                color: 'var(--on-primary)',
+                boxShadow: '0 10px 24px -14px rgba(var(--primary-rgb), 0.7)',
+              }}
+            >
               <Baby size={28} />
             </div>
-            <h1 className="font-quicksand font-bold text-3xl text-stone-800 tracking-tight">
-              Little<span className="text-[#FF9B85]">Steps</span>
+            <h1 className="font-quicksand font-bold text-3xl tracking-tight" style={{ color: 'var(--text)' }}>
+              Little Sparrows <span style={{ color: 'var(--primary)' }}>Academy</span>
             </h1>
           </div>
-          <p className="text-stone-500 font-medium text-sm">Sign in to your account</p>
+          <p className="font-medium text-sm" style={{ color: 'var(--muted)' }}>Staff portal sign-in</p>
         </div>
 
         {/* Error Message */}
@@ -63,7 +108,7 @@ function Login() {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-2 font-quicksand">
+            <label className="block text-sm font-medium mb-2 font-quicksand" style={{ color: 'var(--text)' }}>
               Email
             </label>
             <input
@@ -72,12 +117,16 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Enter your email"
-              className="w-full px-4 py-3 rounded-xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 text-sm bg-white placeholder:text-stone-400"
+              className="w-full px-4 py-3 rounded-xl border themed-border themed-ring text-sm"
+              style={{
+                backgroundColor: 'var(--surface)',
+                color: 'var(--text)',
+              }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-2 font-quicksand">
+            <label className="block text-sm font-medium mb-2 font-quicksand" style={{ color: 'var(--text)' }}>
               Password
             </label>
             <input
@@ -86,14 +135,23 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Enter your password"
-              className="w-full px-4 py-3 rounded-xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 text-sm bg-white placeholder:text-stone-400"
+              className="w-full px-4 py-3 rounded-xl border themed-border themed-ring text-sm"
+              style={{
+                backgroundColor: 'var(--surface)',
+                color: 'var(--text)',
+              }}
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#FF9B85] text-white font-semibold py-3 px-4 rounded-xl hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#FF9B85]/20 font-quicksand"
+            className="w-full font-semibold py-3 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg font-quicksand"
+            style={{
+              backgroundColor: 'var(--primary)',
+              color: 'var(--on-primary)',
+              boxShadow: '0 12px 26px -14px rgba(var(--primary-rgb), 0.75)',
+            }}
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>

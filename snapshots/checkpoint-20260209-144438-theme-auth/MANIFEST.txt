@@ -1,0 +1,12 @@
+Checkpoint created: 2026-02-09T14:44:38.8711678-08:00
+Root: C:\Users\John Work\Websites\Daycare
+Files:
+frontend\src\contexts\ThemeContext.js
+frontend\tailwind.config.js
+frontend\src\index.css
+frontend\src\pages\ParentDashboard.js
+frontend\src\pages\ParentLogin.js
+frontend\src\components\ParentLayout.js
+backend\src\routes\themes.js
+backend\src\services\themesService.js
+SYSTEM_DOCUMENTATION.xml

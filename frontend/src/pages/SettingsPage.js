@@ -39,8 +39,11 @@ export function SettingsPage() {
   const [themes, setThemes] = useState([]);
   const [activeThemeId, setActiveThemeId] = useState(null);
   const [currentThemeId, setCurrentThemeId] = useState(null);
+  const [activeParentThemeId, setActiveParentThemeId] = useState(null);
+  const [currentParentThemeId, setCurrentParentThemeId] = useState(null);
   const [themeMessage, setThemeMessage] = useState(null);
-  const [themeSaving, setThemeSaving] = useState(false);
+  const [staffThemeSaving, setStaffThemeSaving] = useState(false);
+  const [parentThemeSaving, setParentThemeSaving] = useState(false);
   const [debugPassword, setDebugPassword] = useState('');
   const [debugUnlocked, setDebugUnlocked] = useState(false);
   const [debugError, setDebugError] = useState('');
@@ -65,6 +68,8 @@ export function SettingsPage() {
     { id: 'themes', label: 'Themes', icon: Palette },
     { id: 'developer', label: 'Developer', icon: Bug },
   ];
+
+  const normalizeThemeId = (value) => (Number.isFinite(Number(value)) ? Number(value) : null);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -94,11 +99,15 @@ export function SettingsPage() {
           signatureMode: settings.signature_mode || 'both',
         });
         const themeList = response.data.themes || [];
-        const rawThemeId = settings.theme_id ?? themeList[0]?.id ?? null;
-        const normalizedThemeId = Number.isFinite(Number(rawThemeId)) ? Number(rawThemeId) : null;
+        const normalizedThemeId = normalizeThemeId(settings.theme_id ?? themeList[0]?.id ?? null);
+        const normalizedParentThemeId = normalizeThemeId(
+          settings.parent_theme_id ?? normalizedThemeId ?? themeList[0]?.id ?? null
+        );
         setThemes(themeList);
         setActiveThemeId(normalizedThemeId);
         setCurrentThemeId(normalizedThemeId);
+        setActiveParentThemeId(normalizedParentThemeId);
+        setCurrentParentThemeId(normalizedParentThemeId);
       } catch (error) {
         setTaxMessage({
           type: 'error',
@@ -170,31 +179,93 @@ export function SettingsPage() {
     }
   };
 
-  const handleThemeSave = async () => {
+  const getThemePalette = (theme) => {
+    if (theme.palette && typeof theme.palette === 'object') {
+      return theme.palette;
+    }
+    if (typeof theme.palette === 'string') {
+      try {
+        return JSON.parse(theme.palette);
+      } catch (error) {
+        return {};
+      }
+    }
+    return {};
+  };
+
+  const getThemeSwatches = (theme) => {
+    const palette = getThemePalette(theme);
+    let cardColors = Array.isArray(palette.card_colors) ? palette.card_colors : [];
+    if (cardColors.length === 0 && theme.id === 1) {
+      cardColors = defaultCardColors;
+    }
+    return cardColors.length > 0
+      ? cardColors
+      : [
+          palette.primary,
+          palette.accent,
+          palette.background,
+          palette.surface,
+        ].filter(Boolean);
+  };
+
+  const handleStaffThemeSave = async () => {
     if (!activeThemeId) {
-      setThemeMessage({ type: 'error', text: 'Select a theme to apply.' });
+      setThemeMessage({ type: 'error', text: 'Select a staff/admin theme to apply.' });
       return;
     }
     const selectedTheme = themes.find((theme) => theme.id === activeThemeId);
     if (!selectedTheme) {
-      setThemeMessage({ type: 'error', text: 'Selected theme not found.' });
+      setThemeMessage({ type: 'error', text: 'Selected staff/admin theme not found.' });
       return;
     }
     try {
-      setThemeSaving(true);
+      setStaffThemeSaving(true);
       setThemeMessage(null);
       const response = await api.patch('/settings', { theme_id: activeThemeId });
       const nextTheme = response.data?.active_theme || selectedTheme;
       setTheme(nextTheme);
-      setCurrentThemeId(activeThemeId);
-      setThemeMessage({ type: 'success', text: 'Theme applied successfully.' });
+      const nextThemeId = normalizeThemeId(response.data?.settings?.theme_id ?? activeThemeId);
+      setCurrentThemeId(nextThemeId);
+      setActiveThemeId(nextThemeId);
+      setThemeMessage({ type: 'success', text: 'Staff/Admin portal theme applied.' });
     } catch (error) {
       setThemeMessage({
         type: 'error',
-        text: error.response?.data?.error || 'Failed to apply theme.',
+        text: error.response?.data?.error || 'Failed to apply staff/admin theme.',
       });
     } finally {
-      setThemeSaving(false);
+      setStaffThemeSaving(false);
+    }
+  };
+
+  const handleParentThemeSave = async () => {
+    if (!activeParentThemeId) {
+      setThemeMessage({ type: 'error', text: 'Select a parent portal theme to apply.' });
+      return;
+    }
+    const selectedTheme = themes.find((theme) => theme.id === activeParentThemeId);
+    if (!selectedTheme) {
+      setThemeMessage({ type: 'error', text: 'Selected parent portal theme not found.' });
+      return;
+    }
+    try {
+      setParentThemeSaving(true);
+      setThemeMessage(null);
+      const response = await api.patch('/settings', { parent_theme_id: activeParentThemeId });
+      const nextParentThemeId = normalizeThemeId(
+        response.data?.settings?.parent_theme_id ?? activeParentThemeId
+      );
+      setCurrentParentThemeId(nextParentThemeId);
+      setActiveParentThemeId(nextParentThemeId);
+      setThemeMessage({ type: 'success', text: 'Parent portal theme applied.' });
+    } catch (error) {
+      setThemeMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to apply parent portal theme.',
+      });
+    } finally {
+      setParentThemeSaving(false);
     }
   };
 
@@ -1047,108 +1118,190 @@ export function SettingsPage() {
                 {themes.length === 0 ? (
                   <p className="text-stone-500">No themes available yet.</p>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {themes.map((theme) => {
-                      let palette = {};
-                      if (theme.palette && typeof theme.palette === 'object') {
-                        palette = theme.palette;
-                      } else if (typeof theme.palette === 'string') {
-                        try {
-                          palette = JSON.parse(theme.palette);
-                        } catch (error) {
-                          palette = {};
-                        }
-                      }
-                      let cardColors = Array.isArray(palette.card_colors) ? palette.card_colors : [];
-                      if (cardColors.length === 0 && theme.id === 1) {
-                        cardColors = defaultCardColors;
-                      }
-                      const swatches = cardColors.length > 0
-                        ? cardColors
-                        : [
-                            palette.primary,
-                            palette.accent,
-                            palette.background,
-                            palette.surface,
-                          ].filter(Boolean);
-                      const isSelected = activeThemeId === theme.id;
-                      const isCurrent = currentThemeId === theme.id;
+                  <div className="space-y-8">
+                    <section>
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-stone-800">Staff and Admin Portal Theme</h4>
+                        <p className="text-sm text-stone-500 mt-1">
+                          This theme applies to Admin and Educator views.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {themes.map((theme) => {
+                          const palette = getThemePalette(theme);
+                          const swatches = getThemeSwatches(theme);
+                          const isSelected = activeThemeId === theme.id;
+                          const isCurrent = currentThemeId === theme.id;
 
-                      return (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          onClick={() => setActiveThemeId(theme.id)}
-                          className={`text-left border rounded-2xl p-4 transition-all ${
-                            isSelected
-                              ? 'border-2 shadow-md'
-                              : 'border-stone-200 hover:shadow-sm'
-                          }`}
-                          style={{
-                            borderColor: isSelected ? palette.primary || 'var(--primary)' : undefined,
-                            backgroundColor: isSelected ? `${palette.background || '#FFF8F3'}20` : undefined,
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <p className="font-semibold text-stone-800">{theme.name}</p>
-                              {theme.description && (
-                                <p className="text-sm text-stone-500 mt-1">{theme.description}</p>
-                              )}
-                              {swatches.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {swatches.map((color, index) => (
-                                    <span
-                                      key={`${theme.id}-swatch-${index}`}
-                                      className="w-6 h-6 rounded-full border border-white shadow-sm"
-                                      style={{ backgroundColor: color }}
-                                      aria-hidden="true"
-                                    />
-                                  ))}
+                          return (
+                            <button
+                              key={`staff-theme-${theme.id}`}
+                              type="button"
+                              onClick={() => setActiveThemeId(theme.id)}
+                              className={`text-left border rounded-2xl p-4 transition-all ${
+                                isSelected
+                                  ? 'border-2 shadow-md'
+                                  : 'border-stone-200 hover:shadow-sm'
+                              }`}
+                              style={{
+                                borderColor: isSelected ? palette.primary || 'var(--primary)' : undefined,
+                                backgroundColor: isSelected ? `${palette.background || '#FFF8F3'}20` : undefined,
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="font-semibold text-stone-800">{theme.name}</p>
+                                  {theme.description && (
+                                    <p className="text-sm text-stone-500 mt-1">{theme.description}</p>
+                                  )}
+                                  {swatches.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {swatches.map((color, index) => (
+                                        <span
+                                          key={`staff-${theme.id}-swatch-${index}`}
+                                          className="w-6 h-6 rounded-full border border-white shadow-sm"
+                                          style={{ backgroundColor: color }}
+                                          aria-hidden="true"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {isCurrent && (
-                                <span
-                                  className="text-xs font-semibold px-3 py-1 rounded-full"
-                                  style={{
-                                    backgroundColor: palette.accent || 'var(--accent)',
-                                    color: palette.primary_dark || 'var(--primary-dark)',
-                                  }}
-                                >
-                                  Active
-                                </span>
-                              )}
-                              {isSelected && !isCurrent && (
-                                <span
-                                  className="text-xs font-semibold px-3 py-1 rounded-full"
-                                  style={{
-                                    backgroundColor: palette.primary || 'var(--primary)',
-                                    color: palette.on_primary || '#FFFFFF',
-                                  }}
-                                >
-                                  Selected
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {isCurrent && (
+                                    <span
+                                      className="text-xs font-semibold px-3 py-1 rounded-full"
+                                      style={{
+                                        backgroundColor: palette.accent || 'var(--accent)',
+                                        color: palette.primary_dark || 'var(--primary-dark)',
+                                      }}
+                                    >
+                                      Active
+                                    </span>
+                                  )}
+                                  {isSelected && !isCurrent && (
+                                    <span
+                                      className="text-xs font-semibold px-3 py-1 rounded-full"
+                                      style={{
+                                        backgroundColor: palette.primary || 'var(--primary)',
+                                        color: palette.on_primary || '#FFFFFF',
+                                      }}
+                                    >
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="pt-6">
+                        <button
+                          type="button"
+                          onClick={handleStaffThemeSave}
+                          disabled={staffThemeSaving || !activeThemeId || activeThemeId === currentThemeId}
+                          className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {staffThemeSaving ? 'Saving...' : 'Apply Staff/Admin Theme'}
                         </button>
-                      );
-                    })}
+                      </div>
+                    </section>
+
+                    <section>
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-stone-800">Parent Portal Theme</h4>
+                        <p className="text-sm text-stone-500 mt-1">
+                          This theme is used only for parent portal pages.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {themes.map((theme) => {
+                          const palette = getThemePalette(theme);
+                          const swatches = getThemeSwatches(theme);
+                          const isSelected = activeParentThemeId === theme.id;
+                          const isCurrent = currentParentThemeId === theme.id;
+
+                          return (
+                            <button
+                              key={`parent-theme-${theme.id}`}
+                              type="button"
+                              onClick={() => setActiveParentThemeId(theme.id)}
+                              className={`text-left border rounded-2xl p-4 transition-all ${
+                                isSelected
+                                  ? 'border-2 shadow-md'
+                                  : 'border-stone-200 hover:shadow-sm'
+                              }`}
+                              style={{
+                                borderColor: isSelected ? palette.primary || 'var(--primary)' : undefined,
+                                backgroundColor: isSelected ? `${palette.background || '#FFF8F3'}20` : undefined,
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="font-semibold text-stone-800">{theme.name}</p>
+                                  {theme.description && (
+                                    <p className="text-sm text-stone-500 mt-1">{theme.description}</p>
+                                  )}
+                                  {swatches.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {swatches.map((color, index) => (
+                                        <span
+                                          key={`parent-${theme.id}-swatch-${index}`}
+                                          className="w-6 h-6 rounded-full border border-white shadow-sm"
+                                          style={{ backgroundColor: color }}
+                                          aria-hidden="true"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {isCurrent && (
+                                    <span
+                                      className="text-xs font-semibold px-3 py-1 rounded-full"
+                                      style={{
+                                        backgroundColor: palette.accent || 'var(--accent)',
+                                        color: palette.primary_dark || 'var(--primary-dark)',
+                                      }}
+                                    >
+                                      Active
+                                    </span>
+                                  )}
+                                  {isSelected && !isCurrent && (
+                                    <span
+                                      className="text-xs font-semibold px-3 py-1 rounded-full"
+                                      style={{
+                                        backgroundColor: palette.primary || 'var(--primary)',
+                                        color: palette.on_primary || '#FFFFFF',
+                                      }}
+                                    >
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="pt-6">
+                        <button
+                          type="button"
+                          onClick={handleParentThemeSave}
+                          disabled={
+                            parentThemeSaving
+                            || !activeParentThemeId
+                            || activeParentThemeId === currentParentThemeId
+                          }
+                          className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {parentThemeSaving ? 'Saving...' : 'Apply Parent Theme'}
+                        </button>
+                      </div>
+                    </section>
                   </div>
                 )}
-
-                <div className="pt-6">
-                  <button
-                    type="button"
-                    onClick={handleThemeSave}
-                    disabled={themeSaving || !activeThemeId || activeThemeId === currentThemeId}
-                    className="px-6 py-3 bg-[#FF9B85] text-white font-bold rounded-xl shadow-md hover:bg-[#E07A5F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {themeSaving ? 'Saving...' : 'Apply Theme'}
-                  </button>
-                </div>
               </div>
             )}
 

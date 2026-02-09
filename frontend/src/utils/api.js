@@ -22,7 +22,21 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      let redirectPath = '/staff';
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.role === 'PARENT') {
+            redirectPath = '/parents';
+          }
+        } else if (window.location.pathname.startsWith('/parent')) {
+          redirectPath = '/parents';
+        }
+      } catch (err) {
+        // fallback to staff login
+      }
+      window.location.href = redirectPath;
     }
     return Promise.reject(error);
   }

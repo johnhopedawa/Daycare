@@ -11,6 +11,9 @@ echo ""
 DOCKERHUB_USER=${DOCKERHUB_USER:-"johnhopedawa"}
 BACKEND_IMAGE="$DOCKERHUB_USER/daycare-backend:latest"
 FRONTEND_IMAGE="$DOCKERHUB_USER/daycare-frontend:latest"
+FRONTEND_API_URL=${REACT_APP_API_URL:-"https://littlesparrowsacademy.com/api"}
+FRONTEND_PORTAL_BASE_URL=${REACT_APP_PORTAL_BASE_URL:-"https://littlesparrowsacademy.com"}
+FRONTEND_PUBLIC_BASE_URL=${REACT_APP_PUBLIC_BASE_URL:-"https://littlesparrowsacademy.com"}
 FRONTEND_FIREFLY_URL=${REACT_APP_FIREFLY_URL:-"https://firefly.littlesparrowsacademy.com"}
 K8S_DIR="$(cd "$(dirname "$0")" && pwd)"
 NAMESPACE="littlesparrows"
@@ -35,7 +38,12 @@ if [ "$SKIP_BUILD" = false ]; then
     docker build -t $BACKEND_IMAGE ./backend
 
     echo "Building frontend..."
-    docker build -t $FRONTEND_IMAGE --build-arg REACT_APP_FIREFLY_URL="$FRONTEND_FIREFLY_URL" ./frontend
+    docker build -t $FRONTEND_IMAGE \
+      --build-arg REACT_APP_API_URL="$FRONTEND_API_URL" \
+      --build-arg REACT_APP_PORTAL_BASE_URL="$FRONTEND_PORTAL_BASE_URL" \
+      --build-arg REACT_APP_PUBLIC_BASE_URL="$FRONTEND_PUBLIC_BASE_URL" \
+      --build-arg REACT_APP_FIREFLY_URL="$FRONTEND_FIREFLY_URL" \
+      ./frontend
 
     echo ""
     echo "Pushing images to Docker Hub..."
@@ -117,7 +125,7 @@ echo "Deployment completed successfully!"
 echo "=========================================="
 echo ""
 echo "Your application should now be accessible at:"
-echo "http://littlesparrowsacademy.com"
+echo "https://littlesparrowsacademy.com"
 echo ""
 echo "Useful commands:"
 echo "  kubectl -n $NAMESPACE get pods"

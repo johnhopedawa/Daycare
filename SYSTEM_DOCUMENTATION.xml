@@ -10,16 +10,16 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-02-03</last-updated>
-    <documentation-status>Updated with merged finance snapshot, staffing compliance ratio, and time-off requests panel/modal on dashboard</documentation-status>
+    <last-updated>2026-02-09</last-updated>
+    <documentation-status>Updated with split Staff/Admin vs Parent portal theme selection, Little Sparrows Public visual parity across parent dashboard/login, parent logout redirect to /parents, parent login stay-logged-in credential persistence, admin theme font/palette patch endpoint support, and public scope-based theme resolution for portal entry pages</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>35</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 034_*.sql)</migration-pattern>
+    <total-migrations>38</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 037_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -479,7 +479,7 @@
 
     <!-- System Settings -->
     <table name="themes">
-      <description>UI theme catalog with palette + font metadata (Migration 015, seeded Migration 016)</description>
+      <description>UI theme catalog with palette + font metadata (Migration 015, seeded Migration 016 + 036)</description>
       <columns>
         <column name="id" type="SERIAL" primary-key="true"/>
         <column name="name" type="VARCHAR(100)" required="true"/>
@@ -499,6 +499,21 @@
             <field name="on_accent" type="string" description="Text color on accent backgrounds"/>
             <field name="card_colors" type="array" description="Array of 4 background colors for dashboard cards"/>
             <field name="card_text_colors" type="array" description="Array of 4 contrasting text colors for dashboard cards"/>
+            <field name="parent_background_image" type="string" description="Optional CSS background image value for parent portal shell"/>
+            <field name="parent_overlay" type="string" description="Optional CSS color overlay for parent portal readability"/>
+            <field name="parent_text" type="string" description="Optional primary text color for parent portal"/>
+            <field name="parent_text_muted" type="string" description="Optional muted text color for parent portal"/>
+            <field name="parent_card_base" type="string" description="Optional base color for translucent parent portal cards"/>
+            <field name="parent_shell_bg" type="string" description="Optional parent portal shell background color"/>
+            <field name="parent_shell_gradient" type="string" description="Optional decorative shell gradient"/>
+            <field name="parent_header_bg" type="string" description="Optional parent header background color"/>
+            <field name="parent_header_border" type="string" description="Optional parent header/nav border color"/>
+            <field name="parent_nav_text" type="string" description="Optional default parent nav text color"/>
+            <field name="parent_nav_active_text" type="string" description="Optional active parent nav text color"/>
+            <field name="parent_nav_indicator" type="string" description="Optional active parent nav underline color"/>
+            <field name="parent_card_shadow" type="string" description="Optional parent card shadow value"/>
+            <field name="parent_input_bg" type="string" description="Optional parent input background color"/>
+            <field name="parent_button_bg" type="string" description="Optional parent primary button background color"/>
           </schema>
         </column>
         <column name="fonts" type="JSONB" required="true">
@@ -537,6 +552,11 @@
           <card_colors>#E85D75, #C5A3D9, #F4C2C2, #CCCCFF</card_colors>
           <card_text_colors>#FFFFFF, #2D1F3D, #44403C, #2D1F3D</card_text_colors>
         </theme>
+        <theme id="6" name="Little Sparrows Public" slug="little-sparrows-public" mood="Public-site inspired">
+          <primary>#5199A8</primary>
+          <card_colors>#D7EEF2, #C5E4E9, #E7F4F6, #F2F8F9</card_colors>
+          <card_text_colors>#2F4A4F, #2F4A4F, #2F4A4F, #2F4A4F</card_text_colors>
+        </theme>
       </seeded-themes>
     </table>
 
@@ -547,6 +567,7 @@
         <column name="tax_rate" type="DECIMAL(5,4)" default="0.05"/>
         <column name="tax_enabled" type="BOOLEAN" default="true"/>
         <column name="theme_id" type="INTEGER" references="themes(id)"/>
+        <column name="parent_theme_id" type="INTEGER" references="themes(id)" description="Parent-portal override theme; falls back to theme_id when unset"/>
         <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
         <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
       </columns>
@@ -679,8 +700,10 @@
     <routing-file>App.js</routing-file>
     <router-library>react-router-dom v6</router-library>
     <current-routes>
-      <route path="/" redirect-to="/dashboard"/>
-      <route path="/login" component="Login"/>
+      <route path="/" component="PortalLanding"/>
+      <route path="/staff" component="Login"/>
+      <route path="/login" component="Login (alias of /staff)"/>
+      <route path="/parents" component="ParentLogin"/>
       <route path="/parent/login" component="ParentLogin"/>
       <route path="/parent/reset-password" component="ParentResetPassword"/>
       <route path="/dashboard" component="DashboardPage"/>
@@ -715,6 +738,7 @@
       <route path="/parent/children" component="ParentChildren"/>
     </current-routes>
     <note>Role-gated routing enforced via RequireRole in App.js</note>
+    <note>Parent sign-out in ParentLayout redirects to /parents (not /login).</note>
 
     <pages-directory path="pages/">
       <!-- Admin Dashboard & Core Pages -->
@@ -1128,16 +1152,17 @@
           <tab name="Notifications">Email/SMS preferences (not wired)</tab>
           <tab name="Preferences">Language, timezone, date format (not wired)</tab>
           <tab name="Billing">Tax rate and tax enabled settings (FUNCTIONAL)</tab>
-          <tab name="Themes">Theme selection with color swatches (FUNCTIONAL)</tab>
+          <tab name="Themes">Separate Staff/Admin and Parent portal theme selection (FUNCTIONAL)</tab>
           <tab name="Debug">Password-gated SimpleFIN diagnostics (internal use)</tab>
         </tabs>
         <features>
           <feature>Load all available themes on mount</feature>
-          <feature>Display theme cards with primary color and card color swatches</feature>
-          <feature>Show Active badge for current theme</feature>
-          <feature>Show Selected badge for pending selection</feature>
-          <feature>Apply theme via PATCH /settings with theme_id</feature>
-          <feature>Theme applies immediately via ThemeContext</feature>
+          <feature>Display theme cards with primary color and card color swatches in two independent sections</feature>
+          <feature>Show Active badge for each portal scope (staff/admin and parent)</feature>
+          <feature>Show Selected badge for pending selection in each scope</feature>
+          <feature>Apply staff/admin theme via PATCH /settings with theme_id</feature>
+          <feature>Apply parent portal theme via PATCH /settings with parent_theme_id</feature>
+          <feature>Staff/Admin theme applies immediately via ThemeContext</feature>
           <feature>Debug panel: view SimpleFIN status/connections and run sync with debug/force flags</feature>
           <feature>Debug panel: reset daily sync limit counter</feature>
         </features>
@@ -1284,6 +1309,10 @@
 
       <page file="ParentLogin.js">
         <description>Parent portal login page</description>
+        <features>
+          <feature>Uses the same tokenized parent portal visual language (shell, card, icon chip, script wordmark, input/button styles) as ParentDashboard/ParentLayout.</feature>
+          <feature>Includes a "Stay logged in" checkbox that persists parent email/password to localStorage key parent-portal-saved-login for next-login prefill on the same browser.</feature>
+        </features>
         <status>ROUTED</status>
       </page>
 
@@ -1535,6 +1564,44 @@
         <font name="Quicksand">For headings</font>
         <font name="Inter">For body text</font>
       </custom-fonts>
+      <public-site-migration>
+        <description>Public marketing pages mirror Weebly output while app portals remain React/Tailwind.</description>
+        <public-layout-file>frontend/src/pages/public/PublicLayout.js</public-layout-file>
+        <public-pages-path>frontend/src/pages/public/</public-pages-path>
+        <persistent-cta>
+          <item>Global fixed portal quick links are rendered by PublicLayout on all public pages and breakpoints.</item>
+          <target-url>Staff: {portalBase}/staff, Parent: {portalBase}/parents where portalBase comes from REACT_APP_PORTAL_BASE_URL or is derived from current hostname (localhost uses same origin + mode=portal).</target-url>
+          <placement>Top-right inset on desktop; at viewport widths <= 1024px, CTA is placed below the fixed header. Staff/Parent pills use equal fixed widths.</placement>
+        </persistent-cta>
+        <public-style-files>
+          <file>frontend/public/files/main_style.css</file>
+          <file>frontend/public/public-overrides.css</file>
+          <file>frontend/public/fonts.css</file>
+        </public-style-files>
+        <font-sources>
+          <source>Raleway loaded from //cdn2.editmysite.com/fonts/Raleway/font.css?2</source>
+          <source>Lora loaded from //cdn2.editmysite.com/fonts/Lora/font.css?2</source>
+          <source>Gentium Basic loaded from //cdn2.editmysite.com/fonts/Gentium_Basic/font.css?2</source>
+          <source>Playfair Display loaded from //cdn2.editmysite.com/fonts/Playfair_Display/font.css?2</source>
+          <source>Saginaw loaded from //cdn2.editmysite.com/fonts/Saginaw/font.css?2</source>
+          <source>Montserrat loaded from //cdn2.editmysite.com/fonts/Montserrat/font.css?2</source>
+        </font-sources>
+        <navigation-parity>
+          <desktop-container>#navigation = 960px wide, 34px tall, 40px bottom padding, centered, uppercase, 13px container text context</desktop-container>
+          <desktop-menu>#navigation ul.wsite-menu-default = 714px wide, 34px tall</desktop-menu>
+          <desktop-link-typography>.wsite-menu-default a = Montserrat, 11px, weight 400, letter-spacing 1px (>=767px)</desktop-link-typography>
+        </navigation-parity>
+        <page-parity-adjustments>
+          <item>Services and About pages use Weebly CDN Dawn-Sky background URL for section parity.</item>
+          <item>Policies page uses Weebly PDF icon URL (//www.weebly.com/weebly/images/file_icons/pdf.png).</item>
+          <item>Contact page map iframe uses Weebly generateMap endpoint URL for visual parity.</item>
+          <item>Contact form submit control uses Weebly-style anchor button markup with hidden submit input.</item>
+          <item>Public navigation list items use Weebly page ID format (pg{pageId}) for non-active links.</item>
+          <item>Home gallery anchors include Weebly lightbox rel and image container ID pattern.</item>
+          <item>Public overrides neutralize Tailwind image max-width/display side effects for galleryImage sizing/cropping parity.</item>
+          <item>Public page section backgrounds (Home/Vision/Services/Policies) now use scroll attachment so backgrounds move with content.</item>
+        </page-parity-adjustments>
+      </public-site-migration>
       <color-palette>
         <primary>#FF9B85</primary>
         <primary-dark>#E07A5F</primary-dark>
@@ -1549,21 +1616,34 @@
         <description>Active theme applies CSS variables for palette + fonts via ThemeContext</description>
         <variables>--primary, --primary-dark, --accent, --background, --surface, --text, --muted, --border, --on-primary, --on-accent, --card-1, --card-2, --card-3, --card-4, --card-text-1, --card-text-2, --card-text-3, --card-text-4</variables>
         <active-theme-endpoint>/api/themes/active</active-theme-endpoint>
+        <public-active-theme-endpoint>/api/themes/public-active?scope=staff|parent (no auth; used by /staff, /parents, and portal landing)</public-active-theme-endpoint>
+        <admin-theme-update-endpoint>/api/themes/:id (PATCH, ADMIN) supports name/slug/description/palette/fonts updates</admin-theme-update-endpoint>
         <available-themes>
           <theme name="Default" primary="#FF9B85" mood="Current system theme"/>
           <theme name="Ocean Breeze" primary="#87CEEB" mood="Calm, trustworthy, fresh"/>
           <theme name="Forest Garden" primary="#B2C9AB" mood="Organic, nurturing"/>
           <theme name="Sunset Warmth" primary="#FF9B85" mood="Welcoming, energetic"/>
           <theme name="Berry Bright" primary="#9B6B9E" mood="Creative, confident"/>
+          <theme name="Little Sparrows Public" primary="#5199A8" mood="Public-site inspired"/>
         </available-themes>
         <theme-flow>
           <step>ThemeContext checks localStorage for cached theme on mount</step>
           <step>If authenticated, fetches /themes/active endpoint</step>
+          <step>When unauthenticated on portal entry pages, login/landing pages fetch /themes/public-active with scope=staff or scope=parent and apply that theme immediately.</step>
           <step>Applies CSS variables to document root via applyTheme()</step>
+          <step>Heading/body/script font variables are resolved from theme.fonts and used by Tailwind font utilities via CSS variables.</step>
+          <step>Compatibility rule: for slug little-sparrows-public, heading font resolves to body font so admin/educator typography matches the parent portal reference.</step>
+          <step>When fonts.import_url is omitted, ThemeContext builds a Google Fonts URL from heading/body/script values.</step>
+          <step>Parent login and parent in-app routes share the same parent token set for 1:1 visual consistency.</step>
+          <step>Parent portal shell uses theme-derived shell/header/nav/card/input/button tokens (with optional background image + overlay)</step>
+          <step>Parent portal login and chrome accents are tokenized via parent_* CSS variables to avoid hardcoded color mixing.</step>
+          <step>If a selected theme lacks parent_* tokens, parent fallback styling uses the neutral Little Sparrows baseline (teal/white) instead of inheriting staff primary colors.</step>
+          <step>Parent portal text selection styling is scoped to parent tokens (parent_button_bg/parent_button_text) so highlights cannot inherit staff accent colors.</step>
           <step>Dynamically loads Google Fonts via ensureFontImport()</step>
-          <step>Admin can change theme in Settings page Themes tab</step>
-          <step>Theme change persists to daycare_settings.theme_id</step>
-          <step>All users (admin, educator, parent) see the active theme</step>
+          <step>Admin can change Staff/Admin theme and Parent theme separately in Settings page Themes tab</step>
+          <step>Staff/Admin theme persists to daycare_settings.theme_id</step>
+          <step>Parent theme persists to daycare_settings.parent_theme_id</step>
+          <step>/themes/active resolves by role: PARENT uses parent_theme_id (fallback theme_id), ADMIN/EDUCATOR use theme_id</step>
         </theme-flow>
       </theme-system>
       <responsive-design>
@@ -1836,8 +1916,10 @@
         <var name="FRONTEND_URL">Single frontend origin (fallback for CORS allowlist)</var>
         <var name="FIREFLY_BASE_URL">Firefly III instance URL (for business expenses)</var>
         <var name="FIREFLY_SERVICE_PAT">Firefly III Personal Access Token</var>
-          <var name="REACT_APP_API_URL">Frontend API base URL (default: /api)</var>
-          <var name="REACT_APP_FIREFLY_URL">Frontend link to Firefly III UI (default: /firefly)</var>
+        <var name="REACT_APP_API_URL">Frontend API base URL (default: /api)</var>
+        <var name="REACT_APP_FIREFLY_URL">Frontend link to Firefly III UI (default: /firefly)</var>
+        <var name="REACT_APP_PORTAL_BASE_URL">Portal base URL used by public-site CTA and cross-site redirects</var>
+        <var name="REACT_APP_PUBLIC_BASE_URL">Public site base URL used by portal-to-public redirects</var>
         <var name="SMTP_HOST">SMTP host</var>
         <var name="SMTP_PORT">SMTP port</var>
         <var name="SMTP_USER">SMTP username</var>
@@ -1849,6 +1931,12 @@
       </optional>
     </environment-variables>
 
+    <frontend-env-files>
+      <development-file>frontend/.env.development</development-file>
+      <production-template>frontend/.env.production.example</production-template>
+      <production-note>Production values should come from deployment environment/secrets, not committed .env files.</production-note>
+    </frontend-env-files>
+
     <file-storage>
       <location>backend/uploads/</location>
       <naming-convention>{fieldname}-{timestamp}-{random}.{ext}</naming-convention>
@@ -1859,8 +1947,8 @@
       <database-setup>
         <migration-command>node backend/src/db/migrate.js</migration-command>
         <migrations-directory>backend/migrations/</migrations-directory>
-        <naming-pattern>000_*.sql through 027_*.sql (sequential)</naming-pattern>
-        <total-migrations>28</total-migrations>
+        <naming-pattern>000_*.sql through 037_*.sql (sequential)</naming-pattern>
+        <total-migrations>38</total-migrations>
       </database-setup>
 
       <backend-server>

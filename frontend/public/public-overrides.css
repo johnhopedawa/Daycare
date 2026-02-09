@@ -1,0 +1,240 @@
+body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) div.paragraph,
+body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) p,
+body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .product-block .product-title,
+body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .product-description,
+body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .wsite-form-field label,
+body.public-site #wsite-content div.paragraph,
+body.public-site #wsite-content p,
+body.public-site #wsite-content .product-block .product-title,
+body.public-site #wsite-content .product-description,
+body.public-site #wsite-content .wsite-form-field label,
+body.public-site .blog-sidebar div.paragraph,
+body.public-site .blog-sidebar p,
+body.public-site .blog-sidebar .wsite-form-field label {
+  font-family: "Gentium Basic", "Times New Roman", serif !important;
+}
+
+body.public-site #wsite-content div.paragraph,
+body.public-site #wsite-content p,
+body.public-site #wsite-content .product-block .product-title,
+body.public-site #wsite-content .product-description,
+body.public-site #wsite-content .wsite-form-field label,
+body.public-site .blog-sidebar div.paragraph,
+body.public-site .blog-sidebar p,
+body.public-site .blog-sidebar .wsite-form-field label {
+  color: #7b8c89 !important;
+}
+
+body.public-site #wsite-title {
+  font-family: "Saginaw" !important;
+  font-weight: 700 !important;
+  color: #76b3b8 !important;
+  text-transform: none !important;
+  letter-spacing: 3px !important;
+}
+
+body.public-site #navigation .wsite-menu-default {
+  font-family: "Raleway", sans-serif !important;
+}
+
+body.public-site .wsite-menu-default a {
+  font-family: "Montserrat", "Helvetica Neue", sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 1px !important;
+}
+
+@media screen and (min-width: 993px) {
+  body.public-site #navigation {
+    display: block;
+    width: 960px;
+    height: 34px;
+    margin: 0 auto;
+    padding: 0 0 40px;
+    overflow: hidden;
+    font-family: "Raleway", sans-serif !important;
+    font-size: 13px !important;
+    color: rgb(142, 142, 142);
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body.public-site #navigation .wsite-menu-default {
+    display: inline-block;
+    width: 714px;
+    height: 34px;
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    color: rgb(142, 142, 142);
+    font-size: 13px !important;
+    text-align: center;
+    text-transform: uppercase;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body.public-site #navigation .wsite-menu-default .wsite-menu-item-wrap {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.public-site #navigation .wsite-menu-default .wsite-menu-item {
+    display: inline-block;
+    padding: 10px 14px !important;
+    line-height: 14px !important;
+    font-size: 11px !important;
+    font-family: "Montserrat", "Helvetica Neue", sans-serif !important;
+    font-weight: 400 !important;
+    letter-spacing: 1px !important;
+  }
+}
+
+body.public-site .wsite-headline,
+body.public-site .wsite-header-section .wsite-content-title {
+  font-family: "Playfair Display", "Times New Roman", serif !important;
+}
+
+body.public-site .wsite-headline-paragraph,
+body.public-site .wsite-header-section .paragraph {
+  font-style: normal !important;
+  letter-spacing: 1px !important;
+}
+
+body.public-site .wsite-button-inner {
+  font-family: "Raleway", "Helvetica Neue", sans-serif !important;
+  letter-spacing: 2px !important;
+}
+
+/* Neutralize Tailwind preflight side effects on Weebly gallery/image layout */
+body.public-site .imageGallery .galleryImage {
+  max-width: none !important;
+  display: inline !important;
+}
+
+body.public-site .imageGallery .galleryImageHolder,
+body.public-site .imageGallery .galleryInnerImageHolder {
+  box-sizing: content-box !important;
+}
+
+@media screen and (min-width: 767px) {
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) div.paragraph,
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) p,
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .product-block .product-title,
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .product-description,
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) .wsite-form-field label,
+  body.public-site #wsite-content div.paragraph,
+  body.public-site #wsite-content p,
+  body.public-site #wsite-content .product-block .product-title,
+  body.public-site #wsite-content .product-description,
+  body.public-site #wsite-content .wsite-form-field label,
+  body.public-site .blog-sidebar div.paragraph,
+  body.public-site .blog-sidebar p,
+  body.public-site .blog-sidebar .wsite-form-field label {
+    font-size: 15px !important;
+    line-height: 34px !important;
+  }
+
+  body.public-site .wsite-elements.wsite-not-footer:not(.wsite-header-elements) h2,
+  body.public-site #wsite-content h2,
+  body.public-site .blog-sidebar h2 {
+    font-size: 62px !important;
+  }
+
+  body.public-site .wsite-headline,
+  body.public-site .wsite-header-section .wsite-content-title {
+    font-size: 60px !important;
+  }
+
+  body.public-site .wsite-headline-paragraph,
+  body.public-site .wsite-header-section .paragraph {
+    line-height: 16px !important;
+  }
+
+  body.public-site .wsite-button-small .wsite-button-inner {
+    font-size: 9px !important;
+  }
+
+  body.public-site .wsite-button-large .wsite-button-inner {
+    font-size: 11px !important;
+  }
+
+  body.public-site .wsite-menu-default a {
+    font-size: 11px !important;
+  }
+}
+
+body.public-site .wsite-background {
+  background-image: url("/uploads/1/4/8/8/148835555/background-images/1366250879.jpg") !important;
+  background-repeat: no-repeat !important;
+  background-position: 50% 56.12% !important;
+  background-size: 100% !important;
+  background-color: transparent !important;
+}
+
+body.public-site.wsite-background {
+  background-attachment: scroll !important;
+}
+
+body.public-site .wsite-background.wsite-custom-background {
+  background-size: cover !important;
+}
+
+body.public-site .public-contact-status {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #5199a8;
+}
+
+body.public-site .public-contact-status.error {
+  color: #a85050;
+}
+
+body.public-site .public-portals-cta {
+  position: fixed;
+  right: 26px;
+  top: 20px;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  transform: translateZ(0);
+}
+
+body.public-site .public-portals-cta-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 186px;
+  min-height: 44px;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  text-decoration: none !important;
+  padding: 12px 24px !important;
+  text-align: center;
+}
+
+body.public-site .public-portals-cta-link .wsite-button-inner {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+}
+
+@media (max-width: 1024px) {
+  body.public-site .public-portals-cta {
+    right: 16px;
+    top: 76px;
+  }
+
+  body.public-site .public-portals-cta-link {
+    width: 186px;
+    padding: 11px 20px !important;
+  }
+
+  body.public-site .public-portals-cta-link .wsite-button-inner {
+    font-size: 12px !important;
+  }
+}
