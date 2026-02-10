@@ -932,12 +932,12 @@ export function DashboardPage() {
                 </p>
               </div>
               <button
-                onClick={() => navigate('/finance')}
+                onClick={() => navigate('/finance/transactions')}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-colors"
                 style={{ ...OUTLINE_STYLE, color: 'var(--primary-dark)', backgroundColor: 'var(--surface)' }}
               >
                 <BarChart3 size={16} style={{ color: 'var(--primary-dark)' }} />
-                Open Finance
+                Open Transactions
               </button>
             </div>
 
