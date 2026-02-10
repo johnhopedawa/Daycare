@@ -10,8 +10,8 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-02-09</last-updated>
-    <documentation-status>Updated with split Staff/Admin vs Parent portal theme selection, Little Sparrows Public visual parity across parent dashboard/login, parent logout redirect to /parents, parent login stay-logged-in credential persistence, admin theme font/palette patch endpoint support, and public scope-based theme resolution for portal entry pages</documentation-status>
+    <last-updated>2026-02-10</last-updated>
+    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, and browser-cache warmup behavior for first-hit performance.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -1925,6 +1925,9 @@
         <var name="SMTP_USER">SMTP username</var>
         <var name="SMTP_PASS">SMTP password</var>
         <var name="SMTP_FROM">Default from address</var>
+        <var name="RESEND_API_KEY">Optional direct key; when set, backend defaults SMTP transport to smtp.resend.com</var>
+        <var name="CONTACT_TO_EMAIL">Inbox recipient for /api/contact form submissions</var>
+        <var name="CONTACT_SUBJECT_PREFIX">Subject prefix for /api/contact notifications</var>
         <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
         <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
         <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 7)</var>
@@ -1942,6 +1945,8 @@
       <naming-convention>{fieldname}-{timestamp}-{random}.{ext}</naming-convention>
       <max-file-size>20MB</max-file-size>
       <allowed-types>PDF, JPG, PNG, DOCX, DOC</allowed-types>
+      <note>Runtime/user-generated uploads are stored in backend/uploads and should not be committed.</note>
+      <note>Public-site marketing assets are shipped from frontend/public/uploads and are versioned with the frontend build.</note>
     </file-storage>
 
       <database-setup>
@@ -1956,8 +1961,10 @@
         <port>5000 (default)</port>
         <entry-point>backend/src/server.js</entry-point>
         <cors>Allowlist in production via ALLOWED_ORIGINS or FRONTEND_URL</cors>
+        <production-origins>https://littlesparrowsacademy.com, https://www.littlesparrowsacademy.com, https://portal.littlesparrowsacademy.com (plus local http variants)</production-origins>
         <health-check>GET /health</health-check>
         <time-endpoint>GET /api/time</time-endpoint>
+        <contact-endpoint>POST /api/contact (rate-limited public form -> email notification)</contact-endpoint>
       </backend-server>
 
     <frontend-server>
@@ -1965,7 +1972,37 @@
       <port>3000 (default)</port>
       <build-command>npm run build</build-command>
       <build-output>frontend/build/</build-output>
+      <nginx-config>frontend/nginx.conf</nginx-config>
+      <cache-policy>
+        <index-html>no-cache/no-store to pick up new deploys quickly</index-html>
+        <hashed-static-assets>/static/* cached for 1 year with immutable</hashed-static-assets>
+        <public-assets>/uploads, /files, /assets, /fonts and root static extensions cached for 30 days</public-assets>
+        <compression>gzip enabled for text/css/js/json/svg responses</compression>
+      </cache-policy>
+      <browser-warmup>
+        <entrypoint>frontend/src/utils/cacheWarmup.js</entrypoint>
+        <trigger>One-time per browser session from App bootstrap</trigger>
+        <manifests>/asset-manifest.json and /precache-manifest.json</manifests>
+        <behavior>Background prefetches same-origin static assets and warms DNS/TLS for sibling subdomains (www/firefly)</behavior>
+      </browser-warmup>
     </frontend-server>
+
+    <production-hosts>
+      <host role="public">littlesparrowsacademy.com</host>
+      <host role="public-alias">www.littlesparrowsacademy.com</host>
+      <host role="portal">portal.littlesparrowsacademy.com</host>
+      <host role="finance">firefly.littlesparrowsacademy.com</host>
+    </production-hosts>
+
+    <kubernetes-ingress>
+      <file>k8s/ingress/daycare-ingress.yaml</file>
+      <routes>
+        <route host="littlesparrowsacademy.com">/api -&gt; backend, /firefly-redirect -&gt; frontend, / -&gt; frontend</route>
+        <route host="www.littlesparrowsacademy.com">/api -&gt; backend, /firefly-redirect -&gt; frontend, / -&gt; frontend</route>
+        <route host="portal.littlesparrowsacademy.com">/api -&gt; backend, /firefly-redirect -&gt; frontend, / -&gt; frontend</route>
+      </routes>
+      <tls-secret>cloudflare-origin-tls (must cover root + wildcard subdomains for strict mode)</tls-secret>
+    </kubernetes-ingress>
 
   </deployment>
 

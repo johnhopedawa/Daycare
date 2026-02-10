@@ -54,6 +54,23 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: firefly-service-pat
+        - name: RESEND_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: resend-api-key
+        - name: SMTP_FROM
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: smtp-from
+        - name: CONTACT_TO_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: daycare-secrets
+              key: contact-to-email
+        - name: CONTACT_SUBJECT_PREFIX
+          value: "Little Sparrows Contact"
         - name: FIREFLY_BASE_URL
           value: "http://firefly:8080"
         - name: FRONTEND_URL

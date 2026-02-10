@@ -12,11 +12,11 @@ const styleLinks = [
 
 const navItems = [
   { label: 'Home', path: '/', pageId: '282035976519147359' },
-  { label: 'Vision', path: '/vision.html', pageId: '954230238545219624' },
-  { label: 'Services & Rates', path: '/services--rates.html', pageId: '887084743897799948' },
-  { label: 'About the Director', path: '/about-the-director.html', pageId: '567194535950592543' },
-  { label: 'Policies', path: '/policies.html', pageId: '662356911994996210' },
-  { label: 'Contact & Hours', path: '/contact--hours.html', pageId: '118016740449386557' },
+  { label: 'Vision', path: '/vision', pageId: '954230238545219624' },
+  { label: 'Services & Rates', path: '/services-rates', pageId: '887084743897799948' },
+  { label: 'About the Director', path: '/about-the-director', pageId: '567194535950592543' },
+  { label: 'Policies', path: '/policies', pageId: '662356911994996210' },
+  { label: 'Contact & Hours', path: '/contact-hours', pageId: '118016740449386557' },
 ];
 
 let publicBodyClasses = [];

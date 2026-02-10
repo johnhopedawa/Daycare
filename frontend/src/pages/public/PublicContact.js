@@ -1,9 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import PublicLayout from './PublicLayout';
 import api from '../../utils/api';
 
 export function PublicContact() {
-  const formRef = useRef(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -43,6 +42,48 @@ export function PublicContact() {
     }
   };
 
+  const cardStyle = {
+    maxWidth: '740px',
+    margin: '24px auto 0',
+    background: 'linear-gradient(180deg, #ffffff 0%, #f9faf9 100%)',
+    border: '1px solid rgba(82,108,102,0.25)',
+    borderRadius: '18px',
+    padding: '28px',
+    boxShadow: '0 18px 40px rgba(38, 50, 46, 0.12)',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontWeight: 600,
+    color: '#3f5853',
+    marginBottom: '8px',
+    fontSize: '14px',
+    letterSpacing: '0.02em',
+  };
+
+  const inputStyle = {
+    width: '100%',
+    borderRadius: '12px',
+    border: '1px solid #bfd0cc',
+    background: '#fff',
+    padding: '12px 14px',
+    fontSize: '15px',
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
+
+  const statusStyle = status
+    ? {
+      marginTop: '14px',
+      padding: '12px 14px',
+      borderRadius: '10px',
+      border: `1px solid ${status.type === 'error' ? '#e0b1b1' : '#b8d9ce'}`,
+      background: status.type === 'error' ? '#fdf1f1' : '#eefaf4',
+      color: status.type === 'error' ? '#8a2d2d' : '#2f6b52',
+      fontSize: '14px',
+    }
+    : null;
+
   return (
     <PublicLayout
       bodyClassName="no-header wsite-page-contact-hours full-width-on wsite-theme-light"
@@ -67,161 +108,91 @@ export function PublicContact() {
                     </font>
                   </div>
 
-                  <div>
-                    <div className="wsite-multicol">
-                      <div className="wsite-multicol-table-wrap" style={{ margin: '0 -70px' }}>
-                        <table className="wsite-multicol-table">
-                          <tbody className="wsite-multicol-tbody">
-                            <tr className="wsite-multicol-tr">
-                              <td className="wsite-multicol-col" style={{ width: '23.106216841539%', padding: '0 70px' }}>
-                                <div className="wsite-spacer" style={{ height: '50px' }}></div>
-                              </td>
-                              <td className="wsite-multicol-col" style={{ width: '60.134171026935%', padding: '0 70px' }}>
-                                <div>
-                                  <form ref={formRef} className="wsite-form" onSubmit={handleSubmit}>
-                                    <div className="wsite-form-container" style={{ marginTop: '10px' }}>
-                                      <ul className="formlist">
-                                        <label className="wsite-form-label wsite-form-fields-required-label">
-                                          <span className="form-required">*</span> Indicates required field
-                                        </label>
+                  <form className="wsite-form" onSubmit={handleSubmit} style={cardStyle}>
+                    <div style={{ marginBottom: '14px', color: '#5d7a73', fontSize: '13px' }}>
+                      <span className="form-required">*</span> Required fields
+                    </div>
 
-                                        <div>
-                                          <div className="wsite-form-field" style={{ margin: '5px 0px 5px 0px' }}>
-                                            <label className="wsite-form-label" htmlFor="contact-first-name">
-                                              First Name <span className="form-required">*</span>
-                                            </label>
-                                            <div className="wsite-form-input-container">
-                                              <input
-                                                aria-required="true"
-                                                id="contact-first-name"
-                                                className="wsite-form-input wsite-input wsite-input-width-370px"
-                                                type="text"
-                                                name="firstName"
-                                                value={formData.firstName}
-                                                onChange={handleChange}
-                                                required
-                                              />
-                                            </div>
-                                          </div>
-                                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                      <div>
+                        <label style={labelStyle} htmlFor="contact-first-name">
+                          First Name <span className="form-required">*</span>
+                        </label>
+                        <input
+                          aria-required="true"
+                          id="contact-first-name"
+                          style={inputStyle}
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
 
-                                        <div>
-                                          <div className="wsite-form-field" style={{ margin: '5px 0px 0px 0px' }}>
-                                            <label className="wsite-form-label" htmlFor="contact-last-name">
-                                              Last Name <span className="form-required">*</span>
-                                            </label>
-                                            <div className="wsite-form-input-container">
-                                              <input
-                                                aria-required="true"
-                                                id="contact-last-name"
-                                                className="wsite-form-input wsite-input wsite-input-width-370px"
-                                                type="text"
-                                                name="lastName"
-                                                value={formData.lastName}
-                                                onChange={handleChange}
-                                                required
-                                              />
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <div>
-                                          <div className="wsite-form-field" style={{ margin: '5px 0px 5px 0px' }}>
-                                            <label className="wsite-form-label" htmlFor="contact-email">
-                                              Email <span className="form-required">*</span>
-                                            </label>
-                                            <div className="wsite-form-input-container">
-                                              <input
-                                                aria-required="true"
-                                                id="contact-email"
-                                                className="wsite-form-input wsite-input wsite-input-width-370px"
-                                                type="text"
-                                                name="email"
-                                                value={formData.email}
-                                                onChange={handleChange}
-                                                required
-                                              />
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <div>
-                                          <div className="wsite-form-field" style={{ margin: '5px 0px 5px 0px' }}>
-                                            <label className="wsite-form-label" htmlFor="contact-message">
-                                              Message <span className="form-required">*</span>
-                                            </label>
-                                            <div className="wsite-form-input-container">
-                                              <input
-                                                aria-required="true"
-                                                id="contact-message"
-                                                className="wsite-form-input wsite-input wsite-input-width-370px"
-                                                type="text"
-                                                name="message"
-                                                value={formData.message}
-                                                onChange={handleChange}
-                                                required
-                                              />
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <div className="wsite-spacer" style={{ height: '10px' }}></div>
-                                      </ul>
-                                    </div>
-
-                                    <div style={{ textAlign: 'left', marginTop: '10px', marginBottom: '10px' }}>
-                                      <a
-                                        href="#"
-                                        className="wsite-button"
-                                        aria-disabled={submitting ? 'true' : undefined}
-                                        onClick={(event) => {
-                                          event.preventDefault();
-                                          if (submitting) {
-                                            return;
-                                          }
-                                          formRef.current?.requestSubmit();
-                                        }}
-                                      >
-                                        <span className="wsite-button-inner">
-                                          {submitting ? 'Submitting...' : 'Submit'}
-                                        </span>
-                                      </a>
-                                    </div>
-
-                                    {status ? (
-                                      <div
-                                        className={`public-contact-status ${
-                                          status.type === 'error' ? 'error' : ''
-                                        }`}
-                                      >
-                                        {status.message}
-                                      </div>
-                                    ) : null}
-                                    <input
-                                      type="submit"
-                                      role="button"
-                                      aria-label="Submit"
-                                      value="Submit"
-                                      style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: '-9999px',
-                                        width: '1px',
-                                        height: '1px',
-                                      }}
-                                    />
-                                  </form>
-                                </div>
-                              </td>
-                              <td className="wsite-multicol-col" style={{ width: '16.759612131525%', padding: '0 70px' }}>
-                                <div className="wsite-spacer" style={{ height: '50px' }}></div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                      <div>
+                        <label style={labelStyle} htmlFor="contact-last-name">
+                          Last Name <span className="form-required">*</span>
+                        </label>
+                        <input
+                          aria-required="true"
+                          id="contact-last-name"
+                          style={inputStyle}
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleChange}
+                          required
+                        />
                       </div>
                     </div>
-                  </div>
+
+                    <div style={{ marginTop: '14px' }}>
+                      <label style={labelStyle} htmlFor="contact-email">
+                        Email <span className="form-required">*</span>
+                      </label>
+                      <input
+                        aria-required="true"
+                        id="contact-email"
+                        style={inputStyle}
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ marginTop: '14px' }}>
+                      <label style={labelStyle} htmlFor="contact-message">
+                        Message <span className="form-required">*</span>
+                      </label>
+                      <textarea
+                        aria-required="true"
+                        id="contact-message"
+                        style={{ ...inputStyle, minHeight: '140px', resize: 'vertical' }}
+                        name="message"
+                        value={formData.message}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ textAlign: 'left', marginTop: '18px' }}>
+                      <button
+                        type="submit"
+                        className="wsite-button wsite-button-large wsite-button-highlight"
+                        disabled={submitting}
+                        style={{ opacity: submitting ? 0.75 : 1, cursor: submitting ? 'wait' : 'pointer' }}
+                      >
+                        <span className="wsite-button-inner">
+                          {submitting ? 'Sending...' : 'Send Message'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {status ? <div style={statusStyle}>{status.message}</div> : null}
+                  </form>
 
                   <div className="wsite-spacer" style={{ height: '50px' }}></div>
                 </div>

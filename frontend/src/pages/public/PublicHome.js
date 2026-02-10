@@ -98,7 +98,7 @@ const banner = (
                 </h2>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ height: '30px', overflow: 'hidden' }}></div>
-                  <a className="wsite-button wsite-button-large wsite-button-highlight" href="/contact--hours.html">
+                  <a className="wsite-button wsite-button-large wsite-button-highlight" href="/contact-hours">
                     <span className="wsite-button-inner">
                       <span>
                         <strong>Contact Us</strong>

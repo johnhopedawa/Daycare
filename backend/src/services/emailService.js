@@ -1,9 +1,10 @@
 const nodemailer = require('nodemailer');
 
-const SMTP_HOST = process.env.SMTP_HOST;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SMTP_HOST = process.env.SMTP_HOST || (RESEND_API_KEY ? 'smtp.resend.com' : undefined);
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
+const SMTP_USER = process.env.SMTP_USER || (RESEND_API_KEY ? 'resend' : undefined);
+const SMTP_PASS = process.env.SMTP_PASS || RESEND_API_KEY;
 const SMTP_FROM = process.env.SMTP_FROM;
 const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
 
@@ -14,8 +15,8 @@ const getTransporter = () => {
     return transporter;
   }
 
-  if (!SMTP_HOST || !SMTP_FROM) {
-    throw new Error('Email service not configured (SMTP_HOST/SMTP_FROM missing)');
+  if (!SMTP_HOST || !SMTP_FROM || !SMTP_PASS) {
+    throw new Error('Email service not configured (SMTP_FROM and SMTP credentials are required)');
   }
 
   const config = {
@@ -35,7 +36,7 @@ const getTransporter = () => {
   return transporter;
 };
 
-const sendEmail = async ({ to, subject, text, html }) => {
+const sendEmail = async ({ to, subject, text, html, replyTo }) => {
   const transport = getTransporter();
 
   return transport.sendMail({
@@ -44,6 +45,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
     subject,
     text,
     html,
+    replyTo,
   });
 };
 
