@@ -1013,18 +1013,21 @@ export function DashboardPage() {
                         const Icon = item.icon;
                         return (
                           <div key={item.key} className="rounded-2xl border p-4 h-full" style={ROW_STYLE}>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 lg:grid lg:grid-cols-[2.5rem_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:items-start lg:gap-x-3 lg:gap-y-1">
+                              <p className="hidden lg:block lg:col-span-2 text-xs font-semibold break-words leading-tight" style={{ color: 'var(--muted)' }}>
+                                {item.label}
+                              </p>
                               <div
-                                className="w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0"
+                                className="w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 lg:row-start-2 lg:col-start-1"
                                 style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
                               >
                                 <Icon size={18} />
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold break-words leading-tight" style={{ color: 'var(--muted)' }}>
+                              <div className="min-w-0 flex-1 lg:row-start-2 lg:col-start-2 lg:h-10 lg:flex lg:items-center">
+                                <p className="text-xs font-semibold break-words leading-tight lg:hidden" style={{ color: 'var(--muted)' }}>
                                   {item.label}
                                 </p>
-                                <p className="text-lg font-bold" style={{ color: item.valueColor }}>
+                                <p className="text-lg font-bold leading-none" style={{ color: item.valueColor }}>
                                   {item.value}
                                 </p>
                               </div>
