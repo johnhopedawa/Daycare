@@ -36,7 +36,7 @@ docker-compose.yml
 *.sqlite
 
 # Uploads (if any)
-uploads/
+backend/uploads/
 temp/
 
 # OTHER THINGS
