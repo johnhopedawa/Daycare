@@ -563,6 +563,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         acc.transactionCount += 1;
         if (!txn.category) {
           acc.uncategorizedCount += 1;
+          if (txn.direction === 'expense') {
+            acc.uncategorizedAmount += amount;
+          }
         }
         return acc;
       },
@@ -571,6 +574,7 @@ export function BankAccountsPage({ view = 'dashboard' }) {
         totalIncome: 0,
         transactionCount: 0,
         uncategorizedCount: 0,
+        uncategorizedAmount: 0,
       }
     );
 
@@ -1676,10 +1680,10 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                 <div>
                   <p className="text-stone-500 text-sm">Uncategorized</p>
                   <p className="font-bold text-2xl text-stone-800">
-                    {stats.uncategorizedCount}
+                    {formatCurrency(stats.uncategorizedAmount)}
                   </p>
                   <p className="text-xs text-stone-400">
-                    {stats.transactionCount} total transactions
+                    {stats.uncategorizedCount} uncategorized transactions
                   </p>
                 </div>
               </div>
@@ -2585,7 +2589,9 @@ export function BankAccountsPage({ view = 'dashboard' }) {
                       ? 'text-stone-300 cursor-not-allowed'
                       : isSelected
                         ? 'bg-[#FFDCC8] text-[#7C2A22]'
-                        : `bg-transparent ${isSameMonth ? 'text-stone-600' : 'text-stone-400'} hover:bg-[#FFE5D9]`;
+                        : isSameMonth
+                          ? 'bg-transparent text-stone-600 hover:bg-[#FFE5D9]'
+                          : 'bg-stone-100 text-stone-300 hover:bg-stone-200';
                     return (
                       <button
                         key={`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`}

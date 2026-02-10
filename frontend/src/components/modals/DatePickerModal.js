@@ -127,17 +127,18 @@ export function DatePickerModal({
                 day.getFullYear() === selectedDate.getFullYear() &&
                 day.getMonth() === selectedDate.getMonth() &&
                 day.getDate() === selectedDate.getDate();
+              const stateClass = isSelected
+                ? 'bg-[#FFDCC8] text-[#7C2A22]'
+                : isSameMonth
+                  ? 'bg-transparent text-stone-600 hover:bg-[#FFE5D9]'
+                  : 'bg-stone-100 text-stone-300 hover:bg-stone-200';
               return (
                 <button
                   key={`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`}
                   type="button"
                   onClick={() => handleSelectDay(day)}
                   aria-selected={isSelected}
-                  className={`h-10 rounded-full text-sm font-bold transition-colors ${
-                    isSelected
-                      ? 'bg-[#FFDCC8] text-[#7C2A22]'
-                      : 'bg-transparent text-stone-600 hover:bg-[#FFE5D9]'
-                  } ${isSameMonth ? '' : 'text-stone-300'}`}
+                  className={`h-10 rounded-full text-sm font-bold transition-colors ${stateClass}`}
                 >
                   {day.getDate()}
                 </button>

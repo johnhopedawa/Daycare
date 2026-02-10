@@ -1,36 +1,53 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BaseModal } from './BaseModal';
 import { DatePickerModal } from './DatePickerModal';
 import { User, Mail, Phone, MapPin, Plus, X, Cake, DollarSign } from 'lucide-react';
 import api from '../../utils/api';
 
-export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
-  const createChild = () => ({
+export function AddFamilyModal({ isOpen, onClose, onSuccess, initialChild, onCreated }) {
+  const createChild = (seed = {}) => ({
     id: `child-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    monthlyRate: '',
+    firstName: seed.firstName || '',
+    lastName: seed.lastName || '',
+    dateOfBirth: seed.dateOfBirth || '',
+    monthlyRate: seed.monthlyRate || '',
     allergies: { common: [], other: '' },
-    medicalNotes: '',
-    notes: ''
+    medicalNotes: seed.medicalNotes || '',
+    notes: seed.notes || ''
   });
 
-  const [formData, setFormData] = useState({
-    familyName: '',
-    parents: [{ id: Date.now(), firstName: '', lastName: '', email: '', phone: '' }],
-    children: [createChild()],
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    province: '',
-    postalCode: '',
-  });
+  const buildInitialFormData = (seed) => {
+    const childSeed = seed && typeof seed === 'object' ? seed : {};
+    return {
+      familyName: childSeed.lastName ? `${childSeed.lastName} Family` : '',
+      parents: [{ id: Date.now(), firstName: '', lastName: '', email: '', phone: '' }],
+      children: [createChild(childSeed)],
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      province: '',
+      postalCode: '',
+    };
+  };
+
+  const [formData, setFormData] = useState(() => buildInitialFormData(initialChild));
   const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [activeChildIndex, setActiveChildIndex] = useState(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setFormData(buildInitialFormData(initialChild));
+    setEmergencyContacts([]);
+    setActiveChildIndex(null);
+    setIsDatePickerOpen(false);
+    setError('');
+  }, [isOpen, initialChild]);
 
   const COMMON_ALLERGIES = [
     'None', 'Milk', 'Eggs', 'Nuts', 'Tree Nuts', 'Soy', 'Wheat (Gluten)',
@@ -293,20 +310,12 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess }) {
       }
 
       // Reset form and close modal
-      setFormData({
-        familyName: '',
-        parents: [{ id: Date.now(), firstName: '', lastName: '', email: '', phone: '' }],
-        children: [createChild()],
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        province: '',
-        postalCode: '',
-      });
+      setFormData(buildInitialFormData(initialChild));
       setEmergencyContacts([]);
       setActiveChildIndex(null);
       setIsDatePickerOpen(false);
 
+      if (onCreated) onCreated(response.data);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {

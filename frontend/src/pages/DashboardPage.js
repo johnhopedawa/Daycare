@@ -608,6 +608,9 @@ export function DashboardPage() {
         acc.transactionCount += 1;
         if (!txn.category) {
           acc.uncategorizedCount += 1;
+          if (txn.direction === 'expense') {
+            acc.uncategorizedAmount += amount;
+          }
         }
         return acc;
       },
@@ -616,6 +619,7 @@ export function DashboardPage() {
         totalIncome: 0,
         transactionCount: 0,
         uncategorizedCount: 0,
+        uncategorizedAmount: 0,
       }
     );
     return {
@@ -718,6 +722,36 @@ export function DashboardPage() {
 
   const profitValue = financeStats.totalIncome - financeStats.totalExpenses;
   const profitLabel = `${profitValue >= 0 ? '+' : '-'}${formatCurrency(Math.abs(profitValue))}`;
+  const financeKpis = [
+    {
+      key: 'income',
+      label: 'Total Income',
+      value: formatCurrency(financeStats.totalIncome),
+      icon: TrendingUp,
+      valueColor: 'var(--text)',
+    },
+    {
+      key: 'expenses',
+      label: 'Total Expenses',
+      value: formatCurrency(financeStats.totalExpenses),
+      icon: TrendingDown,
+      valueColor: 'var(--text)',
+    },
+    {
+      key: 'net',
+      label: 'Net Cash Flow',
+      value: formatCurrency(financeStats.net),
+      icon: Wallet,
+      valueColor: profitValue >= 0 ? 'var(--success)' : 'var(--danger)',
+    },
+    {
+      key: 'uncategorized',
+      label: 'Uncategorized',
+      value: formatCurrency(financeStats.uncategorizedAmount),
+      icon: PieChart,
+      valueColor: 'var(--text)',
+    },
+  ];
 
   const actionBar = (
     <div className="flex flex-wrap items-center gap-2">
@@ -974,71 +1008,30 @@ export function DashboardPage() {
                         Reporting year {reportingYear}
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="rounded-2xl border p-4" style={ROW_STYLE}>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-2xl border flex items-center justify-center"
-                            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
-                          >
-                            <TrendingUp size={18} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+                      {financeKpis.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <div key={item.key} className="rounded-2xl border p-4 h-full" style={ROW_STYLE}>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0"
+                                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
+                              >
+                                <Icon size={18} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold break-words leading-tight" style={{ color: 'var(--muted)' }}>
+                                  {item.label}
+                                </p>
+                                <p className="text-lg font-bold" style={{ color: item.valueColor }}>
+                                  {item.value}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Total Income</p>
-                            <p className="text-lg font-bold" style={{ color: 'var(--text)' }}>
-                              {formatCurrency(financeStats.totalIncome)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border p-4" style={ROW_STYLE}>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-2xl border flex items-center justify-center"
-                            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
-                          >
-                            <TrendingDown size={18} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Total Expenses</p>
-                            <p className="text-lg font-bold" style={{ color: 'var(--text)' }}>
-                              {formatCurrency(financeStats.totalExpenses)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border p-4" style={ROW_STYLE}>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-2xl border flex items-center justify-center"
-                            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
-                          >
-                            <Wallet size={18} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Net Cash Flow</p>
-                            <p className="text-lg font-bold" style={{ color: profitValue >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                              {formatCurrency(financeStats.net)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border p-4" style={ROW_STYLE}>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-2xl border flex items-center justify-center"
-                            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--primary-dark)' }}
-                          >
-                            <PieChart size={18} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>Uncategorized</p>
-                            <p className="text-lg font-bold" style={{ color: 'var(--text)' }}>
-                              {financeStats.uncategorizedCount}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
