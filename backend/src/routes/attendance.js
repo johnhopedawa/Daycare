@@ -23,18 +23,27 @@ const requireScheduledStaff = async (req, res, next) => {
   }
 
   try {
+    // Bind attendance access to the date being viewed/edited, not always server CURRENT_DATE.
+    const scheduleDate =
+      req.body?.attendance_date ||
+      req.query?.attendance_date ||
+      req.query?.date ||
+      req.query?.start_date ||
+      req.query?.from ||
+      null;
+
     const result = await pool.query(
       `SELECT 1
        FROM schedules
        WHERE user_id = $1
-         AND shift_date = CURRENT_DATE
+         AND shift_date = COALESCE($2::date, CURRENT_DATE)
          AND status IN ('ACCEPTED', 'PENDING')
        LIMIT 1`,
-      [req.user.id]
+      [req.user.id, scheduleDate]
     );
 
     if (result.rows.length === 0) {
-      return res.status(403).json({ error: 'Attendance access requires a scheduled shift today' });
+      return res.status(403).json({ error: 'Attendance access requires a scheduled shift on the requested date' });
     }
 
     return next();
@@ -122,6 +131,48 @@ router.get('/today', requireAuth, requireStaff, requireScheduledStaff, async (re
   } catch (error) {
     console.error('Get today attendance error:', error);
     res.status(500).json({ error: 'Failed to get today\'s attendance' });
+  }
+});
+
+// GET /api/attendance/children
+// Get children list for attendance workflows (staff + scheduled for requested date)
+router.get('/children', requireAuth, requireStaff, requireScheduledStaff, async (req, res) => {
+  try {
+    const { status = 'ACTIVE' } = req.query;
+    const ownerId = getOwnerId(req.user);
+
+    const result = await pool.query(
+      `SELECT
+         c.id,
+         c.first_name,
+         c.last_name,
+         c.status,
+         COALESCE(
+           jsonb_agg(
+             DISTINCT jsonb_build_object(
+               'id', p.id,
+               'first_name', p.first_name,
+               'last_name', p.last_name,
+               'is_primary_contact', pc.is_primary_contact,
+               'relationship', pc.relationship
+             )
+           ) FILTER (WHERE p.id IS NOT NULL),
+           '[]'::jsonb
+         ) AS parents
+       FROM children c
+       LEFT JOIN parent_children pc ON pc.child_id = c.id
+       LEFT JOIN parents p ON p.id = pc.parent_id
+       WHERE c.created_by = $1
+         AND ($2::text IS NULL OR c.status = $2)
+       GROUP BY c.id
+       ORDER BY c.last_name, c.first_name`,
+      [ownerId, status || null]
+    );
+
+    res.json({ children: result.rows });
+  } catch (error) {
+    console.error('Get attendance children error:', error);
+    res.status(500).json({ error: 'Failed to get children for attendance' });
   }
 });
 

@@ -34,6 +34,8 @@ router.get('/', async (req, res) => {
       FROM events
       WHERE created_by = $1
         AND event_date >= $2
+        AND audience IN ('ALL', 'PARENTS', 'CHILDREN')
+        AND COALESCE(entry_type, 'EVENT') = 'EVENT'
     `;
     const params = [ownerId, from];
 

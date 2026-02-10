@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Repeat, User } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, Repeat, User } from 'lucide-react';
 import api from '../../utils/api';
 import { DateTimePickerModal } from './DateTimePickerModal';
 
@@ -30,6 +30,8 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
   const [error, setError] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
   const [conflictMessage, setConflictMessage] = useState('');
+  const [isStaffMenuOpen, setIsStaffMenuOpen] = useState(false);
+  const staffMenuRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +39,30 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
       loadEducators();
     }
   }, [isOpen, initialDate]);
+
+  useEffect(() => {
+    if (!isStaffMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (staffMenuRef.current && !staffMenuRef.current.contains(event.target)) {
+        setIsStaffMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsStaffMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isStaffMenuOpen]);
 
   const loadEducators = async () => {
     try {
@@ -119,10 +145,23 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
     setSelectedDateTime(resolveInitialDate());
     setSelection(null);
     setRepeatEnabled(false);
+    setIsStaffMenuOpen(false);
     setError('');
     setValidationMessage('');
     setConflictMessage('');
   };
+
+  const selectedEducatorLabel = useMemo(() => {
+    if (!formData.educatorId) {
+      return 'Select Staff...';
+    }
+    const selectedEducator = educators.find(
+      (educator) => String(educator.id) === String(formData.educatorId)
+    );
+    return selectedEducator
+      ? `${selectedEducator.first_name} ${selectedEducator.last_name}`
+      : 'Select Staff...';
+  }, [educators, formData.educatorId]);
 
   const handleCancel = () => {
     resetForm();
@@ -274,24 +313,61 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
             <label className="block text-xs font-bold text-stone-500 mb-2 font-quicksand">
               Staff Member
             </label>
-            <div className="relative">
-              <User
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              />
-              <select
-                value={formData.educatorId}
-                onChange={(e) => setFormData({ ...formData, educatorId: e.target.value })}
-                className="w-full pl-9 pr-3 py-2.5 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-sm"
-                required
+            <div ref={staffMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsStaffMenuOpen((prev) => !prev)}
+                className="w-full pl-9 pr-10 py-2.5 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-sm text-left text-stone-700 cursor-pointer"
+                aria-haspopup="listbox"
+                aria-expanded={isStaffMenuOpen}
               >
-                <option value="">Select Staff...</option>
-                {educators.map((educator) => (
-                  <option key={educator.id} value={educator.id}>
-                    {educator.first_name} {educator.last_name}
-                  </option>
-                ))}
-              </select>
+                <User
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"
+                />
+                <span className={formData.educatorId ? 'text-stone-700' : 'text-stone-400'}>
+                  {selectedEducatorLabel}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none transition-transform ${
+                    isStaffMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isStaffMenuOpen && (
+                <div className="absolute z-30 mt-2 w-full rounded-2xl border border-[#FFE5D9] bg-white shadow-lg shadow-[#FF9B85]/10">
+                  <div className="max-h-56 overflow-y-auto p-2 space-y-1" role="listbox">
+                    {educators.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-stone-400">No staff members found</div>
+                    )}
+                    {educators.map((educator) => {
+                      const value = String(educator.id);
+                      const isSelected = String(formData.educatorId) === value;
+                      return (
+                        <button
+                          key={educator.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, educatorId: value }));
+                            setIsStaffMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                            isSelected
+                              ? 'bg-[#FF9B85] text-white'
+                              : 'text-stone-700 hover:bg-[#FFF8F3]'
+                          }`}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          {educator.first_name} {educator.last_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

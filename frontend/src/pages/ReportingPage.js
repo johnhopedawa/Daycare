@@ -684,7 +684,17 @@ export function ReportingPage() {
                   {presets.map((preset) => (
                     <div
                       key={preset.id}
-                      className="rounded-2xl border px-3 py-2 flex items-start justify-between gap-2"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleApplyPreset(preset)}
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleApplyPreset(preset);
+                        }
+                      }}
+                      className="rounded-2xl border px-3 py-2 flex items-start justify-between gap-2 cursor-pointer"
                       style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
                     >
                       <div>
@@ -693,26 +703,18 @@ export function ReportingPage() {
                           {categoryConfig[preset.category]?.label || 'Report'} - {formatDate(preset.createdAt)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleApplyPreset(preset)}
-                          className="p-1 rounded-lg border text-xs"
-                          style={{ borderColor: 'var(--border)', color: 'var(--primary-dark)' }}
-                          title="Load view"
-                        >
-                          <CheckCircle2 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePreset(preset.id)}
-                          className="p-1 rounded-lg border text-xs"
-                          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                          title="Delete view"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeletePreset(preset.id);
+                        }}
+                        className="self-center p-1.5 rounded-lg border text-xs"
+                        style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                        title="Delete view"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   ))}
                 </div>

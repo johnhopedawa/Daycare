@@ -40,7 +40,7 @@ const FINANCE_DASHBOARD = {
 
 const OPERATIONS_ITEMS = [
   { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
-  { icon: Calendar, label: 'Events', path: '/events' },
+  { icon: Calendar, label: 'Calendar', path: '/events' },
   { icon: Users, label: 'Families', path: '/families' },
   { icon: FileText, label: 'Paperwork', path: '/paperwork' },
 ];

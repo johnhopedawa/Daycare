@@ -11,7 +11,7 @@
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
     <last-updated>2026-02-10</last-updated>
-    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, and browser-cache warmup behavior for first-hit performance.</documentation-status>
+    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, and defensive families aggregation de-duplication (parents/children) with full child names in family cards.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -397,7 +397,7 @@
     </table>
 
     <table name="events">
-      <description>Calendar events for parents, staff, or children (Migration 020)</description>
+      <description>Calendar events plus private maintenance/compliance items (Migrations 020, 039)</description>
       <columns>
         <column name="id" type="SERIAL" primary-key="true"/>
         <column name="created_by" type="INTEGER" references="users(id)" required="true"/>
@@ -407,8 +407,18 @@
         <column name="end_time" type="TIME"/>
         <column name="location" type="VARCHAR(255)"/>
         <column name="audience" type="VARCHAR(50)" default="ALL">
-          <constraints>CHECK IN ('ALL', 'PARENTS', 'STAFF', 'CHILDREN')</constraints>
+          <constraints>CHECK IN ('ALL', 'PARENTS', 'STAFF', 'CHILDREN', 'PRIVATE')</constraints>
         </column>
+        <column name="entry_type" type="VARCHAR(30)" default="EVENT">
+          <constraints>CHECK IN ('EVENT', 'MAINTENANCE')</constraints>
+        </column>
+        <column name="recurrence" type="VARCHAR(20)" default="NONE">
+          <constraints>CHECK IN ('NONE', 'MONTHLY', 'ANNUAL')</constraints>
+        </column>
+        <column name="status" type="VARCHAR(20)" default="OPEN">
+          <constraints>CHECK IN ('OPEN', 'DONE')</constraints>
+        </column>
+        <column name="completed_at" type="TIMESTAMP"/>
         <column name="description" type="TEXT"/>
         <column name="requires_rsvp" type="BOOLEAN" default="false"/>
         <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
@@ -770,6 +780,8 @@
           <feature>Responsive spacing: gap-6 md:gap-8</feature>
         </responsive-features>
         <notes>
+          <note date="2026-02-10">Visual redesign refresh: dashboard now uses an operations command-strip header, elevated gradient panel styling, and updated interaction affordances for action/control buttons while preserving existing data/API behavior.</note>
+          <note date="2026-02-10">Dashboard title copy simplified to a greeting ("Hi, {first_name}"), and command-strip headline text removed while retaining summary badges.</note>
           <note date="2026-02-03">/finance now serves as the admin Messages inbox; finance KPIs remain in the dashboard snapshot.</note>
           <note date="2026-02-03">Dashboard widgets updated: Present Today, Staff Scheduled, In Compliance (ratio popup), Pending Tasks. Attendance CTA added to header action bar.</note>
           <note date="2026-02-03">Finance snapshot panel replaces arrivals/absences; includes expense category pie chart, cash flow snapshot, and profit indicator.</note>
@@ -783,7 +795,7 @@
         <description>Attendance tracking with check-in/out times</description>
         <api-calls>
           <call endpoint="GET /attendance?start_date={date}&end_date={date}"/>
-          <call endpoint="GET /children?status=ACTIVE"/>
+          <call endpoint="GET /attendance/children?status=ACTIVE&amp;date={date}"/>
           <call endpoint="POST /attendance/check-in"/>
           <call endpoint="POST /attendance/check-out"/>
           <call endpoint="POST /attendance/mark-absent"/>
@@ -794,22 +806,36 @@
           <feature>Check-out with parent name, notes, and optional manual time</feature>
           <feature>Mark absent/sick/vacation with notes</feature>
           <feature>Manual vs automatic time mode</feature>
+          <feature>Status shown inline within child row instead of separate status column</feature>
+          <feature>Dedicated drop-off and pick-up detail columns (contact + note preview)</feature>
+          <feature>Structured note encoding in attendance.notes: DROP_OFF_NOTE:: and PICK_UP_NOTE:: for preserving both handoff notes</feature>
+          <feature>In-column time actions: show Check In in empty check-in cell and Check Out in empty check-out cell</feature>
+          <feature>Check-out action is disabled until a check-in exists for that row/date</feature>
+          <feature>Check-in/check-out parent selector defaults to primary contact and lists all linked parents, with a Custom/Other option for manual entry</feature>
         </features>
         <status>COMPLETE - Check-in/out and absence workflows enabled</status>
       </page>
 
       <page file="EventsPage.js">
-        <description>Admin events calendar with month view and event details</description>
+        <description>Admin calendar for family events and private daycare maintenance/compliance items</description>
         <api-calls>
           <call endpoint="GET /events?from={date}&to={date}"/>
           <call endpoint="POST /events"/>
+          <call endpoint="PATCH /events/:id"/>
         </api-calls>
         <features>
-          <feature>Month grid with daily event counts</feature>
-          <feature>Agenda list for selected day</feature>
-          <feature>Create event modal</feature>
+          <feature>Month grid with daily item counts and filter chips (all/family/private/maintenance)</feature>
+          <feature>Agenda list for selected day with maintenance status and recurrence badges</feature>
+          <feature>Create calendar item modal supports EVENT or MAINTENANCE entry types</feature>
+          <feature>Audience choices standardized to All Families, Daycare (admins+staff), and Admin Only; default is Daycare</feature>
+          <feature>Maintenance items support monthly/annual recurrence metadata</feature>
+          <feature>Maintenance items can be marked done/reopened from the agenda panel</feature>
           <feature>Event details modal</feature>
         </features>
+        <notes>
+          <note date="2026-02-10">Navigation copy changed from "Events" to "Calendar" (route remains /events).</note>
+          <note date="2026-02-10">Admin-only audience items are hidden from non-admin staff in GET /events.</note>
+        </notes>
         <status>ROUTED</status>
       </page>
 
@@ -843,6 +869,7 @@
           <feature>Edit family - parents, children, allergies, medical notes (FUNCTIONAL)</feature>
           <feature>Delete family with option to remove parent accounts (FUNCTIONAL)</feature>
           <feature>Display family cards with parent/child info</feature>
+          <feature>Family card child chips show full names (first + last) to avoid same-first-name ambiguity</feature>
           <feature>Monthly rate calculation and display</feature>
           <feature>Active/Inactive status badges</feature>
           <feature>Tabbed views for families, children directory, parent directory</feature>
@@ -1020,7 +1047,7 @@
           <feature>Click any date to open detail modal</feature>
           <feature>Add shift button inside day detail modal (prefilled date)</feature>
           <feature>Create single shift</feature>
-          <feature>Create recurring schedules</feature>
+          <feature>Create recurring schedules (SQL date-series generation; timezone-safe date handling)</feature>
           <feature>Edit schedules</feature>
           <feature>Delete schedules</feature>
           <feature>Notes field</feature>
@@ -1050,6 +1077,10 @@
           <section name="Staffing">Hours, payroll, coverage</section>
           <section name="Attendance">Summary or detailed log by date range</section>
         </sections>
+        <features>
+          <feature>Saved views with localStorage persistence</feature>
+          <feature>Saved view cards load on full-row click; delete remains a dedicated icon action</feature>
+        </features>
         <status>COMPLETE - All report endpoints wired with date range controls</status>
       </page>
 
@@ -1260,6 +1291,7 @@
           <feature>Selectable dates for time-off requests</feature>
           <feature>Full-day selections submit as contiguous date ranges</feature>
           <feature>Half-day selections submit as single-day requests</feature>
+          <feature>Mobile date tap hint: temporary floating "Scroll down" indicator (bobbing, ~2s) shown only when selecting a new date key (prevents repeated hint spam on the same date)</feature>
         </features>
         <status>ROUTED</status>
       </page>
@@ -1281,7 +1313,7 @@
       </page>
 
       <page file="AttendancePage.js">
-        <description>Attendance page reused for educators (requires scheduled shift today)</description>
+        <description>Attendance page reused for educators (requires scheduled shift on the requested attendance date; defaults to today when no date is provided, and loads child roster via GET /attendance/children to avoid admin-only children routes)</description>
         <status>ROUTED - /educator/attendance</status>
       </page>
 
@@ -1312,7 +1344,7 @@
       </page>
 
       <page file="ParentEvents.js">
-        <description>Parent read-only events calendar (month view)</description>
+        <description>Parent read-only events calendar (month view); excludes private daycare and maintenance entries</description>
         <status>ROUTED</status>
       </page>
 
@@ -1389,7 +1421,7 @@
         <menu-items>
           <item path="/dashboard" icon="LayoutDashboard">Daycare Dashboard</item>
           <item section="Operations" path="/attendance" icon="ClipboardCheck">Attendance</item>
-          <item section="Operations" path="/events" icon="Calendar">Events</item>
+          <item section="Operations" path="/events" icon="Calendar">Calendar</item>
           <item section="Operations" path="/families" icon="Users">Families</item>
           <item section="Operations" path="/educators" icon="GraduationCap">Staff</item>
           <item section="Operations" path="/scheduling" icon="Calendar">Scheduling</item>
@@ -1473,7 +1505,7 @@
 
       <modal file="AddShiftModal.js">
         <description>Create staff shift/schedule</description>
-        <status>EXISTS - Implementation status unknown</status>
+        <status>EXISTS - Used by StaffSchedulingPage; staff member field uses a custom dropdown (button + popover list) styled to match themed controls, and DateTimePickerModal now uses unified mobile scrolling (single scroll flow instead of split panes).</status>
       </modal>
 
       <modal file="CreateInvoiceModal.js">
@@ -1487,8 +1519,8 @@
       </modal>
 
       <modal file="CreateEventModal.js">
-        <description>Create calendar event</description>
-        <status>FUNCTIONAL - Used in DashboardPage and EventsPage</status>
+        <description>Create calendar item (family event or private maintenance/compliance task)</description>
+        <status>FUNCTIONAL - Used in DashboardPage and EventsPage; supports recurrence/status metadata for maintenance items</status>
       </modal>
 
       <modal file="EventDetailsModal.js">
@@ -1944,6 +1976,8 @@
         <var name="RESEND_API_KEY">Optional direct key; when set, backend defaults SMTP transport to smtp.resend.com</var>
         <var name="CONTACT_TO_EMAIL">Inbox recipient for /api/contact form submissions</var>
         <var name="CONTACT_SUBJECT_PREFIX">Legacy subject prefix (contact emails now use fixed title format)</var>
+        <var name="CONTACT_TIME_ZONE">Timezone for contact email timestamp formatting (default: America/Vancouver, DST-aware PST/PDT)</var>
+        <var name="CONTACT_LOCALE">Locale for contact email date/time rendering (default: en-CA)</var>
         <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
         <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
         <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 7)</var>
@@ -1986,7 +2020,7 @@
         <production-origins>https://littlesparrowsacademy.com, https://www.littlesparrowsacademy.com, https://portal.littlesparrowsacademy.com (plus local http variants)</production-origins>
         <health-check>GET /health</health-check>
         <time-endpoint>GET /api/time</time-endpoint>
-        <contact-endpoint>POST /api/contact (rate-limited public form -> styled email notification titled "New Form Submission: {name}" with submitted date/time)</contact-endpoint>
+        <contact-endpoint>POST /api/contact (rate-limited public form -> styled email notification titled "New Form Submission: {name}" with submitted date/time rendered in CONTACT_TIME_ZONE, default America/Vancouver with automatic PST/PDT switching)</contact-endpoint>
       </backend-server>
 
     <frontend-server>
@@ -1995,6 +2029,9 @@
       <build-command>npm run build</build-command>
       <build-output>frontend/build/</build-output>
       <nginx-config>frontend/nginx.conf</nginx-config>
+      <branding>
+        <favicon>frontend/public/favicon.svg is linked in frontend/public/index.html for browser tab icon rendering, using a flat, transparent-background sparrow face icon with bold simple shapes and upsized geometry for improved tab-scale clarity.</favicon>
+      </branding>
       <cache-policy>
         <index-html>no-cache/no-store to pick up new deploys quickly</index-html>
         <hashed-static-assets>/static/* cached for 1 year with immutable</hashed-static-assets>

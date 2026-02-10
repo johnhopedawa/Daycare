@@ -959,7 +959,7 @@ export function FamiliesPage() {
                           key={child.id}
                           className="px-2 py-1 bg-[var(--background)] text-stone-600 text-xs font-medium rounded-lg border themed-border"
                         >
-                          {child.first_name}
+                          {[child.first_name, child.last_name].filter(Boolean).join(' ')}
                         </span>
                       ))}
                     </div>

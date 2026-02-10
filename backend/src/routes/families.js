@@ -54,54 +54,80 @@ router.get('/', async (req, res) => {
     // Group children by family (using parent combinations as family identifier)
     const familiesMap = new Map();
 
-    result.rows.forEach(child => {
-      // Create a family key based on parent IDs (sorted for consistency)
-      const parentIds = (child.parents || [])
-        .map(p => p.parent_id)
-        .sort()
+    result.rows.forEach((child) => {
+      // Defensively de-duplicate parent rows in case of corrupted linkage data.
+      const uniqueParents = Array.from(
+        new Map(
+          (child.parents || [])
+            .filter((parent) => parent && parent.parent_id)
+            .map((parent) => [parent.parent_id, parent])
+        ).values()
+      );
+
+      // Create a family key based on unique parent IDs (sorted for consistency).
+      const parentIds = Array.from(new Set(uniqueParents.map((parent) => parent.parent_id)))
+        .sort((a, b) => Number(a) - Number(b))
         .join('-');
 
       const familyKey = parentIds || `orphan-${child.child_id}`;
 
       if (!familiesMap.has(familyKey)) {
-        const familyName = (child.parents || []).map(p => p.family_name).find(Boolean) || null;
+        const familyName = uniqueParents.map((parent) => parent.family_name).find(Boolean) || null;
         familiesMap.set(familyKey, {
           family_id: familyKey,
           family_name: familyName,
-          parents: child.parents || [],
+          parents: uniqueParents,
           children: [],
-          primary_parent: (child.parents || []).find(p => p.is_primary_contact) || (child.parents || [])[0],
+          primary_parent: uniqueParents.find((parent) => parent.is_primary_contact) || uniqueParents[0] || null,
           total_monthly_rate: 0,
           all_accounts_active: true
         });
       }
 
       const family = familiesMap.get(familyKey);
+
+      if (uniqueParents.length > 0) {
+        const existingParentIds = new Set((family.parents || []).map((parent) => parent.parent_id));
+        uniqueParents.forEach((parent) => {
+          if (!existingParentIds.has(parent.parent_id)) {
+            family.parents.push(parent);
+            existingParentIds.add(parent.parent_id);
+          }
+        });
+      }
+
       if (!family.family_name) {
-        const familyName = (child.parents || []).map(p => p.family_name).find(Boolean) || null;
+        const familyName = uniqueParents.map((parent) => parent.family_name).find(Boolean) || null;
         if (familyName) {
           family.family_name = familyName;
         }
       }
-      family.children.push({
-        id: child.child_id,
-        first_name: child.child_first_name,
-        last_name: child.child_last_name,
-        date_of_birth: child.date_of_birth,
-        status: child.child_status,
-        monthly_rate: child.monthly_rate,
-        billing_cycle: child.billing_cycle,
-        allergies: child.allergies,
-        medical_notes: child.medical_notes,
-        notes: child.notes
-      });
 
-      if (child.monthly_rate) {
-        family.total_monthly_rate += parseFloat(child.monthly_rate);
+      // Prevent duplicate child entries per family.
+      const childAlreadyAdded = family.children.some((existingChild) => existingChild.id === child.child_id);
+      if (!childAlreadyAdded) {
+        family.children.push({
+          id: child.child_id,
+          first_name: child.child_first_name,
+          last_name: child.child_last_name,
+          date_of_birth: child.date_of_birth,
+          status: child.child_status,
+          monthly_rate: child.monthly_rate,
+          billing_cycle: child.billing_cycle,
+          allergies: child.allergies,
+          medical_notes: child.medical_notes,
+          notes: child.notes
+        });
+
+        if (child.monthly_rate) {
+          family.total_monthly_rate += parseFloat(child.monthly_rate);
+        }
       }
 
-      // Check if any parent account is inactive
-      if (child.parents && child.parents.some(p => !p.is_active)) {
+      family.primary_parent = family.parents.find((parent) => parent.is_primary_contact) || family.parents[0] || null;
+
+      // Check if any parent account is inactive.
+      if (uniqueParents.some((parent) => !parent.is_active)) {
         family.all_accounts_active = false;
       }
     });

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarDays, CheckCircle2, Clock3, Plus, ShieldCheck } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { CreateEventModal } from '../components/modals/CreateEventModal';
 import { EventDetailsModal } from '../components/modals/EventDetailsModal';
@@ -27,6 +27,41 @@ const formatDateKey = (date) => {
   return date.toISOString().split('T')[0];
 };
 
+const toEventKind = (event) => String(event?.entry_type || 'EVENT').toUpperCase();
+const toAudience = (event) => String(event?.audience || 'ALL').toUpperCase();
+const toStatus = (event) => String(event?.status || 'OPEN').toUpperCase();
+const toRecurrence = (event) => String(event?.recurrence || 'NONE').toUpperCase();
+
+const isMaintenance = (event) => toEventKind(event) === 'MAINTENANCE';
+const isFamilyEvent = (event) => (
+  toEventKind(event) === 'EVENT'
+  && ['ALL', 'PARENTS', 'CHILDREN'].includes(toAudience(event))
+);
+const isPrivateDaycareItem = (event) => (
+  toAudience(event) === 'PRIVATE'
+  || toAudience(event) === 'STAFF'
+  || isMaintenance(event)
+);
+
+const filterConfigs = [
+  { key: 'all', label: 'All Items', match: () => true },
+  { key: 'family', label: 'Family Events', match: isFamilyEvent },
+  { key: 'private', label: 'Private Daycare', match: isPrivateDaycareItem },
+  { key: 'maintenance', label: 'Maintenance', match: isMaintenance },
+];
+
+const recurrenceLabelMap = {
+  NONE: 'One-Time',
+  MONTHLY: 'Monthly',
+  ANNUAL: 'Annual',
+};
+
+const formatTimeLabel = (event) => {
+  const startTime = event?.start_time;
+  if (!startTime) return 'All day';
+  return startTime.slice(0, 5);
+};
+
 export function EventsPage() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -34,35 +69,56 @@ export function EventsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+
   const monthTitle = useMemo(
     () => currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     [currentMonth]
   );
 
-  useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        setLoading(true);
-        const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-        const response = await api.get('/events', {
-          params: { from: formatDateKey(start), to: formatDateKey(end) },
-        });
-        setEvents(response.data.events || []);
-      } catch (error) {
-        console.error('Failed to load events:', error);
-        setEvents([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadEvents();
+  const loadEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      const response = await api.get('/events', {
+        params: { from: formatDateKey(start), to: formatDateKey(end) },
+      });
+      setEvents(response.data.events || []);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
   }, [currentMonth]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  const activeFilterConfig = useMemo(
+    () => filterConfigs.find((item) => item.key === activeFilter) || filterConfigs[0],
+    [activeFilter]
+  );
+
+  const filterCounts = useMemo(() => {
+    const counts = {};
+    filterConfigs.forEach((config) => {
+      counts[config.key] = events.filter(config.match).length;
+    });
+    return counts;
+  }, [events]);
+
+  const filteredEvents = useMemo(
+    () => events.filter(activeFilterConfig.match),
+    [events, activeFilterConfig]
+  );
 
   const eventsByDate = useMemo(() => {
     const map = new Map();
-    events.forEach((event) => {
+    filteredEvents.forEach((event) => {
       const key = event.event_date;
       if (!map.has(key)) {
         map.set(key, []);
@@ -70,13 +126,32 @@ export function EventsPage() {
       map.get(key).push(event);
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const selectedKey = formatDateKey(selectedDate);
   const selectedEvents = eventsByDate.get(selectedKey) || [];
 
+  const toggleMaintenanceStatus = async (event, clickEvent) => {
+    clickEvent.stopPropagation();
+    const currentStatus = toStatus(event);
+    const nextStatus = currentStatus === 'DONE' ? 'OPEN' : 'DONE';
+    try {
+      setStatusUpdatingId(event.id);
+      const response = await api.patch(`/events/${event.id}`, { status: nextStatus });
+      const updated = response.data.event;
+      setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      if (selectedEvent?.id === updated.id) {
+        setSelectedEvent(updated);
+      }
+    } catch (error) {
+      console.error('Failed to update maintenance status:', error);
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   return (
-    <Layout title="Events" subtitle="Plan and share daycare events">
+    <Layout title="Calendar" subtitle="Family events and private daycare compliance schedule">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 p-1.5 rounded-2xl border themed-border bg-white">
           <button
@@ -86,7 +161,7 @@ export function EventsPage() {
           >
             Prev
           </button>
-          <div className="text-sm font-semibold text-stone-700 min-w-[140px] text-center">
+          <div className="text-sm font-semibold text-stone-700 min-w-[160px] text-center">
             {monthTitle}
           </div>
           <button
@@ -104,8 +179,37 @@ export function EventsPage() {
           style={{ backgroundColor: 'var(--primary)' }}
         >
           <Plus size={16} />
-          Create Event
+          Add Item
         </button>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        {filterConfigs.map((filter) => {
+          const isActive = activeFilter === filter.key;
+          return (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => setActiveFilter(filter.key)}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
+                isActive ? 'text-white' : 'text-stone-600'
+              }`}
+              style={
+                isActive
+                  ? { backgroundColor: 'var(--primary)', borderColor: 'var(--primary)' }
+                  : { backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }
+              }
+            >
+              {filter.label}
+              <span
+                className="px-1.5 py-0.5 rounded-lg text-[10px] font-bold"
+                style={isActive ? { backgroundColor: 'rgba(255,255,255,0.25)' } : { backgroundColor: 'var(--background)' }}
+              >
+                {filterCounts[filter.key] || 0}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
@@ -169,32 +273,87 @@ export function EventsPage() {
               <p className="text-lg font-bold text-stone-800">
                 {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
               </p>
+              <p className="text-[11px] text-stone-500 mt-1">
+                {activeFilterConfig.label}
+              </p>
             </div>
             <CalendarDays size={18} className="text-stone-400" />
           </div>
 
           {loading ? (
-            <div className="text-sm text-stone-500">Loading events...</div>
+            <div className="text-sm text-stone-500">Loading calendar items...</div>
           ) : selectedEvents.length === 0 ? (
-            <div className="text-sm text-stone-500">No events scheduled for this day.</div>
+            <div className="text-sm text-stone-500">No items scheduled for this day.</div>
           ) : (
             <div className="space-y-3">
-              {selectedEvents.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={() => setSelectedEvent(event)}
-                  className="w-full text-left p-4 rounded-2xl border themed-border bg-white hover:bg-[var(--background)] transition-colors"
-                >
-                  <p className="text-sm font-semibold text-stone-800">{event.title}</p>
-                  <p className="text-xs text-stone-500 mt-1">
-                    {event.start_time ? event.start_time.slice(0, 5) : 'All day'}
-                  </p>
-                  {event.location && (
-                    <p className="text-xs text-stone-400 mt-1">{event.location}</p>
-                  )}
-                </button>
-              ))}
+              {selectedEvents.map((event) => {
+                const maintenance = isMaintenance(event);
+                const status = toStatus(event);
+                const done = status === 'DONE';
+                const recurrence = recurrenceLabelMap[toRecurrence(event)] || 'One-Time';
+                return (
+                  <div
+                    key={event.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedEvent(event)}
+                    onKeyDown={(keyEvent) => {
+                      if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+                        keyEvent.preventDefault();
+                        setSelectedEvent(event);
+                      }
+                    }}
+                    className="w-full text-left p-4 rounded-2xl border themed-border bg-white hover:bg-[var(--background)] transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-stone-800 truncate">{event.title}</p>
+                        <p className="text-xs text-stone-500 mt-1">{formatTimeLabel(event)}</p>
+                        {event.location && (
+                          <p className="text-xs text-stone-400 mt-1 truncate">{event.location}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{
+                            backgroundColor: maintenance ? 'rgba(var(--accent-rgb), 0.24)' : 'var(--background)',
+                            color: maintenance ? 'var(--primary-dark)' : 'var(--muted)',
+                          }}
+                        >
+                          {maintenance ? 'Maintenance' : 'Event'}
+                        </span>
+                        {maintenance ? (
+                          <span className="text-[10px] font-semibold text-stone-500">{recurrence}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    {maintenance ? (
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{
+                            backgroundColor: done ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.14)',
+                            color: done ? 'var(--success)' : '#92400e',
+                          }}
+                        >
+                          {done ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
+                          {done ? 'Done' : 'Open'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(clickEvent) => toggleMaintenanceStatus(event, clickEvent)}
+                          disabled={statusUpdatingId === event.id}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-md border themed-border text-stone-600 hover:bg-[var(--background)] disabled:opacity-60"
+                        >
+                          <ShieldCheck size={12} />
+                          {done ? 'Reopen' : 'Mark Done'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -205,19 +364,7 @@ export function EventsPage() {
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           setShowCreateModal(false);
-          const reload = async () => {
-            try {
-              const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-              const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-              const response = await api.get('/events', {
-                params: { from: formatDateKey(start), to: formatDateKey(end) },
-              });
-              setEvents(response.data.events || []);
-            } catch (error) {
-              console.error('Failed to refresh events:', error);
-            }
-          };
-          reload();
+          loadEvents();
         }}
       />
 

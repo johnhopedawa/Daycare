@@ -69,6 +69,10 @@ spec:
             secretKeyRef:
               name: daycare-secrets
               key: contact-to-email
+        - name: CONTACT_TIME_ZONE
+          value: "America/Vancouver"
+        - name: CONTACT_LOCALE
+          value: "en-CA"
         - name: CONTACT_SUBJECT_PREFIX
           value: "Little Sparrows Contact"
         - name: FIREFLY_BASE_URL

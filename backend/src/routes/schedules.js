@@ -119,36 +119,48 @@ router.post('/admin/schedules/recurring', requireAuth, requireAdmin, async (req,
 
     const recurrenceId = recurrenceResult.rows[0].id;
 
-    // Generate schedule instances
-    const schedules = [];
-    const end = endDate ? new Date(endDate) : new Date(startDate);
-    end.setMonth(end.getMonth() + 3); // Default to 3 months if no end date
-
-    let current = new Date(startDate);
-    const targetDay = parseInt(dayOfWeek);
-
-    // Find first occurrence of the target day
-    while (current.getDay() !== targetDay) {
-      current.setDate(current.getDate() + 1);
+    const normalizedDayOfWeek = Number.parseInt(dayOfWeek, 10);
+    if (!Number.isInteger(normalizedDayOfWeek) || normalizedDayOfWeek < 0 || normalizedDayOfWeek > 6) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'dayOfWeek must be an integer between 0 and 6' });
     }
 
-    // Create schedules for each occurrence
-    while (current <= end) {
-      const shiftDate = current.toISOString().split('T')[0];
+    // Use SQL date-series generation to avoid JS timezone drift when creating recurring dates.
+    const scheduleInsertResult = await client.query(
+      `INSERT INTO schedules
+       (user_id, created_by, shift_date, start_time, end_time, hours, notes, recurrence_id)
+       SELECT
+         $1,
+         $2,
+         gs::date,
+         $3,
+         $4,
+         $5,
+         $6,
+         $7
+       FROM generate_series(
+         $8::date,
+         COALESCE($9::date, ($8::date + INTERVAL '3 months')::date),
+         INTERVAL '1 day'
+       ) AS gs
+       WHERE EXTRACT(DOW FROM gs) = $10
+       ORDER BY gs
+       RETURNING *`,
+      [
+        userId,
+        req.user.id,
+        startTime,
+        endTime,
+        hours,
+        notes || null,
+        recurrenceId,
+        startDate,
+        endDate || null,
+        normalizedDayOfWeek,
+      ]
+    );
 
-      const scheduleResult = await client.query(
-        `INSERT INTO schedules
-         (user_id, created_by, shift_date, start_time, end_time, hours, notes, recurrence_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING *`,
-        [userId, req.user.id, shiftDate, startTime, endTime, hours, notes || null, recurrenceId]
-      );
-
-      schedules.push(scheduleResult.rows[0]);
-
-      // Move to next week
-      current.setDate(current.getDate() + 7);
-    }
+    const schedules = scheduleInsertResult.rows;
 
     await client.query('COMMIT');
 

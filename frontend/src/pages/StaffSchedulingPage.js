@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, Pencil, Plus, Trash2, User } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, Pencil, Plus, Trash2, User } from 'lucide-react';
 import { AddShiftModal } from '../components/modals/AddShiftModal';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
@@ -97,6 +97,8 @@ export function StaffSchedulingPage() {
   const [presetShiftDate, setPresetShiftDate] = useState(null);
   const [activeDateKey, setActiveDateKey] = useState(null);
   const [timeOffRequests, setTimeOffRequests] = useState([]);
+  const [isEducatorMenuOpen, setIsEducatorMenuOpen] = useState(false);
+  const educatorMenuRef = useRef(null);
 
   const [editForm, setEditForm] = useState({
     shiftDate: '',
@@ -162,6 +164,30 @@ export function StaffSchedulingPage() {
   useEffect(() => {
     loadTimeOffRequests();
   }, [loadTimeOffRequests]);
+
+  useEffect(() => {
+    if (!isEducatorMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (educatorMenuRef.current && !educatorMenuRef.current.contains(event.target)) {
+        setIsEducatorMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsEducatorMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isEducatorMenuOpen]);
 
   const calculateHours = (startTime, endTime) => {
     if (!startTime || !endTime) return '';
@@ -297,6 +323,14 @@ export function StaffSchedulingPage() {
     };
   }, [activeDateKey, groupedSchedules, timeOffByDate]);
 
+  const selectedEducatorLabel = useMemo(() => {
+    if (selectedEducator === 'all') {
+      return 'All Educators';
+    }
+    const educator = educators.find((edu) => String(edu.id) === String(selectedEducator));
+    return educator ? `${educator.first_name} ${educator.last_name}` : 'All Educators';
+  }, [educators, selectedEducator]);
+
   return (
     <Layout title="Staff Scheduling" subtitle="Manage educator shifts and coverage">
       <div className="themed-surface rounded-3xl p-4 mb-8 flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
@@ -334,23 +368,71 @@ export function StaffSchedulingPage() {
             This Month
           </button>
 
-          <div className="relative">
-            <select
-              value={selectedEducator}
-              onChange={(e) => setSelectedEducator(e.target.value)}
-              className="appearance-none pl-10 pr-8 py-2.5 rounded-2xl border themed-border themed-ring bg-white text-sm font-medium text-stone-600 cursor-pointer themed-hover transition-colors"
+          <div ref={educatorMenuRef} className="relative min-w-[220px]">
+            <button
+              type="button"
+              onClick={() => setIsEducatorMenuOpen((prev) => !prev)}
+              className="w-full pl-10 pr-10 py-2.5 rounded-2xl border themed-border themed-ring bg-white text-sm font-medium text-left text-stone-700 themed-hover transition-colors"
+              aria-haspopup="listbox"
+              aria-expanded={isEducatorMenuOpen}
             >
-              <option value="all">All Educators</option>
-              {educators.map((edu) => (
-                <option key={edu.id} value={edu.id}>
-                  {edu.first_name} {edu.last_name}
-                </option>
-              ))}
-            </select>
-            <User
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
-            />
+              <User
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"
+              />
+              <span>{selectedEducatorLabel}</span>
+              <ChevronDown
+                size={16}
+                className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none transition-transform ${
+                  isEducatorMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {isEducatorMenuOpen && (
+              <div className="absolute z-30 mt-2 w-full rounded-2xl border themed-border bg-white shadow-lg">
+                <div className="max-h-56 overflow-y-auto p-2 space-y-1" role="listbox">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedEducator('all');
+                      setIsEducatorMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                      selectedEducator === 'all'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'text-stone-700 hover:bg-[color:var(--background)]'
+                    }`}
+                    role="option"
+                    aria-selected={selectedEducator === 'all'}
+                  >
+                    All Educators
+                  </button>
+                  {educators.map((edu) => {
+                    const isSelected = String(selectedEducator) === String(edu.id);
+                    return (
+                      <button
+                        key={edu.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedEducator(String(edu.id));
+                          setIsEducatorMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                          isSelected
+                            ? 'bg-[var(--primary)] text-white'
+                            : 'text-stone-700 hover:bg-[color:var(--background)]'
+                        }`}
+                        role="option"
+                        aria-selected={isSelected}
+                      >
+                        {edu.first_name} {edu.last_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

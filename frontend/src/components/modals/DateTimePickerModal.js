@@ -348,14 +348,17 @@ export function DateTimePickerModal({
         className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-[70]"
         aria-hidden="true"
       />
-      <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-[80] flex items-start md:items-center justify-center p-2 sm:p-4 overflow-y-auto"
+        onClick={onClose}
+      >
         <div
           ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="dtpTitle"
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-[860px] bg-[#FFF8F3] border border-[#FFE5D9] rounded-2xl shadow-[0_18px_55px_rgba(0,0,0,0.16)] max-h-[90vh] flex flex-col"
+          className="w-full max-w-[860px] bg-[#FFF8F3] border border-[#FFE5D9] rounded-2xl shadow-[0_18px_55px_rgba(0,0,0,0.16)] my-3 sm:my-4 md:my-0 md:max-h-[90vh] flex flex-col"
         >
           <div className="px-4 sm:px-5 pt-4 pb-2">
             <div className="text-lg font-bold font-quicksand text-stone-800" id="dtpTitle">
@@ -364,8 +367,8 @@ export function DateTimePickerModal({
             <div className="text-xs text-stone-500 mt-1">{subtitle}</div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1.4fr_0.9fr] gap-4 px-4 sm:px-5 pb-5 overflow-hidden flex-1 min-h-0">
-            <section className="p-1 sm:p-2 overflow-y-auto md:overflow-visible min-h-0 soft-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-[1.4fr_0.9fr] gap-4 px-4 sm:px-5 pb-5 md:overflow-hidden md:flex-1 md:min-h-0">
+            <section className="p-1 sm:p-2 md:overflow-y-auto md:min-h-0 md:soft-scrollbar">
               <div className="flex items-center justify-between px-2 py-2">
                 <div className="text-sm font-bold text-stone-800">
                   {monthLabel}
@@ -479,9 +482,9 @@ export function DateTimePickerModal({
               </div>
             </section>
 
-            <aside className="flex flex-col overflow-hidden min-h-0">
-              <div className="w-full bg-white border border-[#FFE5D9] rounded-2xl p-4 flex flex-col overflow-hidden min-h-0">
-                <div className="flex-1 overflow-y-auto soft-scrollbar">
+            <aside className="flex flex-col md:overflow-hidden md:min-h-0">
+              <div className="w-full bg-white border border-[#FFE5D9] rounded-2xl p-4 flex flex-col md:overflow-hidden md:min-h-0">
+                <div className="md:flex-1 md:overflow-y-auto md:soft-scrollbar">
                   <div className="text-xs font-bold text-stone-400 mb-2">Selected Date</div>
                   <div className="bg-[#FFDCC8] rounded-xl py-3 text-center">
                     <div className="text-3xl font-extrabold text-[#5F2019]">
@@ -515,12 +518,12 @@ export function DateTimePickerModal({
                   {sideContent}
                 </div>
 
-                <div className="flex-shrink-0 pt-4 border-t border-[#FFE5D9] mt-4">
+                <div className="flex-shrink-0 pt-4 border-t border-[#FFE5D9] mt-4 space-y-3">
                   <button
                     type="button"
                     onClick={handleConfirm}
                     disabled={confirmDisabled || !isTimeValid}
-                    className={`w-full h-10 rounded-xl text-white font-bold shadow-lg shadow-[#FF9B85]/30 transition-colors ${
+                    className={`w-full h-11 rounded-xl text-white font-bold shadow-lg shadow-[#FF9B85]/30 transition-colors ${
                       confirmDisabled || !isTimeValid
                         ? 'bg-[#FFB7AC] cursor-not-allowed'
                         : 'bg-[#FF9B85] hover:bg-[#E07A5F]'
@@ -531,7 +534,7 @@ export function DateTimePickerModal({
                   <button
                     type="button"
                     onClick={onCancel || onClose}
-                    className="w-full h-10 mt-3 rounded-xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
+                    className="w-full h-11 rounded-xl border border-[#FFE5D9] text-stone-600 font-bold hover:bg-[#FFF8F3] transition-colors"
                   >
                     {cancelLabel}
                   </button>

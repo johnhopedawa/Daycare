@@ -12,7 +12,41 @@ const contactLimiter = rateLimit({
 });
 
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || process.env.SMTP_FROM;
+const CONTACT_TIME_ZONE = process.env.CONTACT_TIME_ZONE || 'America/Vancouver';
+const CONTACT_LOCALE = process.env.CONTACT_LOCALE || 'en-CA';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const createDateTimeFormatter = (options) => {
+  try {
+    return new Intl.DateTimeFormat(CONTACT_LOCALE, {
+      timeZone: CONTACT_TIME_ZONE,
+      ...options,
+    });
+  } catch (error) {
+    console.error(
+      `[Contact] Invalid CONTACT_TIME_ZONE "${CONTACT_TIME_ZONE}" or CONTACT_LOCALE "${CONTACT_LOCALE}". Falling back to UTC.`,
+      error
+    );
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      ...options,
+    });
+  }
+};
+
+const contactDateFormatter = createDateTimeFormatter({
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+const contactTimeFormatter = createDateTimeFormatter({
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZoneName: 'short',
+});
 
 const sanitize = (value, maxLen) => {
   if (typeof value !== 'string') {
@@ -52,18 +86,8 @@ router.post('/contact', contactLimiter, async (req, res) => {
   }
 
   const submittedAt = new Date();
-  const submittedDate = submittedAt.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const submittedTime = submittedAt.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'short',
-  });
+  const submittedDate = contactDateFormatter.format(submittedAt);
+  const submittedTime = contactTimeFormatter.format(submittedAt);
   const subject = `New Form Submission: ${safeFirstName} ${safeLastName}`;
   const escapedName = escapeHtml(`${safeFirstName} ${safeLastName}`);
   const escapedEmail = escapeHtml(safeEmail);

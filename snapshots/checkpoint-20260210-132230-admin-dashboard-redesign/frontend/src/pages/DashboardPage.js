@@ -208,63 +208,33 @@ const groupRequests = (requests) => {
 
 const PANEL_STYLE = {
   backgroundColor: 'var(--surface)',
-  borderColor: 'rgba(var(--accent-rgb), 0.24)',
-  boxShadow: '0 18px 38px rgba(15, 23, 42, 0.09)',
-  backgroundImage:
-    'linear-gradient(160deg, rgba(var(--accent-rgb), 0.2) 0%, rgba(255, 255, 255, 0.98) 55%, rgba(var(--accent-rgb), 0.08) 100%)',
+  borderColor: 'var(--border)',
+  boxShadow: 'var(--panel-shadow)',
+  backgroundImage: 'linear-gradient(180deg, rgba(var(--accent-rgb), 0.14) 0%, rgba(255, 255, 255, 0) 42%)',
   borderRadius: 'var(--panel-radius)',
   padding: 'var(--panel-padding)',
 };
 
 const HERO_PANEL_STYLE = {
   ...PANEL_STYLE,
-  borderTopColor: 'rgba(var(--accent-rgb), 0.92)',
-  borderTopWidth: '3px',
-  boxShadow: '0 24px 44px rgba(15, 23, 42, 0.12)',
+  borderTopColor: 'var(--primary)',
+  borderTopWidth: '2px',
 };
 
 const ROW_STYLE = {
-  backgroundColor: 'rgba(255, 255, 255, 0.94)',
-  borderColor: 'rgba(var(--accent-rgb), 0.2)',
-  boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+  backgroundColor: 'var(--bubble-bg)',
+  borderColor: 'var(--bubble-border)',
+  boxShadow: 'var(--panel-shadow-soft)',
 };
 
 const OUTLINE_STYLE = {
-  borderColor: 'rgba(var(--accent-rgb), 0.28)',
-  backgroundColor: 'rgba(var(--accent-rgb), 0.08)',
+  borderColor: 'var(--border)',
 };
 
 const FINANCE_TILE_STYLE = {
   backgroundColor: 'var(--surface)',
-  borderColor: 'rgba(var(--accent-rgb), 0.22)',
-  boxShadow: '0 14px 30px rgba(15, 23, 42, 0.08)',
-  backgroundImage: 'linear-gradient(180deg, rgba(var(--accent-rgb), 0.12) 0%, rgba(255, 255, 255, 0) 45%)',
-};
-
-const DASHBOARD_CANVAS_STYLE = {
-  background:
-    'linear-gradient(145deg, rgba(var(--accent-rgb), 0.1) 0%, rgba(255, 255, 255, 0.84) 45%, rgba(var(--accent-rgb), 0.06) 100%)',
-  borderColor: 'rgba(var(--accent-rgb), 0.26)',
-  boxShadow: '0 26px 56px rgba(15, 23, 42, 0.12)',
-};
-
-const COMMAND_BAR_STYLE = {
-  backgroundColor: 'rgba(var(--accent-rgb), 0.08)',
-  borderColor: 'rgba(var(--accent-rgb), 0.24)',
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.68)',
-};
-
-const COMMAND_BADGE_STYLE = {
-  backgroundColor: 'var(--surface)',
-  borderColor: 'rgba(var(--accent-rgb), 0.22)',
-  boxShadow: '0 8px 18px rgba(15, 23, 42, 0.08)',
-};
-
-const ACTION_BUTTON_STYLE = {
-  borderColor: 'rgba(var(--accent-rgb), 0.22)',
-  backgroundImage:
-    'linear-gradient(165deg, rgba(var(--accent-rgb), 0.17) 0%, rgba(255, 255, 255, 0.98) 82%)',
-  boxShadow: '0 10px 20px rgba(15, 23, 42, 0.08)',
+  borderColor: 'var(--border)',
+  boxShadow: 'var(--panel-shadow-soft)',
 };
 
 export function DashboardPage() {
@@ -787,40 +757,35 @@ export function DashboardPage() {
     <div className="flex flex-wrap items-center gap-2">
       <button
         onClick={() => navigate('/attendance')}
-        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-stone-700 transition-all duration-200 hover:-translate-y-0.5"
-        style={ACTION_BUTTON_STYLE}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
       >
         <ClipboardCheck size={16} style={{ color: 'var(--primary-dark)' }} />
         Attendance
       </button>
       <button
         onClick={() => setIsAddChildOpen(true)}
-        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-stone-700 transition-all duration-200 hover:-translate-y-0.5"
-        style={ACTION_BUTTON_STYLE}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
       >
         <Users size={16} style={{ color: 'var(--primary-dark)' }} />
         Add Child
       </button>
       <button
         onClick={() => setIsMessageOpen(true)}
-        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-stone-700 transition-all duration-200 hover:-translate-y-0.5"
-        style={ACTION_BUTTON_STYLE}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
       >
         <Mail size={16} style={{ color: 'var(--primary-dark)' }} />
         Send Message
       </button>
       <button
         onClick={() => navigate('/payments')}
-        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-stone-700 transition-all duration-200 hover:-translate-y-0.5"
-        style={ACTION_BUTTON_STYLE}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
       >
         <ClipboardList size={16} style={{ color: 'var(--primary-dark)' }} />
         Record Payment
       </button>
       <button
         onClick={() => setIsEventOpen(true)}
-        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm font-semibold text-stone-700 transition-all duration-200 hover:-translate-y-0.5"
-        style={ACTION_BUTTON_STYLE}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-stone-700 elevated-control"
       >
         <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
         Create Event
@@ -891,11 +856,10 @@ export function DashboardPage() {
     : `Kids:Staff ${ratioLabel} | ${compliance.kids_present} kids | ${compliance.staff_scheduled} staff`;
   const showComplianceWarning = !complianceLoading && !compliance.in_compliance;
   const complianceIconColor = showComplianceWarning ? 'var(--danger)' : 'var(--success)';
-  const dashboardTitle = user?.first_name ? `Hi, ${user.first_name}` : 'Hi';
 
   if (loading) {
     return (
-      <Layout title={dashboardTitle} subtitle="Loading today's overview">
+      <Layout title="Day-of Ops" subtitle="Loading today's overview">
         <div className="flex items-center justify-center h-64">
           <div className="text-stone-500">Loading...</div>
         </div>
@@ -905,7 +869,7 @@ export function DashboardPage() {
 
   return (
     <Layout
-      title={dashboardTitle}
+      title={`Day-of Ops${user?.first_name ? `, ${user.first_name}` : ''}`}
       subtitle={new Date().toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -914,83 +878,52 @@ export function DashboardPage() {
       })}
       actionBar={actionBar}
     >
-      <div className="relative overflow-hidden rounded-[30px] border p-4 sm:p-5 lg:p-6" style={DASHBOARD_CANVAS_STYLE}>
-        <div
-          className="pointer-events-none absolute -top-20 -left-16 h-64 w-64 rounded-full blur-3xl"
-          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.24)' }}
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+        style={{ gap: 'var(--layout-gap)', marginBottom: 'var(--layout-gap)' }}
+      >
+        <MetricCard
+          title="Present Today"
+          value={`${summary.presentCount}/${summary.expectedCount}`}
+          icon={UserCheck}
+          themeIndex={1}
+          delay={0.1}
         />
-        <div
-          className="pointer-events-none absolute -bottom-24 -right-20 h-72 w-72 rounded-full blur-3xl"
-          style={{ backgroundColor: 'rgba(15, 23, 42, 0.09)' }}
+        <MetricCard
+          title="Staff Scheduled"
+          value={summary.staffScheduled}
+          icon={Briefcase}
+          themeIndex={2}
+          delay={0.2}
         />
-        <div className="relative">
-          <div className="mb-5 flex flex-wrap items-center justify-end gap-2 rounded-3xl border px-4 py-4 sm:px-5" style={COMMAND_BAR_STYLE}>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={COMMAND_BADGE_STYLE}>
-                <Users size={14} style={{ color: 'var(--primary-dark)' }} />
-                {summary.expectedCount} enrolled
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={COMMAND_BADGE_STYLE}>
-                <UserCheck size={14} style={{ color: 'var(--success)' }} />
-                {summary.presentCount} present
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={COMMAND_BADGE_STYLE}>
-                <CalendarCheck size={14} style={{ color: 'var(--primary-dark)' }} />
-                {upcomingEvents.total} upcoming events
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={COMMAND_BADGE_STYLE}>
-                <ClipboardList size={14} style={{ color: 'var(--warning)' }} />
-                {timeOffSummary.total} time-off requests
-              </div>
-            </div>
-          </div>
+        <MetricCard
+          title="In Compliance"
+          value={
+            showComplianceWarning ? (
+              <AlertTriangle size={32} style={{ color: complianceIconColor }} />
+            ) : (
+              <Check size={32} style={{ color: complianceIconColor }} />
+            )
+          }
+          icon={ShieldCheck}
+          themeIndex={3}
+          delay={0.3}
+          footer={complianceFooter}
+          onClick={handleOpenRatio}
+        />
+        <MetricCard
+          title="Pending Tasks"
+          value={pendingTasks}
+          icon={ClipboardList}
+          themeIndex={4}
+          delay={0.4}
+          onClick={openPendingTasks}
+        />
+      </div>
 
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
-            style={{ gap: 'var(--layout-gap)', marginBottom: 'var(--layout-gap)' }}
-          >
-            <MetricCard
-              title="Present Today"
-              value={`${summary.presentCount}/${summary.expectedCount}`}
-              icon={UserCheck}
-              themeIndex={1}
-              delay={0.1}
-            />
-            <MetricCard
-              title="Staff Scheduled"
-              value={summary.staffScheduled}
-              icon={Briefcase}
-              themeIndex={2}
-              delay={0.2}
-            />
-            <MetricCard
-              title="In Compliance"
-              value={
-                showComplianceWarning ? (
-                  <AlertTriangle size={32} style={{ color: complianceIconColor }} />
-                ) : (
-                  <Check size={32} style={{ color: complianceIconColor }} />
-                )
-              }
-              icon={ShieldCheck}
-              themeIndex={3}
-              delay={0.3}
-              footer={complianceFooter}
-              onClick={handleOpenRatio}
-            />
-            <MetricCard
-              title="Pending Tasks"
-              value={pendingTasks}
-              icon={ClipboardList}
-              themeIndex={4}
-              delay={0.4}
-              onClick={openPendingTasks}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3" style={{ gap: 'var(--layout-gap)' }}>
-            <div className="xl:col-span-2 flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
-              <section className="border rounded-[28px] bg-[var(--surface)]" style={HERO_PANEL_STYLE}>
+      <div className="grid grid-cols-1 xl:grid-cols-3" style={{ gap: 'var(--layout-gap)' }}>
+        <div className="xl:col-span-2 flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
+          <section className="border bg-[var(--surface)]" style={HERO_PANEL_STYLE}>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div>
                 <h3 className="section-title font-quicksand font-bold text-xl">Finance Snapshot</h3>
@@ -1000,7 +933,7 @@ export function DashboardPage() {
               </div>
               <button
                 onClick={() => navigate('/finance/transactions')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-colors"
                 style={{ ...OUTLINE_STYLE, color: 'var(--primary-dark)', backgroundColor: 'var(--surface)' }}
               >
                 <BarChart3 size={16} style={{ color: 'var(--primary-dark)' }} />
@@ -1019,7 +952,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]" style={{ gap: 'var(--layout-gap)' }}>
-                  <div className="rounded-3xl border p-5 transition-transform duration-200 hover:-translate-y-0.5" style={FINANCE_TILE_STYLE}>
+                  <div className="rounded-3xl border p-5" style={FINANCE_TILE_STYLE}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--muted)' }}>
                         <PieChart size={16} />
@@ -1065,7 +998,7 @@ export function DashboardPage() {
                     )}
                   </div>
 
-                  <div className="rounded-3xl border p-5 transition-transform duration-200 hover:-translate-y-0.5" style={FINANCE_TILE_STYLE}>
+                  <div className="rounded-3xl border p-5" style={FINANCE_TILE_STYLE}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--muted)' }}>
                         <BarChart3 size={16} />
@@ -1079,7 +1012,7 @@ export function DashboardPage() {
                       {financeKpis.map((item) => {
                         const Icon = item.icon;
                         return (
-                          <div key={item.key} className="rounded-2xl border p-4 h-full transition-transform duration-200 hover:-translate-y-0.5" style={ROW_STYLE}>
+                          <div key={item.key} className="rounded-2xl border p-4 h-full" style={ROW_STYLE}>
                             <div className="flex items-center gap-3 lg:grid lg:grid-cols-[2.5rem_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:items-start lg:gap-x-3 lg:gap-y-1">
                               <p className="hidden lg:block lg:col-span-2 text-xs font-semibold break-words leading-tight" style={{ color: 'var(--muted)' }}>
                                 {item.label}
@@ -1106,7 +1039,7 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-3xl border p-5 transition-transform duration-200 hover:-translate-y-0.5" style={FINANCE_TILE_STYLE}>
+                <div className="mt-6 rounded-3xl border p-5" style={FINANCE_TILE_STYLE}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <BarChart3 size={18} style={{ color: 'var(--primary-dark)' }} />
@@ -1165,16 +1098,16 @@ export function DashboardPage() {
                 </div>
               </>
             )}
-              </section>
-            </div>
+          </section>
+        </div>
 
-            <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
-              <section className="border rounded-[28px] bg-[var(--surface)]" style={PANEL_STYLE}>
+        <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
+          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="section-title font-quicksand font-bold text-xl">Time Off Requests</h3>
               <button
                 onClick={() => navigate('/time-entries')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
                 style={OUTLINE_STYLE}
               >
                 <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
@@ -1193,7 +1126,7 @@ export function DashboardPage() {
                     key={request.id}
                     type="button"
                     onClick={() => openTimeOffDetails(request)}
-                    className="w-full text-left flex items-center justify-between p-3 rounded-xl border transition-all duration-200 hover:-translate-y-0.5"
+                    className="w-full text-left flex items-center justify-between p-3 rounded-xl border transition-colors hover:bg-[var(--background)]"
                     style={ROW_STYLE}
                   >
                     <div>
@@ -1218,20 +1151,20 @@ export function DashboardPage() {
             {timeOffSummary.total > 2 && (
               <button
                 onClick={() => navigate('/time-entries')}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 mt-4 rounded-xl border text-sm font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 mt-4 rounded-xl border text-sm font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
                 style={OUTLINE_STYLE}
               >
                 See More
               </button>
             )}
-              </section>
+          </section>
 
-              <section className="border rounded-[28px] bg-[var(--surface)]" style={PANEL_STYLE}>
+          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="section-title font-quicksand font-bold text-xl">Upcoming Events</h3>
               <button
                 onClick={() => navigate('/events')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
                 style={OUTLINE_STYLE}
               >
                 <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
@@ -1245,7 +1178,7 @@ export function DashboardPage() {
                 {upcomingEvents.visible.map((eventItem) => (
                   <div
                     key={eventItem.id}
-                    className="p-3 rounded-xl border transition-transform duration-200 hover:-translate-y-0.5"
+                    className="p-3 rounded-xl border"
                     style={ROW_STYLE}
                   >
                     <p className="text-sm font-semibold text-stone-800">{eventItem.title}</p>
@@ -1263,7 +1196,7 @@ export function DashboardPage() {
                 {upcomingEvents.total > 2 && (
                   <button
                     onClick={() => navigate('/events')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
                     style={OUTLINE_STYLE}
                   >
                     See More
@@ -1271,9 +1204,9 @@ export function DashboardPage() {
                 )}
               </div>
             )}
-              </section>
+          </section>
 
-              <section className="border rounded-[28px] bg-[var(--surface)]" style={PANEL_STYLE}>
+          <section className="border bg-[var(--surface)]" style={PANEL_STYLE}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="section-title font-quicksand font-bold text-xl">Financial Alerts</h3>
               <ClipboardList size={18} style={{ color: 'var(--primary-dark)' }} />
@@ -1295,16 +1228,14 @@ export function DashboardPage() {
               </div>
               <button
                 onClick={() => navigate('/billing')}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 hover:bg-[var(--background)] transition-colors"
                 style={OUTLINE_STYLE}
               >
                 <LogIn size={16} style={{ color: 'var(--primary-dark)' }} />
                 Go to Billing
               </button>
             </div>
-              </section>
-            </div>
-          </div>
+          </section>
         </div>
       </div>
 

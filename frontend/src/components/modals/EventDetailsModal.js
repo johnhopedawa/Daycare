@@ -16,14 +16,34 @@ export function EventDetailsModal({ event, isOpen, onClose }) {
     return null;
   }
 
+  const entryType = String(event.entry_type || 'EVENT').toUpperCase();
+  const audience = String(event.audience || 'ALL').toUpperCase();
+  const status = String(event.status || 'OPEN').toUpperCase();
+  const recurrence = String(event.recurrence || 'NONE').toUpperCase();
   const timeLabel = event.start_time
     ? `${formatTime(event.start_time)}${event.end_time ? ` - ${formatTime(event.end_time)}` : ''}`
     : 'All day';
+  const audienceLabelMap = {
+    ALL: 'All Families',
+    PARENTS: 'All Families',
+    CHILDREN: 'All Families',
+    STAFF: 'Daycare (Admins + Staff)',
+    PRIVATE: 'Admin Only (Self)',
+  };
+  const recurrenceLabelMap = {
+    NONE: 'One-Time',
+    MONTHLY: 'Monthly',
+    ANNUAL: 'Annual',
+  };
 
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} title={event.title}>
       <div className="space-y-4">
         <div className="grid gap-3 text-sm text-stone-600">
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Type</p>
+            <p>{entryType === 'MAINTENANCE' ? 'Maintenance/Compliance' : 'Event'}</p>
+          </div>
           <div>
             <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Date</p>
             <p>{new Date(event.event_date).toLocaleDateString()}</p>
@@ -41,9 +61,21 @@ export function EventDetailsModal({ event, isOpen, onClose }) {
           {event.audience && (
             <div>
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Audience</p>
-              <p className="capitalize">{String(event.audience).toLowerCase()}</p>
+              <p>{audienceLabelMap[audience] || audience}</p>
             </div>
           )}
+          {entryType === 'MAINTENANCE' ? (
+            <>
+              <div>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Recurrence</p>
+                <p>{recurrenceLabelMap[recurrence] || 'One-Time'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Status</p>
+                <p>{status === 'DONE' ? 'Done' : 'Open'}</p>
+              </div>
+            </>
+          ) : null}
         </div>
         {event.description && (
           <div>

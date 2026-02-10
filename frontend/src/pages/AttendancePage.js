@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
-import { Check, Clock, AlertCircle, UserCheck, Calendar, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Check, Clock, AlertCircle, Calendar, ToggleLeft, ToggleRight } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
 
@@ -22,6 +22,9 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [isAbsentOpen, setIsAbsentOpen] = useState(false);
   const [parentName, setParentName] = useState('');
+  const [parentOptions, setParentOptions] = useState([]);
+  const [selectedParentOption, setSelectedParentOption] = useState('custom');
+  const [customParentName, setCustomParentName] = useState('');
   const [manualTime, setManualTime] = useState('07:00');
   const [checkInNotes, setCheckInNotes] = useState('');
   const [checkOutNotes, setCheckOutNotes] = useState('');
@@ -34,8 +37,10 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
       setLoading(true);
       setAttendanceError('');
       const dateStr = formatDateForAPI(selectedDate);
-      const attendanceRes = await api.get(`/attendance?start_date=${dateStr}&end_date=${dateStr}`);
-      const childrenRes = await api.get('/children?status=ACTIVE');
+      const [attendanceRes, childrenRes] = await Promise.all([
+        api.get(`/attendance?start_date=${dateStr}&end_date=${dateStr}`),
+        api.get(`/attendance/children?status=ACTIVE&date=${dateStr}`),
+      ]);
 
       const attendanceData = attendanceRes.data.attendance || [];
       const childrenData = childrenRes.data.children || [];
@@ -120,6 +125,40 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  const parseAttendanceNotes = (rawNotes) => {
+    const parsed = { dropOff: '', pickUp: '', general: '' };
+    const value = String(rawNotes || '').trim();
+    if (!value) {
+      return parsed;
+    }
+
+    const generalLines = [];
+    value.split('\n').forEach((line) => {
+      const entry = line.trim();
+      if (!entry) return;
+      if (entry.startsWith('DROP_OFF_NOTE::')) {
+        parsed.dropOff = entry.replace('DROP_OFF_NOTE::', '').trim();
+        return;
+      }
+      if (entry.startsWith('PICK_UP_NOTE::')) {
+        parsed.pickUp = entry.replace('PICK_UP_NOTE::', '').trim();
+        return;
+      }
+      generalLines.push(entry);
+    });
+
+    parsed.general = generalLines.join('\n').trim();
+    return parsed;
+  };
+
+  const buildAttendanceNotes = ({ dropOff = '', pickUp = '', general = '' }) => {
+    const lines = [];
+    if (dropOff) lines.push(`DROP_OFF_NOTE::${dropOff}`);
+    if (pickUp) lines.push(`PICK_UP_NOTE::${pickUp}`);
+    if (general) lines.push(general);
+    return lines.join('\n').trim() || null;
+  };
+
   const getStatusBadge = (record) => {
     if (!record) {
       return <span className="text-stone-400 text-sm">Not recorded</span>;
@@ -168,6 +207,70 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
     localStorage.setItem('attendanceMode', nextMode);
   };
 
+  const getParentChoicesForChild = useCallback((childId) => {
+    const child = children.find((entry) => String(entry.id) === String(childId));
+    const rawParents = Array.isArray(child?.parents) ? child.parents : [];
+    const uniqueParents = Array.from(
+      new Map(
+        rawParents
+          .filter((parent) => parent && parent.id)
+          .map((parent) => [String(parent.id), parent])
+      ).values()
+    );
+
+    const sortedParents = [...uniqueParents].sort((a, b) => {
+      const aPrimary = Boolean(a.is_primary_contact);
+      const bPrimary = Boolean(b.is_primary_contact);
+      if (aPrimary !== bPrimary) {
+        return aPrimary ? -1 : 1;
+      }
+      const aName = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+      const bName = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+      return aName.localeCompare(bName);
+    });
+
+    const options = sortedParents.map((parent) => ({
+      value: String(parent.id),
+      label: `${parent.first_name || ''} ${parent.last_name || ''}`.trim() || `Parent ${parent.id}`,
+      isPrimary: Boolean(parent.is_primary_contact),
+    }));
+
+    const defaultValue = options.find((option) => option.isPrimary)?.value || options[0]?.value || 'custom';
+    return { options, defaultValue };
+  }, [children]);
+
+  const initializeParentSelection = useCallback((childId) => {
+    const { options, defaultValue } = getParentChoicesForChild(childId);
+    setParentOptions(options);
+    setSelectedParentOption(defaultValue);
+    setCustomParentName('');
+
+    if (defaultValue === 'custom') {
+      setParentName('');
+      return;
+    }
+
+    const selected = options.find((option) => option.value === defaultValue);
+    setParentName(selected?.label || '');
+  }, [getParentChoicesForChild]);
+
+  const handleParentOptionChange = (nextValue) => {
+    setSelectedParentOption(nextValue);
+    if (nextValue === 'custom') {
+      setParentName(customParentName.trim());
+      return;
+    }
+    const selected = parentOptions.find((option) => option.value === nextValue);
+    setParentName(selected?.label || '');
+  };
+
+  const handleCustomParentNameChange = (value) => {
+    setCustomParentName(value);
+    if (selectedParentOption === 'custom') {
+      setParentName(value);
+    }
+  };
+
   const openDatePicker = () => {
     setPendingDate(new Date(selectedDate));
     setDatePickerMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
@@ -181,7 +284,7 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
 
   const handleCheckIn = (childId) => {
     setSelectedChildId(childId);
-    setParentName('');
+    initializeParentSelection(childId);
     setCheckInNotes('');
     if (attendanceMode === 'manual') {
       setManualTime('07:00');
@@ -191,7 +294,7 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
 
   const handleCheckOut = (childId) => {
     setSelectedChildId(childId);
-    setParentName('');
+    initializeParentSelection(childId);
     setCheckOutNotes('');
     if (attendanceMode === 'manual') {
       setManualTime('18:00');
@@ -201,17 +304,25 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
 
   const handleSubmitCheckIn = async () => {
     if (!parentName.trim()) {
-      alert('Please enter parent/guardian name');
+      alert('Please select or enter a parent/guardian name');
       return;
     }
 
     try {
       setSubmittingChildId(selectedChildId);
+      const existingRecord = attendance.find((entry) => entry.child_id === selectedChildId);
+      const existingNotes = parseAttendanceNotes(existingRecord?.notes);
+      const nextNotes = buildAttendanceNotes({
+        dropOff: checkInNotes.trim() || existingNotes.dropOff,
+        pickUp: existingNotes.pickUp,
+        general: existingNotes.general,
+      });
+
       const payload = {
         child_id: selectedChildId,
         parent_name: parentName,
         attendance_date: formatDateForAPI(selectedDate),
-        notes: checkInNotes || null,
+        notes: nextNotes,
       };
 
       if (attendanceMode === 'manual') {
@@ -231,17 +342,29 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
 
   const handleSubmitCheckOut = async () => {
     if (!parentName.trim()) {
-      alert('Please enter parent/guardian name');
+      alert('Please select or enter a parent/guardian name');
       return;
     }
 
     try {
       setSubmittingChildId(selectedChildId);
+      const existingRecord = attendance.find((entry) => entry.child_id === selectedChildId);
+      const existingNotes = parseAttendanceNotes(existingRecord?.notes);
+      const fallbackDropOffNote = !existingNotes.dropOff && !existingNotes.pickUp && existingNotes.general && existingRecord?.check_in_time
+        ? existingNotes.general
+        : '';
+      const generalNotes = fallbackDropOffNote ? '' : existingNotes.general;
+      const nextNotes = buildAttendanceNotes({
+        dropOff: existingNotes.dropOff || fallbackDropOffNote,
+        pickUp: checkOutNotes.trim() || existingNotes.pickUp,
+        general: generalNotes,
+      });
+
       const payload = {
         child_id: selectedChildId,
         parent_name: parentName,
         attendance_date: formatDateForAPI(selectedDate),
-        notes: checkOutNotes || null,
+        notes: nextNotes,
       };
 
       if (attendanceMode === 'manual') {
@@ -289,11 +412,25 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
     return attendance.find((record) => record.child_id === childId);
   };
 
+  const selectedDateKey = formatDateForAPI(selectedDate);
+  const todayKey = formatDateForAPI(new Date());
+  const isSelectedDateToday = selectedDateKey === todayKey;
+  const recordedCount = stats.present + stats.checkedOut + stats.absent;
+  const completionPercent = stats.total > 0
+    ? Math.min(100, Math.round((recordedCount / stats.total) * 100))
+    : 0;
+
   if (loading) {
     return (
       <LayoutComponent title={title} subtitle={subtitle}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-stone-500">Loading...</div>
+        <div className="flex min-h-[320px] items-center justify-center">
+          <div className="rounded-3xl border themed-border bg-white px-8 py-10 text-center shadow-sm">
+            <div
+              className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4"
+              style={{ borderColor: 'var(--border)', borderTopColor: 'var(--primary)' }}
+            />
+            <div className="text-sm font-semibold text-stone-600">Loading attendance workspace...</div>
+          </div>
         </div>
       </LayoutComponent>
     );
@@ -301,123 +438,118 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
 
   return (
     <LayoutComponent title={title} subtitle={subtitle}>
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div
-          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-400 font-medium uppercase mb-1">Total Children</p>
-              <p className="text-3xl font-bold text-stone-800">{stats.total}</p>
+      <div className="mb-8 overflow-hidden rounded-3xl border themed-border bg-white p-6 md:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-stone-500">Attendance Workspace</p>
+            <h2 className="text-2xl font-black text-stone-800 md:text-3xl">
+              {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </h2>
+            <p className="mt-2 text-sm text-stone-600">
+              {isSelectedDateToday ? 'Live day view. Updates are reflected in real time.' : 'Historical date selected. You can still update attendance records.'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-stone-700">
+                {recordedCount}/{stats.total} recorded
+              </span>
+              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-stone-700">
+                {completionPercent}% completion
+              </span>
+              {!isSelectedDateToday && (
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                  Historical mode
+                </span>
+              )}
             </div>
-            <div className="p-3 bg-[var(--card-1)] rounded-2xl">
-              <UserCheck size={24} className="text-[var(--card-text-1)]" />
-            </div>
+          </div>
+
+          <div className="grid w-full gap-2 sm:grid-cols-3 lg:w-auto">
+            <button
+              onClick={openDatePicker}
+              className="rounded-2xl border themed-border bg-[var(--background)] px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:brightness-95"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Calendar size={16} />
+                Choose Date
+              </span>
+            </button>
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="rounded-2xl border themed-border bg-[var(--background)] px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSelectedDateToday}
+            >
+              Today
+            </button>
+            <button
+              onClick={toggleAttendanceMode}
+              className="rounded-2xl border themed-border bg-[var(--background)] px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:brightness-95"
+            >
+              <span className="inline-flex items-center gap-2">
+                {attendanceMode === 'manual' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                {attendanceMode === 'manual' ? 'Manual Time' : 'Auto Time'}
+              </span>
+            </button>
           </div>
         </div>
 
-        <div
-          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-400 font-medium uppercase mb-1">Present</p>
-              <p className="text-3xl font-bold text-green-600">{stats.present}</p>
-            </div>
-            <div className="p-3 bg-[var(--card-2)] rounded-2xl">
-              <Check size={24} className="text-[var(--card-text-2)]" />
-            </div>
+        <div className="mt-6">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-stone-600">
+            <span>Roster Completion</span>
+            <span>{completionPercent}%</span>
           </div>
-        </div>
-
-        <div
-          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-400 font-medium uppercase mb-1">Checked Out</p>
-              <p className="text-3xl font-bold text-amber-600">{stats.checkedOut}</p>
-            </div>
-            <div className="p-3 bg-[var(--card-3)] rounded-2xl">
-              <Clock size={24} className="text-[var(--card-text-3)]" />
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="bg-white p-6 rounded-3xl shadow-sm border themed-border"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-400 font-medium uppercase mb-1">Absent</p>
-              <p className="text-3xl font-bold text-red-500">{stats.absent}</p>
-            </div>
-            <div className="p-3 bg-[var(--card-4)] rounded-2xl">
-              <AlertCircle size={24} className="text-[var(--card-text-4)]" />
-            </div>
+          <div className="h-2 overflow-hidden rounded-full bg-stone-100">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${completionPercent}%`, backgroundColor: 'var(--primary)' }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Attendance Table */}
-      <div className="bg-white rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border overflow-hidden">
-        <div className="p-6 border-b themed-border flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-quicksand font-bold text-xl text-stone-800">
-            Attendance for {selectedDate.toLocaleDateString()}
-          </h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={openDatePicker}
-              className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] font-medium text-sm themed-hover transition-colors flex items-center gap-2"
-            >
-              <Calendar size={16} /> Choose Date
-            </button>
-            <button
-              onClick={toggleAttendanceMode}
-              className="px-4 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] font-medium text-sm themed-hover transition-colors flex items-center gap-2"
-            >
-              {attendanceMode === 'manual' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-              {attendanceMode === 'manual' ? 'Manual Time' : 'Auto Time'}
-            </button>
+      <div className="overflow-hidden rounded-3xl border themed-border bg-white shadow-[0_16px_30px_-18px_var(--menu-shadow)]">
+        <div className="border-b themed-border px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-quicksand text-xl font-bold text-stone-800">Attendance Log</h3>
+              <p className="mt-1 text-sm text-stone-500">Manage check-ins, check-outs, and absence statuses.</p>
+            </div>
+            <span className="rounded-full bg-[var(--background)] px-3 py-1 text-xs font-semibold text-[var(--primary-dark)]">
+              {attendanceMode === 'manual' ? 'Manual timing enabled' : 'Automatic timing enabled'}
+            </span>
           </div>
         </div>
 
         {attendanceError ? (
-          <div className="p-12 text-center">
-            <p className="text-stone-500">{attendanceError}</p>
+          <div className="px-6 py-12 text-center">
+            <p className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+              {attendanceError}
+            </p>
           </div>
         ) : children.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="px-6 py-12 text-center">
             <p className="text-stone-500">No active children found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[1020px]">
               <thead className="bg-[var(--background)]">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  <th className="w-[220px] px-4 py-3 text-left font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
                     Child
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Check-in Time
+                  <th className="px-6 py-3 text-left font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
+                    Check-in
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Check-out Time
+                  <th className="px-6 py-3 text-left font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
+                    Check-out
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Status
+                  <th className="px-6 py-3 text-left font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
+                    Drop-off
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Parent Drop-off
+                  <th className="px-6 py-3 text-left font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
+                    Pick-up
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Parent Pick-up
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
-                    Notes
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-stone-500 uppercase tracking-wider font-quicksand">
+                  <th className="px-6 py-3 text-right font-quicksand text-xs font-bold uppercase tracking-wider text-stone-500">
                     Actions
                   </th>
                 </tr>
@@ -428,53 +560,90 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
                   const isCheckedIn = record && record.check_in_time && !record.check_out_time;
                   const isCheckedOut = record && record.check_out_time;
                   const isAbsent = record && ['ABSENT', 'SICK', 'VACATION'].includes(record.status);
+                  const hasCheckIn = Boolean(record?.check_in_time);
+                  const hasCheckOut = Boolean(record?.check_out_time);
+                  const noteParts = parseAttendanceNotes(record?.notes);
+                  const dropOffNote = noteParts.dropOff
+                    || ((!noteParts.dropOff && !noteParts.pickUp && noteParts.general && record?.check_in_time && !record?.check_out_time)
+                      ? noteParts.general
+                      : '');
+                  const pickUpNote = noteParts.pickUp
+                    || ((!noteParts.dropOff && !noteParts.pickUp && noteParts.general && record?.check_out_time)
+                      ? noteParts.general
+                      : '');
 
                   return (
-                    <tr
-                      key={child.id}
-                      className="themed-row transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <tr key={child.id} className="transition-colors hover:bg-[var(--background)]">
+                      <td className="w-[220px] px-4 py-3">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-[var(--card-1)] flex items-center justify-center text-[var(--card-text-1)] font-bold mr-3">
+                          <div className="mr-2 flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--card-1)] font-bold text-[var(--card-text-1)]">
                             {child.first_name.charAt(0)}
                           </div>
-                          <div className="text-sm font-bold text-stone-800">
-                            {child.first_name} {child.last_name}
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-stone-800">
+                              {child.first_name} {child.last_name}
+                            </div>
+                            <div className="mt-1">{getStatusBadge(record)}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600 font-medium">
-                        {formatTime(record?.check_in_time)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-700">
+                        {hasCheckIn ? (
+                          formatTime(record?.check_in_time)
+                        ) : !record ? (
+                          <button
+                            onClick={() => handleCheckIn(child.id)}
+                            className="rounded-lg bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-dark)] transition hover:brightness-95"
+                            disabled={submittingChildId === child.id}
+                          >
+                            Check In
+                          </button>
+                        ) : (
+                          '-'
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600 font-medium">
-                        {formatTime(record?.check_out_time)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-stone-700">
+                        {hasCheckOut ? (
+                          formatTime(record?.check_out_time)
+                        ) : !isAbsent ? (
+                          <button
+                            onClick={() => handleCheckOut(child.id)}
+                            className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={submittingChildId === child.id || !hasCheckIn}
+                            title={!hasCheckIn ? 'Check-in required before check-out' : 'Check out'}
+                          >
+                            Check Out
+                          </button>
+                        ) : (
+                          '-'
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(record)}
+                      <td className="px-6 py-4 text-sm text-stone-600">
+                        <div className="space-y-1">
+                          <div className="font-medium text-stone-700">{record?.parent_dropped_off || '-'}</div>
+                          {dropOffNote ? (
+                            <div className="max-w-[220px] text-xs text-stone-500 line-clamp-2">{dropOffNote}</div>
+                          ) : (
+                            <div className="text-xs text-stone-400">No drop-off note</div>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                        {record?.parent_dropped_off || '-'}
+                      <td className="px-6 py-4 text-sm text-stone-600">
+                        <div className="space-y-1">
+                          <div className="font-medium text-stone-700">{record?.parent_picked_up || '-'}</div>
+                          {pickUpNote ? (
+                            <div className="max-w-[220px] text-xs text-stone-500 line-clamp-2">{pickUpNote}</div>
+                          ) : (
+                            <div className="text-xs text-stone-400">No pick-up note</div>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500">
-                        {record?.parent_picked_up || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-stone-500 max-w-xs truncate">
-                        {record?.notes || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-6 py-4 text-right">
                         {!record && (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleCheckIn(child.id)}
-                              className="text-[var(--primary-dark)] hover:text-[var(--card-text-4)]"
-                              disabled={submittingChildId === child.id}
-                            >
-                              Check In
-                            </button>
+                          <div className="flex justify-end">
                             <button
                               onClick={() => handleMarkAbsent(child.id)}
-                              className="text-red-500 hover:text-red-600"
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
                               disabled={submittingChildId === child.id}
                             >
                               Mark Absent
@@ -482,16 +651,14 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
                           </div>
                         )}
                         {isCheckedIn && (
-                          <button
-                            onClick={() => handleCheckOut(child.id)}
-                            className="text-[var(--primary-dark)] hover:text-[var(--card-text-4)]"
-                            disabled={submittingChildId === child.id}
-                          >
-                            Check Out
-                          </button>
+                          <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                            In Progress
+                          </span>
                         )}
                         {(isCheckedOut || isAbsent) && (
-                          <span className="text-stone-400">Complete</span>
+                          <span className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-500">
+                            Complete
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -586,14 +753,29 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Parent/Guardian Name *
+              Parent/Guardian *
             </label>
-            <input
-              type="text"
-              value={parentName}
-              onChange={(e) => setParentName(e.target.value)}
+            <select
+              value={selectedParentOption || 'custom'}
+              onChange={(e) => handleParentOptionChange(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            />
+            >
+              {parentOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}{option.isPrimary ? ' (Primary)' : ''}
+                </option>
+              ))}
+              <option value="custom">Custom / Other...</option>
+            </select>
+            {selectedParentOption === 'custom' && (
+              <input
+                type="text"
+                value={customParentName}
+                onChange={(e) => handleCustomParentNameChange(e.target.value)}
+                placeholder="Enter parent/guardian name"
+                className="w-full mt-2 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            )}
           </div>
           {attendanceMode === 'manual' ? (
             <div>
@@ -619,7 +801,7 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
           )}
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Notes (Optional)
+              Drop-Off Notes (Optional)
             </label>
             <textarea
               rows={3}
@@ -657,14 +839,29 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Parent/Guardian Name *
+              Parent/Guardian *
             </label>
-            <input
-              type="text"
-              value={parentName}
-              onChange={(e) => setParentName(e.target.value)}
+            <select
+              value={selectedParentOption || 'custom'}
+              onChange={(e) => handleParentOptionChange(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-            />
+            >
+              {parentOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}{option.isPrimary ? ' (Primary)' : ''}
+                </option>
+              ))}
+              <option value="custom">Custom / Other...</option>
+            </select>
+            {selectedParentOption === 'custom' && (
+              <input
+                type="text"
+                value={customParentName}
+                onChange={(e) => handleCustomParentNameChange(e.target.value)}
+                placeholder="Enter parent/guardian name"
+                className="w-full mt-2 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+            )}
           </div>
           {attendanceMode === 'manual' ? (
             <div>
@@ -690,7 +887,7 @@ export function AttendancePage({ layout: LayoutComponent = Layout, title = 'Atte
           )}
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-              Notes (Optional)
+              Pick-Up Notes (Optional)
             </label>
             <textarea
               rows={3}

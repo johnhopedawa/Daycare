@@ -1,0 +1,4 @@
+Checkpoint created: 2026-02-10T13:22:30.3641565-08:00
+Root: C:\Users\John Work\Websites\Daycare
+Files:
+frontend\src\pages\DashboardPage.js

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bandage, Briefcase, CalendarPlus, Plane, X } from 'lucide-react';
 import api from '../utils/api';
 import { EducatorLayout } from '../components/EducatorLayout';
@@ -88,12 +88,23 @@ function MySchedule() {
   const [requestError, setRequestError] = useState('');
   const [requestLoading, setRequestLoading] = useState(false);
   const [activeDateKey, setActiveDateKey] = useState(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const scrollHintTimerRef = useRef(null);
+  const lastHintDateKeyRef = useRef(null);
 
   useEffect(() => {
     loadSchedules();
     loadBalances();
     loadRequests();
   }, [currentMonth]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollHintTimerRef.current) {
+        clearTimeout(scrollHintTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadSchedules = async () => {
     try {
@@ -385,6 +396,24 @@ function MySchedule() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
   };
 
+  const triggerScrollHint = useCallback((dateKey) => {
+    if (typeof window === 'undefined' || window.innerWidth >= 1024) {
+      return;
+    }
+    if (!dateKey || lastHintDateKeyRef.current === dateKey) {
+      return;
+    }
+    lastHintDateKeyRef.current = dateKey;
+    setShowScrollHint(true);
+    if (scrollHintTimerRef.current) {
+      clearTimeout(scrollHintTimerRef.current);
+    }
+    scrollHintTimerRef.current = setTimeout(() => {
+      setShowScrollHint(false);
+      scrollHintTimerRef.current = null;
+    }, 2000);
+  }, []);
+
   return (
     <EducatorLayout title="My Schedule" subtitle="Review shifts and request time off">
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
@@ -491,6 +520,7 @@ function MySchedule() {
                   aria-pressed={Boolean(selectionState)}
                   onClick={() => {
                     setActiveDateKey(dateStr);
+                    triggerScrollHint(dateStr);
                     if (!hasExisting) {
                       toggleDateSelection(dateStr);
                     }
@@ -499,6 +529,7 @@ function MySchedule() {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
                       setActiveDateKey(dateStr);
+                      triggerScrollHint(dateStr);
                       if (!hasExisting) {
                         toggleDateSelection(dateStr);
                       }
@@ -511,6 +542,7 @@ function MySchedule() {
                       onClick={(event) => {
                         event.stopPropagation();
                         setActiveDateKey(dateStr);
+                        triggerScrollHint(dateStr);
                         if (!hasExisting) {
                           toggleDateSelection(dateStr);
                         }
@@ -877,6 +909,14 @@ function MySchedule() {
           </div>
         </div>
       </BaseModal>
+
+      {showScrollHint && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 lg:hidden z-40 pointer-events-none">
+          <div className="animate-bounce rounded-full bg-[#FF9B85] text-white text-xs font-bold px-4 py-2 shadow-lg shadow-[#FF9B85]/35">
+            Scroll down
+          </div>
+        </div>
+      )}
     </EducatorLayout>
   );
 }
