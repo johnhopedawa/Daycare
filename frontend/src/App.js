@@ -388,15 +388,16 @@ function PortalRoutes() {
       <Route path="/services-rates" element={<ExternalRedirect toBase={publicBaseUrl} mode="public" />} />
       <Route path="/about-the-director" element={<ExternalRedirect toBase={publicBaseUrl} mode="public" />} />
       <Route path="/policies" element={<ExternalRedirect toBase={publicBaseUrl} mode="public" />} />
-      <Route path="/contact-hours" element={<ExternalRedirect toBase={publicBaseUrl} mode="public" />} />
+      <Route path="/contact" element={<ExternalRedirect toBase={publicBaseUrl} mode="public" />} />
+      <Route path="/contact-hours" element={<Navigate to="/contact" replace />} />
 
       <Route path="/vision.html" element={<Navigate to="/vision" replace />} />
       <Route path="/services--rates" element={<Navigate to="/services-rates" replace />} />
       <Route path="/services--rates.html" element={<Navigate to="/services-rates" replace />} />
       <Route path="/about-the-director.html" element={<Navigate to="/about-the-director" replace />} />
       <Route path="/policies.html" element={<Navigate to="/policies" replace />} />
-      <Route path="/contact--hours" element={<Navigate to="/contact-hours" replace />} />
-      <Route path="/contact--hours.html" element={<Navigate to="/contact-hours" replace />} />
+      <Route path="/contact--hours" element={<Navigate to="/contact" replace />} />
+      <Route path="/contact--hours.html" element={<Navigate to="/contact" replace />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -414,15 +415,16 @@ function PublicRoutes() {
       <Route path="/services-rates" element={<PublicServices />} />
       <Route path="/about-the-director" element={<PublicDirector />} />
       <Route path="/policies" element={<PublicPolicies />} />
-      <Route path="/contact-hours" element={<PublicContact />} />
+      <Route path="/contact" element={<PublicContact />} />
+      <Route path="/contact-hours" element={<Navigate to="/contact" replace />} />
 
       <Route path="/vision.html" element={<Navigate to="/vision" replace />} />
       <Route path="/services--rates" element={<Navigate to="/services-rates" replace />} />
       <Route path="/services--rates.html" element={<Navigate to="/services-rates" replace />} />
       <Route path="/about-the-director.html" element={<Navigate to="/about-the-director" replace />} />
       <Route path="/policies.html" element={<Navigate to="/policies" replace />} />
-      <Route path="/contact--hours" element={<Navigate to="/contact-hours" replace />} />
-      <Route path="/contact--hours.html" element={<Navigate to="/contact-hours" replace />} />
+      <Route path="/contact--hours" element={<Navigate to="/contact" replace />} />
+      <Route path="/contact--hours.html" element={<Navigate to="/contact" replace />} />
 
       <Route path="/staff" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/parents" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />

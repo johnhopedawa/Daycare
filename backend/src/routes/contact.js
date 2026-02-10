@@ -31,11 +31,12 @@ const escapeHtml = (value) =>
     .replaceAll("'", '&#39;');
 
 router.post('/contact', contactLimiter, async (req, res) => {
-  const { firstName, lastName, email, message } = req.body || {};
+  const { firstName, lastName, email, phone, message } = req.body || {};
 
   const safeFirstName = sanitize(firstName, 80);
   const safeLastName = sanitize(lastName, 80);
   const safeEmail = sanitize(email, 320).toLowerCase();
+  const safePhone = sanitize(phone, 50);
   const safeMessage = typeof message === 'string' ? message.trim().slice(0, 5000) : '';
 
   if (!safeFirstName || !safeLastName || !safeEmail || !safeMessage) {
@@ -60,6 +61,7 @@ router.post('/contact', contactLimiter, async (req, res) => {
     '',
     `Name: ${safeFirstName} ${safeLastName}`,
     `Email: ${safeEmail}`,
+    `Phone: ${safePhone || 'Not provided'}`,
     '',
     'Message:',
     safeMessage,
@@ -69,6 +71,7 @@ router.post('/contact', contactLimiter, async (req, res) => {
     <h2>New contact form submission</h2>
     <p><strong>Name:</strong> ${escapedName}</p>
     <p><strong>Email:</strong> ${escapedEmail}</p>
+    <p><strong>Phone:</strong> ${escapeHtml(safePhone || 'Not provided')}</p>
     <p><strong>Message:</strong></p>
     <pre style="white-space:pre-wrap;font-family:inherit">${escapedMessage}</pre>
   `;

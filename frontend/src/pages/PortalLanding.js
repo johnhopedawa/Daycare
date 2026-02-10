@@ -55,7 +55,7 @@ function PortalLanding() {
             <Baby size={28} />
           </div>
           <div>
-            <h1 className="font-quicksand text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text)' }}>
+            <h1 className="font-quicksand text-2xl sm:text-3xl font-bold whitespace-nowrap" style={{ color: 'var(--text)' }}>
               Little Sparrows Academy
             </h1>
             <p className="text-sm font-medium" style={{ color: 'var(--muted)' }}>Choose your portal to continue.</p>

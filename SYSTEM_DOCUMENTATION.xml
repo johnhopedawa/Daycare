@@ -739,6 +739,7 @@
     </current-routes>
     <note>Role-gated routing enforced via RequireRole in App.js</note>
     <note>Parent sign-out in ParentLayout redirects to /parents (not /login).</note>
+    <note>Public marketing contact page canonical path is /contact (legacy /contact-hours and /contact--hours URLs redirect).</note>
 
     <pages-directory path="pages/">
       <!-- Admin Dashboard & Core Pages -->
@@ -1595,7 +1596,8 @@
           <item>Services and About pages use Weebly CDN Dawn-Sky background URL for section parity.</item>
           <item>Policies page uses Weebly PDF icon URL (//www.weebly.com/weebly/images/file_icons/pdf.png).</item>
           <item>Contact page map iframe uses Weebly generateMap endpoint URL for visual parity.</item>
-          <item>Contact form submit control uses Weebly-style anchor button markup with hidden submit input.</item>
+          <item>Public contact page canonical route is /contact; legacy /contact-hours and /contact--hours variants redirect to /contact.</item>
+          <item>Contact form submit control is a large rounded CTA button with explicit contrast styling and "Send Message" label.</item>
           <item>Public navigation list items use Weebly page ID format (pg{pageId}) for non-active links.</item>
           <item>Home gallery anchors include Weebly lightbox rel and image container ID pattern.</item>
           <item>Public overrides neutralize Tailwind image max-width/display side effects for galleryImage sizing/cropping parity.</item>

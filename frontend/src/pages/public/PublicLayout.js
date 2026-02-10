@@ -16,7 +16,7 @@ const navItems = [
   { label: 'Services & Rates', path: '/services-rates', pageId: '887084743897799948' },
   { label: 'About the Director', path: '/about-the-director', pageId: '567194535950592543' },
   { label: 'Policies', path: '/policies', pageId: '662356911994996210' },
-  { label: 'Contact & Hours', path: '/contact-hours', pageId: '118016740449386557' },
+  { label: 'Contact & Hours', path: '/contact', pageId: '118016740449386557' },
 ];
 
 let publicBodyClasses = [];

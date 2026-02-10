@@ -7,6 +7,7 @@ export function PublicContact() {
     firstName: '',
     lastName: '',
     email: '',
+    phone: '',
     message: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -30,10 +31,11 @@ export function PublicContact() {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
+        phone: formData.phone.trim(),
         message: formData.message.trim(),
       });
-      setStatus({ type: 'success', message: 'Thanks! Your message has been sent.' });
-      setFormData({ firstName: '', lastName: '', email: '', message: '' });
+      setStatus({ type: 'success', message: 'Thank you! Your message has been sent. We will contact you soon.' });
+      setFormData({ firstName: '', lastName: '', email: '', phone: '', message: '' });
     } catch (error) {
       const message = error.response?.data?.error || 'Something went wrong. Please try again.';
       setStatus({ type: 'error', message });
@@ -83,6 +85,25 @@ export function PublicContact() {
       fontSize: '14px',
     }
     : null;
+
+  const submitButtonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '220px',
+    padding: '14px 30px',
+    borderRadius: '999px',
+    border: '1px solid #5199a8',
+    backgroundColor: '#5199a8',
+    color: '#ffffff',
+    fontSize: '16px',
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    lineHeight: 1.2,
+    cursor: submitting ? 'wait' : 'pointer',
+    opacity: submitting ? 0.75 : 1,
+    boxShadow: '0 10px 24px rgba(0, 0, 0, 0.2)',
+  };
 
   return (
     <PublicLayout
@@ -164,6 +185,22 @@ export function PublicContact() {
                     </div>
 
                     <div style={{ marginTop: '14px' }}>
+                      <label style={labelStyle} htmlFor="contact-phone">
+                        Phone Number
+                      </label>
+                      <input
+                        id="contact-phone"
+                        style={inputStyle}
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="(555) 123-4567"
+                        autoComplete="tel"
+                      />
+                    </div>
+
+                    <div style={{ marginTop: '14px' }}>
                       <label style={labelStyle} htmlFor="contact-message">
                         Message <span className="form-required">*</span>
                       </label>
@@ -181,11 +218,10 @@ export function PublicContact() {
                     <div style={{ textAlign: 'left', marginTop: '18px' }}>
                       <button
                         type="submit"
-                        className="wsite-button wsite-button-large wsite-button-highlight"
                         disabled={submitting}
-                        style={{ opacity: submitting ? 0.75 : 1, cursor: submitting ? 'wait' : 'pointer' }}
+                        style={submitButtonStyle}
                       >
-                        <span className="wsite-button-inner">
+                        <span style={{ color: '#ffffff' }}>
                           {submitting ? 'Sending...' : 'Send Message'}
                         </span>
                       </button>
