@@ -11,6 +11,7 @@ spec:
   - hosts:
     - littlesparrowsacademy.com
     - www.littlesparrowsacademy.com
+    - portal.littlesparrowsacademy.com
     secretName: cloudflare-origin-tls
   rules:
   - host: littlesparrowsacademy.com
@@ -38,6 +39,30 @@ spec:
             port:
               number: 80
   - host: www.littlesparrowsacademy.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 5000
+      - path: /firefly-redirect
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+  - host: portal.littlesparrowsacademy.com
     http:
       paths:
       - path: /api
