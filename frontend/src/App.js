@@ -41,6 +41,7 @@ import PublicDirector from './pages/public/PublicDirector';
 import PublicPolicies from './pages/public/PublicPolicies';
 import PublicContact from './pages/public/PublicContact';
 import PublicNotFound from './pages/public/PublicNotFound';
+import { warmBrowserCache } from './utils/cacheWarmup';
 
 const normalizeBase = (value) => (value || '').replace(/\/$/, '');
 
@@ -450,6 +451,10 @@ function PublicRoutes() {
 }
 
 export function App() {
+  React.useEffect(() => {
+    warmBrowserCache();
+  }, []);
+
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const search = typeof window !== 'undefined' ? window.location.search : '';
   const override = typeof window !== 'undefined' ? new URLSearchParams(search).get('mode') : null;
