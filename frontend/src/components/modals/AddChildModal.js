@@ -66,12 +66,26 @@ const getFamilyParentIds = (family) => (
     .filter((id) => Number.isFinite(id))
 );
 
-const toFamilyKeyFromParentIds = (parentIds) => (
-  (parentIds || [])
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id))
-    .sort((a, b) => a - b)
-    .join('-')
+const normalizeTextValue = (value) => String(value || '').trim().toLowerCase();
+
+const normalizeDateValue = (value) => {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) return '';
+
+  const parsed = new Date(rawValue);
+  if (!Number.isNaN(parsed.getTime())) {
+    return formatDateInput(parsed);
+  }
+
+  const isoDateMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) return isoDateMatch[1];
+  return rawValue.toLowerCase();
+};
+
+const isSameChildRecord = (left = {}, right = {}) => (
+  normalizeTextValue(left.first_name || left.firstName) === normalizeTextValue(right.first_name || right.firstName)
+  && normalizeTextValue(left.last_name || left.lastName) === normalizeTextValue(right.last_name || right.lastName)
+  && normalizeDateValue(left.date_of_birth || left.dateOfBirth) === normalizeDateValue(right.date_of_birth || right.dateOfBirth)
 );
 
 export function AddChildModal({ isOpen, onClose, onSuccess }) {
@@ -192,6 +206,17 @@ export function AddChildModal({ isOpen, onClose, onSuccess }) {
       const parentIds = getFamilyParentIds(selectedFamily);
       if (parentIds.length === 0) {
         setError('Selected family has no parents. Choose another family or add a new family.');
+        return;
+      }
+
+      const duplicateChildExists = (selectedFamily.children || []).some((child) => isSameChildRecord(child, {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        dateOfBirth: formData.dateOfBirth,
+      }));
+
+      if (duplicateChildExists) {
+        setError('This child already exists in the selected family.');
         return;
       }
 
@@ -469,14 +494,12 @@ export function AddChildModal({ isOpen, onClose, onSuccess }) {
         onClose={() => setIsAddFamilyOpen(false)}
         onSuccess={async () => {
           await loadFamilies();
+          setIsAddFamilyOpen(false);
+          setFormData(buildInitialFormData());
+          if (onSuccess) onSuccess();
+          onClose();
         }}
         initialChild={initialChildForFamilyModal}
-        onCreated={(payload) => {
-          const familyKey = toFamilyKeyFromParentIds(payload?.parentIds || payload?.parent_ids || []);
-          if (familyKey) {
-            setFormData((prev) => ({ ...prev, familyId: familyKey }));
-          }
-        }}
       />
     </>
   );

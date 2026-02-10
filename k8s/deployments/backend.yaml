@@ -104,3 +104,10 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "300m"
+        volumeMounts:
+        - name: backend-storage
+          mountPath: /app/uploads
+      volumes:
+      - name: backend-storage
+        persistentVolumeClaim:
+          claimName: backend-pvc

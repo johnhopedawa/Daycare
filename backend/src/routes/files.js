@@ -179,8 +179,24 @@ router.get('/:id/download', async (req, res) => {
 
     const document = result.rows[0];
 
+    try {
+      await fs.access(document.file_path);
+    } catch (accessError) {
+      return res.status(404).json({ error: 'File missing from storage. Please re-upload.' });
+    }
+
     // Send file
-    res.download(document.file_path, document.original_filename);
+    res.download(document.file_path, document.original_filename, (downloadError) => {
+      if (!downloadError) return;
+      if (res.headersSent) return;
+
+      if (downloadError.code === 'ENOENT') {
+        return res.status(404).json({ error: 'File missing from storage. Please re-upload.' });
+      }
+
+      console.error('Download document stream error:', downloadError);
+      return res.status(500).json({ error: 'Failed to download document' });
+    });
   } catch (error) {
     console.error('Download document error:', error);
     res.status(500).json({ error: 'Failed to download document' });

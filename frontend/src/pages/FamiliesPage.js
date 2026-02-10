@@ -1,6 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '../components/Layout';
-import { Phone, Mail, Users, Plus, DollarSign, Trash2, FileText, Download, MapPin } from 'lucide-react';
+import {
+  Phone,
+  Mail,
+  Users,
+  Plus,
+  DollarSign,
+  Trash2,
+  FileText,
+  Download,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  Upload
+} from 'lucide-react';
 import { AddFamilyModal } from '../components/modals/AddFamilyModal';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
@@ -13,6 +26,10 @@ export function FamiliesPage() {
   const [parentsDirectory, setParentsDirectory] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
   const [parentsLoading, setParentsLoading] = useState(false);
+  const [childPhotoUrls, setChildPhotoUrls] = useState({});
+  const [photoUploadTargetId, setPhotoUploadTargetId] = useState(null);
+  const [photoUploadInProgressId, setPhotoUploadInProgressId] = useState(null);
+  const [photoUploadError, setPhotoUploadError] = useState('');
   const [childSearch, setChildSearch] = useState('');
   const [childStatusFilter, setChildStatusFilter] = useState('');
   const [childSort, setChildSort] = useState('name');
@@ -29,12 +46,16 @@ export function FamiliesPage() {
   const [filesModalOwner, setFilesModalOwner] = useState(null);
   const [linkedDocuments, setLinkedDocuments] = useState([]);
   const [linkedDocumentsLoading, setLinkedDocumentsLoading] = useState(false);
+  const [linkedFileUpload, setLinkedFileUpload] = useState({ file: null, description: '' });
+  const [linkedFileUploading, setLinkedFileUploading] = useState(false);
+  const [linkedFileUploadError, setLinkedFileUploadError] = useState('');
   const [tempPassword, setTempPassword] = useState(null);
   const [tempPasswordParent, setTempPasswordParent] = useState(null);
   const [tempPasswordLoading, setTempPasswordLoading] = useState(false);
   const [tempPasswordError, setTempPasswordError] = useState('');
   const [editEmergencyContacts, setEditEmergencyContacts] = useState([]);
   const [editEmergencyContactIds, setEditEmergencyContactIds] = useState([]);
+  const childPhotoInputRef = useRef(null);
   const [editForm, setEditForm] = useState({
     familyName: '',
     parent1Id: null,
@@ -68,6 +89,77 @@ export function FamiliesPage() {
     'Fish', 'Shellfish', 'Sesame', 'Strawberries', 'Citrus Fruits', 'Bananas',
     'Chocolate/Cocoa', 'Food Dyes', 'Corn', 'Dust Mites', 'Pollen', 'Pet'
   ];
+
+  const parseAllergies = useCallback((allergiesValue) => {
+    if (!allergiesValue) return { common: [], other: '' };
+
+    const normalizeAllergiesObject = (value) => ({
+      common: Array.isArray(value?.common) ? value.common.filter(Boolean) : [],
+      other: value?.other ? String(value.other).trim() : ''
+    });
+
+    if (typeof allergiesValue === 'object') {
+      if (Array.isArray(allergiesValue)) {
+        return { common: allergiesValue.filter(Boolean), other: '' };
+      }
+      return normalizeAllergiesObject(allergiesValue);
+    }
+
+    const value = String(allergiesValue).trim();
+    if (!value) return { common: [], other: '' };
+
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return { common: parsed.filter(Boolean), other: '' };
+      }
+      if (parsed && typeof parsed === 'object') {
+        return normalizeAllergiesObject(parsed);
+      }
+    } catch (error) {
+      // Non-JSON allergy strings are treated as custom notes.
+    }
+
+    return { common: [], other: value };
+  }, []);
+
+  const formatDisplayDate = useCallback((rawDate) => {
+    if (!rawDate) return 'No DOB';
+    const parsedDate = new Date(rawDate);
+    if (Number.isNaN(parsedDate.getTime())) return 'No DOB';
+    return parsedDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }, []);
+
+  const getChildStatusBadgeClasses = useCallback((status) => {
+    if (status === 'ACTIVE') return 'bg-emerald-100 text-emerald-700';
+    if (status === 'WAITLIST') return 'bg-amber-100 text-amber-700';
+    if (status === 'INACTIVE') return 'bg-stone-200 text-stone-700';
+    if (status === 'ENROLLED') return 'bg-sky-100 text-sky-700';
+    return 'bg-stone-100 text-stone-600';
+  }, []);
+
+  const loadChildPhotoUrls = useCallback(async (children) => {
+    const nextPhotoUrls = {};
+
+    await Promise.all((children || []).map(async (child) => {
+      if (!child?.profile_photo_path || !child?.id) return;
+
+      try {
+        const photoResponse = await api.get(`/children/${child.id}/photo`, {
+          responseType: 'blob',
+        });
+        nextPhotoUrls[child.id] = window.URL.createObjectURL(new Blob([photoResponse.data]));
+      } catch (error) {
+        console.error(`Failed to load profile photo for child ${child.id}:`, error);
+      }
+    }));
+
+    setChildPhotoUrls(nextPhotoUrls);
+  }, []);
 
   const loadFamilies = useCallback(async () => {
     try {
@@ -115,14 +207,17 @@ export function FamiliesPage() {
       if (childStatusFilter) params.append('status', childStatusFilter);
       if (childSearch) params.append('search', childSearch);
       const response = await api.get(`/children?${params.toString()}`);
-      setChildrenDirectory(response.data.children || []);
+      const children = response.data.children || [];
+      setChildrenDirectory(children);
+      await loadChildPhotoUrls(children);
     } catch (error) {
       console.error('Failed to load children directory:', error);
       setChildrenDirectory([]);
+      setChildPhotoUrls({});
     } finally {
       setChildrenLoading(false);
     }
-  }, [childSearch, childStatusFilter]);
+  }, [childSearch, childStatusFilter, loadChildPhotoUrls]);
 
   const loadParentsDirectory = useCallback(async () => {
     try {
@@ -154,6 +249,14 @@ export function FamiliesPage() {
       loadParentsDirectory();
     }
   }, [activeTab, loadParentsDirectory]);
+
+  useEffect(() => () => {
+    Object.values(childPhotoUrls).forEach((url) => {
+      if (url) {
+        window.URL.revokeObjectURL(url);
+      }
+    });
+  }, [childPhotoUrls]);
 
   const handleViewProfile = (family) => {
     setSelectedFamily(family);
@@ -565,6 +668,8 @@ export function FamiliesPage() {
     setFilesModalType(type);
     setFilesModalOwner(owner);
     setFilesModalOpen(true);
+    setLinkedFileUpload({ file: null, description: '' });
+    setLinkedFileUploadError('');
     loadLinkedDocuments(type, owner.id);
   };
 
@@ -572,6 +677,9 @@ export function FamiliesPage() {
     setFilesModalOpen(false);
     setFilesModalOwner(null);
     setLinkedDocuments([]);
+    setLinkedFileUpload({ file: null, description: '' });
+    setLinkedFileUploadError('');
+    setLinkedFileUploading(false);
   };
 
   const handleDownloadLinkedDocument = async (doc) => {
@@ -616,6 +724,111 @@ export function FamiliesPage() {
       setTempPasswordError(error.response?.data?.error || 'Failed to generate temporary password');
     } finally {
       setTempPasswordLoading(false);
+    }
+  };
+
+  const handleUploadLinkedDocument = async (e) => {
+    e.preventDefault();
+    if (!filesModalOwner?.id) return;
+
+    if (!linkedFileUpload.file) {
+      setLinkedFileUploadError('Please choose a file first.');
+      return;
+    }
+
+    try {
+      setLinkedFileUploading(true);
+      setLinkedFileUploadError('');
+
+      const formData = new FormData();
+      formData.append('file', linkedFileUpload.file);
+      formData.append('description', linkedFileUpload.description || '');
+
+      if (filesModalType === 'parent') {
+        formData.append('linked_parent_id', filesModalOwner.id);
+      } else {
+        formData.append('linked_child_id', filesModalOwner.id);
+      }
+
+      await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setLinkedFileUpload({ file: null, description: '' });
+      await loadLinkedDocuments(filesModalType, filesModalOwner.id);
+    } catch (error) {
+      console.error('Failed to upload linked file:', error);
+      setLinkedFileUploadError(error.response?.data?.error || 'Failed to upload file.');
+    } finally {
+      setLinkedFileUploading(false);
+    }
+  };
+
+  const handleStartPhotoUpload = (childId) => {
+    setPhotoUploadError('');
+    setPhotoUploadTargetId(childId);
+
+    if (childPhotoInputRef.current) {
+      childPhotoInputRef.current.value = '';
+      childPhotoInputRef.current.click();
+    }
+  };
+
+  const handleChildPhotoUpload = async (event) => {
+    const targetChildId = photoUploadTargetId;
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!targetChildId || !file) {
+      setPhotoUploadTargetId(null);
+      return;
+    }
+
+    if (!file.type?.startsWith('image/')) {
+      setPhotoUploadError('Please select an image file (JPG or PNG).');
+      setPhotoUploadTargetId(null);
+      return;
+    }
+
+    try {
+      setPhotoUploadInProgressId(targetChildId);
+      setPhotoUploadError('');
+
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      await api.post(`/children/${targetChildId}/photo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      await loadChildrenDirectory();
+    } catch (error) {
+      console.error('Failed to upload child profile photo:', error);
+      setPhotoUploadError(error.response?.data?.error || 'Failed to upload profile photo.');
+    } finally {
+      setPhotoUploadInProgressId(null);
+      setPhotoUploadTargetId(null);
+    }
+  };
+
+  const handleRemoveChildPhoto = async (child) => {
+    if (!child?.id || !child?.profile_photo_path) return;
+
+    const childName = `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'this child';
+    const confirmed = window.confirm(`Remove profile photo for ${childName}?`);
+    if (!confirmed) return;
+
+    try {
+      setPhotoUploadError('');
+      await api.delete(`/children/${child.id}/photo`);
+      await loadChildrenDirectory();
+    } catch (error) {
+      console.error('Failed to remove child profile photo:', error);
+      setPhotoUploadError(error.response?.data?.error || 'Failed to remove profile photo.');
     }
   };
 
@@ -666,116 +879,157 @@ export function FamiliesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {families.map((family, i) => (
-                <div
-                  key={family.family_id || family.id || `family-${i}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleViewProfile(family)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handleViewProfile(family);
-                    }
-                  }}
-                  className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="w-12 h-12 rounded-full bg-[var(--card-4)] flex items-center justify-center text-[var(--primary-dark)] font-bold text-lg group-hover:bg-[var(--primary)] group-hover:text-white transition-colors">
-                      {getInitial(family)}
-                    </div>
-                    {family.parents && family.parents.length > 0 && (
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          family.all_accounts_active
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {family.all_accounts_active ? 'Active' : 'Inactive'}
-                      </span>
-                    )}
-                  </div>
+              {families.map((family, i) => {
+                const primaryContact = getPrimaryContact(family);
 
-                  <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-1">
-                    {getFamilyDisplayName(family)}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {family.children && family.children.map((child) => (
-                      <span
-                        key={child.id}
-                        className="px-2 py-1 bg-[var(--background)] text-stone-600 text-xs font-medium rounded-lg border themed-border"
-                      >
-                        {child.first_name}
-                      </span>
-                    ))}
-                  </div>
+                return (
+                  <div
+                    key={family.family_id || family.id || `family-${i}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleViewProfile(family)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleViewProfile(family);
+                      }
+                    }}
+                    className="bg-white p-6 rounded-3xl shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border hover:border-[var(--primary)]/50 transition-all group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="relative group/familyicon">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          className="w-12 h-12 rounded-full bg-[var(--card-4)] flex items-center justify-center text-[var(--primary-dark)] font-bold text-lg group-hover:bg-[var(--primary)] group-hover:text-white transition-colors"
+                          aria-label="Family quick actions"
+                        >
+                          {getInitial(family)}
+                          <span className="absolute inset-0 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover/familyicon:opacity-100 transition-opacity">
+                            <Upload size={14} />
+                          </span>
+                        </button>
 
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-3 text-stone-500 text-sm">
-                      <Users size={16} className="text-[var(--primary)]" />
-                      <span>{getParentNames(family)}</span>
-                    </div>
-                    {getPrimaryContact(family) && (
-                      <>
-                        {getPrimaryContact(family).phone && (
-                          <div className="flex items-center gap-3 text-stone-500 text-sm">
-                            <Phone size={16} className="text-[var(--primary)]" />
-                            <span>{getPrimaryContact(family).phone}</span>
+                        {primaryContact && (
+                          <div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1 flex items-center gap-1 bg-white border themed-border rounded-xl shadow-lg px-2 py-1 opacity-0 group-hover/familyicon:opacity-100 pointer-events-none group-hover/familyicon:pointer-events-auto transition-opacity z-10 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleOpenFilesModal('parent', primaryContact);
+                              }}
+                              className="px-2 py-1 rounded-lg text-[11px] font-semibold text-stone-600 hover:bg-[var(--background)]"
+                            >
+                              View Files
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleOpenFilesModal('parent', primaryContact);
+                              }}
+                              className="px-2 py-1 rounded-lg text-[11px] font-semibold text-[var(--primary-dark)] hover:bg-[var(--background)]"
+                            >
+                              Upload File
+                            </button>
                           </div>
                         )}
-                        {(getPrimaryContact(family).address_line1 ||
-                          getPrimaryContact(family).address_line2 ||
-                          getPrimaryContact(family).city ||
-                          getPrimaryContact(family).province ||
-                          getPrimaryContact(family).postal_code) && (
-                          <div className="flex items-start gap-3 text-stone-500 text-sm">
-                            <MapPin size={16} className="text-[var(--primary)] mt-0.5" />
-                            <span>
-                              {getPrimaryContact(family).address_line1}
-                              {getPrimaryContact(family).address_line2
-                                ? `, ${getPrimaryContact(family).address_line2}`
-                                : ''}
-                              <br />
-                              {[getPrimaryContact(family).city, getPrimaryContact(family).province, getPrimaryContact(family).postal_code]
-                                .filter(Boolean)
-                                .join(' ')}
-                            </span>
-                          </div>
-                        )}
-                        {getPrimaryContact(family).email && (
-                          <div className="flex items-center gap-3 text-stone-500 text-sm">
-                            <Mail size={16} className="text-[var(--primary)]" />
-                            <span className="truncate">{getPrimaryContact(family).email}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t themed-border flex justify-between items-center">
-                    <div>
-                      <p className="text-xs text-stone-400 font-medium uppercase">
-                        Monthly Rate
-                      </p>
-                      <p className="font-bold text-stone-800">
-                        {getMonthlyRate(family)}
-                      </p>
+                      </div>
+                      {family.parents && family.parents.length > 0 && (
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            family.all_accounts_active
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {family.all_accounts_active ? 'Active' : 'Inactive'}
+                        </span>
+                      )}
                     </div>
-                    {family.parents && family.parents.length > 0 && (
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleToggleFamilyStatus(family);
-                        }}
-                        className="text-xs font-bold text-stone-500 hover:text-[var(--primary-dark)]"
-                      >
-                        {family.all_accounts_active ? 'Disable Logins' : 'Enable Logins'}
-                      </button>
-                    )}
+
+                    <h3 className="font-quicksand font-bold text-xl text-stone-800 mb-1">
+                      {getFamilyDisplayName(family)}
+                    </h3>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {family.children && family.children.map((child) => (
+                        <span
+                          key={child.id}
+                          className="px-2 py-1 bg-[var(--background)] text-stone-600 text-xs font-medium rounded-lg border themed-border"
+                        >
+                          {child.first_name}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center gap-3 text-stone-500 text-sm">
+                        <Users size={16} className="text-[var(--primary)]" />
+                        <span>{getParentNames(family)}</span>
+                      </div>
+                      {primaryContact && (
+                        <>
+                          {primaryContact.phone && (
+                            <div className="flex items-center gap-3 text-stone-500 text-sm">
+                              <Phone size={16} className="text-[var(--primary)]" />
+                              <span>{primaryContact.phone}</span>
+                            </div>
+                          )}
+                          {(primaryContact.address_line1 ||
+                            primaryContact.address_line2 ||
+                            primaryContact.city ||
+                            primaryContact.province ||
+                            primaryContact.postal_code) && (
+                            <div className="flex items-start gap-3 text-stone-500 text-sm">
+                              <MapPin size={16} className="text-[var(--primary)] mt-0.5" />
+                              <span>
+                                {primaryContact.address_line1}
+                                {primaryContact.address_line2
+                                  ? `, ${primaryContact.address_line2}`
+                                  : ''}
+                                <br />
+                                {[primaryContact.city, primaryContact.province, primaryContact.postal_code]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              </span>
+                            </div>
+                          )}
+                          {primaryContact.email && (
+                            <div className="flex items-center gap-3 text-stone-500 text-sm">
+                              <Mail size={16} className="text-[var(--primary)]" />
+                              <span className="truncate">{primaryContact.email}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t themed-border flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-stone-400 font-medium uppercase">
+                          Monthly Rate
+                        </p>
+                        <p className="font-bold text-stone-800">
+                          {getMonthlyRate(family)}
+                        </p>
+                      </div>
+                      {family.parents && family.parents.length > 0 && (
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleToggleFamilyStatus(family);
+                          }}
+                          className="text-xs font-bold text-stone-500 hover:text-[var(--primary-dark)]"
+                        >
+                          {family.all_accounts_active ? 'Disable Logins' : 'Enable Logins'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -830,70 +1084,200 @@ export function FamiliesPage() {
               <p className="text-stone-500">No children match the current filters.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[var(--background)]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Child</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Age</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Parents</th>
-                      <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y themed-border">
-                    {getSortedChildren().map((child) => (
-                      <tr key={child.id} className="themed-row transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-stone-800">
-                            {child.first_name} {child.last_name}
-                          </div>
-                          {child.status === 'WAITLIST' && child.waitlist_priority && (
-                            <div className="text-xs text-stone-500">
-                              Waitlist priority #{child.waitlist_priority}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-stone-600">
-                          {calculateAgeYears(child.date_of_birth) !== null
-                            ? `${calculateAgeYears(child.date_of_birth)} yrs`
-                            : '-'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-600">
-                            {child.status || 'Unknown'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-stone-600">
-                          {child.parents && child.parents.length > 0 ? (
-                            child.parents.map((parent) => parent.parent_name).join(', ')
-                          ) : (
-                            <span className="text-stone-400">No parents linked</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="inline-flex flex-col items-end gap-2">
+            <div className="space-y-4">
+              <input
+                ref={childPhotoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                className="hidden"
+                onChange={handleChildPhotoUpload}
+              />
+
+              {photoUploadError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {photoUploadError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {getSortedChildren().map((child) => {
+                  const ageYears = calculateAgeYears(child.date_of_birth);
+                  const allergiesData = parseAllergies(child.allergies);
+                  const allergyBadges = [
+                    ...(allergiesData.common || []),
+                    ...(allergiesData.other ? [allergiesData.other] : [])
+                  ].filter(Boolean);
+                  const emergencyContacts = Array.isArray(child.emergency_contacts)
+                    ? child.emergency_contacts
+                    : [];
+                  const primaryEmergencyContact = emergencyContacts.find((contact) => contact.is_primary)
+                    || emergencyContacts[0]
+                    || null;
+
+                  return (
+                    <div
+                      key={child.id}
+                      className="bg-white rounded-3xl p-5 shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="relative shrink-0 group/profile">
                             <button
-                              onClick={() => handleOpenFilesModal('child', child)}
-                              className="px-3 py-1.5 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
+                              type="button"
+                              onClick={() => handleStartPhotoUpload(child.id)}
+                              className="w-14 h-14 rounded-2xl border themed-border bg-[var(--background)] overflow-hidden flex items-center justify-center transition-all hover:shadow-md"
                             >
-                              View Files
+                              {childPhotoUrls[child.id] ? (
+                                <img
+                                  src={childPhotoUrls[child.id]}
+                                  alt={`${child.first_name} ${child.last_name}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-lg font-bold text-[var(--primary-dark)]">
+                                  {(child.first_name || '?').charAt(0).toUpperCase()}
+                                </span>
+                              )}
+
+                              <span className="absolute inset-0 rounded-2xl bg-black/40 text-white flex items-center justify-center opacity-0 group-hover/profile:opacity-100 transition-opacity">
+                                <Upload size={16} />
+                              </span>
                             </button>
-                            {child.status === 'WAITLIST' && (
-                              <button
-                                onClick={() => handleUpdateWaitlistPriority(child)}
-                                className="text-xs font-semibold text-stone-500 hover:text-[var(--primary-dark)]"
-                              >
-                                Update Priority
-                              </button>
+
+                            {child.profile_photo_path && (
+                              <div className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1 flex items-center gap-1 bg-white border themed-border rounded-xl shadow-lg px-2 py-1 opacity-0 group-hover/profile:opacity-100 pointer-events-none group-hover/profile:pointer-events-auto transition-opacity z-10 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartPhotoUpload(child.id)}
+                                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-stone-600 hover:bg-[var(--background)]"
+                                >
+                                  Upload New
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveChildPhoto(child)}
+                                  className="px-2 py-1 rounded-lg text-[11px] font-semibold text-red-600 hover:bg-red-50"
+                                >
+                                  Remove Photo
+                                </button>
+                              </div>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+                          <div className="min-w-0">
+                            <h4 className="font-quicksand font-bold text-lg text-stone-800 truncate">
+                              {child.first_name} {child.last_name}
+                            </h4>
+                            <div className="mt-1 flex items-center gap-2 text-sm text-stone-500">
+                              <Calendar size={14} className="text-[var(--primary)]" />
+                              <span>{formatDisplayDate(child.date_of_birth)}</span>
+                              <span className="text-stone-300">|</span>
+                              <span>{ageYears !== null ? `${ageYears} yrs` : 'Age unavailable'}</span>
+                            </div>
+                            {child.status === 'WAITLIST' && child.waitlist_priority && (
+                              <p className="mt-1 text-xs text-stone-500">
+                                Waitlist priority #{child.waitlist_priority}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getChildStatusBadgeClasses(child.status)}`}>
+                          {child.status || 'Unknown'}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        <div className="text-sm text-stone-600">
+                          <div className="flex items-center gap-2 mb-1 text-stone-500">
+                            <Users size={14} className="text-[var(--primary)]" />
+                            <span className="text-xs font-semibold uppercase tracking-wide">Parents</span>
+                          </div>
+                          {Array.isArray(child.parents) && child.parents.length > 0
+                            ? child.parents.map((parent) => parent.parent_name).join(', ')
+                            : <span className="text-stone-400">No parents linked</span>}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-1 text-stone-500">
+                            <AlertCircle size={14} className="text-[var(--primary)]" />
+                            <span className="text-xs font-semibold uppercase tracking-wide">Allergies</span>
+                          </div>
+                          {allergyBadges.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {allergyBadges.map((allergy) => (
+                                <span
+                                  key={`${child.id}-${allergy}`}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--background)] border themed-border text-stone-700"
+                                >
+                                  {allergy}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-stone-400">No allergies reported</p>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border themed-border bg-[var(--background)] p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                            Medical Notes
+                          </p>
+                          <p className="text-sm text-stone-700">
+                            {child.medical_notes || 'No medical notes on file.'}
+                          </p>
+                        </div>
+
+                        {child.notes && (
+                          <div className="rounded-2xl border themed-border bg-white p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                              Additional Notes
+                            </p>
+                            <p className="text-sm text-stone-700">
+                              {child.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="text-sm text-stone-600">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                            Emergency Contact
+                          </p>
+                          {primaryEmergencyContact ? (
+                            <p>
+                              {primaryEmergencyContact.name}
+                              {primaryEmergencyContact.phone ? ` | ${primaryEmergencyContact.phone}` : ''}
+                            </p>
+                          ) : (
+                            <p className="text-stone-400">No emergency contact on file</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t themed-border flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => handleOpenFilesModal('child', child)}
+                          className="px-3 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
+                        >
+                          View Files
+                        </button>
+                        {photoUploadInProgressId === child.id && (
+                          <span className="px-3 py-2 rounded-xl border themed-border text-xs font-bold text-stone-500 bg-[var(--background)]">
+                            Uploading...
+                          </span>
+                        )}
+                        {child.status === 'WAITLIST' && (
+                          <button
+                            onClick={() => handleUpdateWaitlistPriority(child)}
+                            className="ml-auto text-xs font-semibold text-stone-500 hover:text-[var(--primary-dark)]"
+                          >
+                            Update Priority
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -956,66 +1340,84 @@ export function FamiliesPage() {
               <p className="text-stone-500">No parents match the current filters.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[var(--background)]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Parent</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Contact</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Children</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-stone-700">Outstanding</th>
-                      <th className="px-6 py-4 text-right text-sm font-bold text-stone-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y themed-border">
-                    {getFilteredParents().map((parent) => {
-                      const outstanding = parseFloat(parent.total_outstanding || 0);
-                      return (
-                        <tr key={parent.id} className="themed-row transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="font-medium text-stone-800">
-                              {parent.first_name} {parent.last_name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-stone-600">
-                            <div>{parent.email || '-'}</div>
-                            <div>{parent.phone || '-'}</div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-stone-600">
-                            {Array.isArray(parent.children) && parent.children.length > 0 ? (
-                              parent.children.map((child) => `${child.first_name} ${child.last_name}`).join(', ')
-                            ) : (
-                              <span className="text-stone-400">No children</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                parent.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                              }`}
-                            >
-                              {parent.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-stone-600">
-                            {outstanding > 0 ? `$${outstanding.toFixed(2)}` : '$0.00'}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => handleOpenFilesModal('parent', parent)}
-                              className="px-3 py-1.5 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
-                            >
-                              View Files
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {getFilteredParents().map((parent) => {
+                const outstanding = parseFloat(parent.total_outstanding || 0);
+                const hasChildren = Array.isArray(parent.children) && parent.children.length > 0;
+                const childrenList = hasChildren
+                  ? parent.children.map((child) => `${child.first_name} ${child.last_name}`)
+                  : [];
+
+                return (
+                  <div
+                    key={parent.id}
+                    className="bg-white rounded-3xl p-5 shadow-[0_12px_20px_-12px_var(--menu-shadow)] border themed-border"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="font-quicksand font-bold text-lg text-stone-800 truncate">
+                          {parent.first_name} {parent.last_name}
+                        </h4>
+                        <p className="text-sm text-stone-500 truncate">
+                          {parent.email || 'No email on file'}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          parent.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {parent.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-stone-600">
+                        <Phone size={14} className="text-[var(--primary)]" />
+                        <span>{parent.phone || 'No phone on file'}</span>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                          Linked Children
+                        </p>
+                        {childrenList.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {childrenList.map((childName) => (
+                              <span
+                                key={`${parent.id}-${childName}`}
+                                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--background)] border themed-border text-stone-700"
+                              >
+                                {childName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-stone-400">No children linked</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-2xl border themed-border bg-[var(--background)] p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                          Billing
+                        </p>
+                        <p className={`text-sm font-semibold ${outstanding > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                          {outstanding > 0 ? `Outstanding: $${outstanding.toFixed(2)}` : 'Current: $0.00'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t themed-border flex items-center justify-end">
+                      <button
+                        onClick={() => handleOpenFilesModal('parent', parent)}
+                        className="px-3 py-2 rounded-xl bg-[var(--background)] text-[var(--primary-dark)] text-xs font-bold themed-hover transition-colors"
+                      >
+                        View Files
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1036,50 +1438,88 @@ export function FamiliesPage() {
             : 'Files'
         }
       >
-        {linkedDocumentsLoading ? (
-          <div className="text-stone-500 text-sm">Loading documents...</div>
-        ) : linkedDocuments.length === 0 ? (
-          <div className="text-stone-500 text-sm">No documents found.</div>
-        ) : (
-          <div className="space-y-3">
-            {linkedDocuments.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between rounded-2xl border themed-border px-4 py-3"
+        <div className="space-y-4">
+          <form
+            onSubmit={handleUploadLinkedDocument}
+            className="rounded-2xl border themed-border bg-[var(--background)] p-4 space-y-3"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Add File
+            </p>
+            <input
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                setLinkedFileUpload((prev) => ({ ...prev, file }));
+              }}
+              className="w-full text-sm text-stone-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border file:border-[#FFE5D9] file:bg-white file:text-stone-700 file:font-semibold hover:file:bg-[#FFF8F3]"
+            />
+            <input
+              type="text"
+              placeholder="Description (optional)"
+              value={linkedFileUpload.description}
+              onChange={(event) => setLinkedFileUpload((prev) => ({ ...prev, description: event.target.value }))}
+              className="w-full px-4 py-2.5 rounded-xl border themed-border themed-ring bg-white text-sm"
+            />
+            {linkedFileUploadError && (
+              <p className="text-xs text-red-600">{linkedFileUploadError}</p>
+            )}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={linkedFileUploading}
+                className="px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-xs font-bold shadow-sm hover:opacity-90 transition disabled:opacity-60"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[var(--accent)] flex items-center justify-center">
-                    <FileText size={18} className="text-[var(--primary-dark)]" />
+                {linkedFileUploading ? 'Uploading...' : 'Upload File'}
+              </button>
+            </div>
+          </form>
+
+          {linkedDocumentsLoading ? (
+            <div className="text-stone-500 text-sm">Loading documents...</div>
+          ) : linkedDocuments.length === 0 ? (
+            <div className="text-stone-500 text-sm">No documents found.</div>
+          ) : (
+            <div className="space-y-3">
+              {linkedDocuments.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between rounded-2xl border themed-border px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[var(--accent)] flex items-center justify-center">
+                      <FileText size={18} className="text-[var(--primary-dark)]" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-stone-800">
+                        {doc.original_filename}
+                      </div>
+                      <div className="text-xs text-stone-500">
+                        {doc.category_name || 'Uncategorized'}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-stone-800">
-                      {doc.original_filename}
-                    </div>
-                    <div className="text-xs text-stone-500">
-                      {doc.category_name || 'Uncategorized'}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadLinkedDocument(doc)}
+                      className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                    >
+                      <Download size={16} className="text-stone-500" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLinkedDocument(doc)}
+                      className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} className="text-red-500" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadLinkedDocument(doc)}
-                    className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
-                  >
-                    <Download size={16} className="text-stone-500" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteLinkedDocument(doc)}
-                    className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={16} className="text-red-500" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </BaseModal>
 
       {/* Edit Family Modal */}
@@ -1556,6 +1996,4 @@ export function FamiliesPage() {
     </Layout>
   );
 }
-
-
 

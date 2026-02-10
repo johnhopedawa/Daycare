@@ -1,11 +1,49 @@
 const express = require('express');
 const pool = require('../db/pool');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const fsPromises = fs.promises;
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
 // All children routes require admin authentication
 router.use(requireAuth, requireAdmin);
+
+const childPhotoUploadDir = path.join(__dirname, '../../uploads/child-photos');
+
+const childPhotoStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      await fsPromises.mkdir(childPhotoUploadDir, { recursive: true });
+      cb(null, childPhotoUploadDir);
+    } catch (error) {
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    const childId = String(req.params.id || 'unknown');
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `child-${childId}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const childPhotoUpload = multer({
+  storage: childPhotoStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Invalid file type. Only JPG, PNG, and WEBP are allowed.'));
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024
+  }
+});
 
 // === CHILDREN MANAGEMENT ===
 
@@ -113,6 +151,173 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Get child error:', error);
     res.status(500).json({ error: 'Failed to fetch child' });
+  }
+});
+
+// Upload/replace child profile photo (separate from documents/files)
+router.post('/:id/photo', childPhotoUpload.single('photo'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo uploaded' });
+    }
+
+    const childResult = await pool.query(
+      `SELECT id, profile_photo_path
+       FROM children
+       WHERE id = $1 AND created_by = $2`,
+      [id, req.user.id]
+    );
+
+    if (childResult.rows.length === 0) {
+      try {
+        await fsPromises.unlink(req.file.path);
+      } catch (unlinkError) {
+        // ignore cleanup failures
+      }
+      return res.status(404).json({ error: 'Child not found' });
+    }
+
+    const previousPhotoPath = childResult.rows[0].profile_photo_path;
+
+    await pool.query(
+      `UPDATE children
+       SET profile_photo_path = $1,
+           profile_photo_original_filename = $2,
+           profile_photo_mime_type = $3,
+           profile_photo_updated_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4 AND created_by = $5`,
+      [req.file.path, req.file.originalname, req.file.mimetype, id, req.user.id]
+    );
+
+    if (previousPhotoPath && previousPhotoPath !== req.file.path) {
+      try {
+        await fsPromises.unlink(previousPhotoPath);
+      } catch (unlinkError) {
+        // ignore cleanup failures
+      }
+    }
+
+    return res.json({
+      message: 'Profile photo updated',
+      profile_photo: {
+        has_photo: true,
+        original_filename: req.file.originalname,
+        mime_type: req.file.mimetype
+      }
+    });
+  } catch (error) {
+    if (req.file?.path) {
+      try {
+        await fsPromises.unlink(req.file.path);
+      } catch (unlinkError) {
+        // ignore cleanup failures
+      }
+    }
+    console.error('Upload child profile photo error:', error);
+    return res.status(500).json({ error: 'Failed to upload profile photo' });
+  }
+});
+
+// Download child profile photo
+router.get('/:id/photo', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const childResult = await pool.query(
+      `SELECT id, profile_photo_path, profile_photo_mime_type, profile_photo_original_filename
+       FROM children
+       WHERE id = $1 AND created_by = $2`,
+      [id, req.user.id]
+    );
+
+    if (childResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
+
+    const child = childResult.rows[0];
+    if (!child.profile_photo_path) {
+      return res.status(404).json({ error: 'No profile photo found' });
+    }
+
+    try {
+      await fsPromises.access(child.profile_photo_path);
+    } catch (accessError) {
+      await pool.query(
+        `UPDATE children
+         SET profile_photo_path = NULL,
+             profile_photo_original_filename = NULL,
+             profile_photo_mime_type = NULL,
+             profile_photo_updated_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND created_by = $2`,
+        [id, req.user.id]
+      );
+      return res.status(404).json({ error: 'Profile photo missing from storage. Please upload again.' });
+    }
+
+    if (child.profile_photo_mime_type) {
+      res.setHeader('Content-Type', child.profile_photo_mime_type);
+    }
+
+    return res.sendFile(path.resolve(child.profile_photo_path), (sendError) => {
+      if (!sendError) return;
+      if (res.headersSent) return;
+      if (sendError.code === 'ENOENT') {
+        return res.status(404).json({ error: 'Profile photo missing from storage. Please upload again.' });
+      }
+      console.error('Send child profile photo error:', sendError);
+      return res.status(500).json({ error: 'Failed to load profile photo' });
+    });
+  } catch (error) {
+    console.error('Get child profile photo error:', error);
+    return res.status(500).json({ error: 'Failed to load profile photo' });
+  }
+});
+
+// Remove child profile photo
+router.delete('/:id/photo', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const childResult = await pool.query(
+      `SELECT id, profile_photo_path
+       FROM children
+       WHERE id = $1 AND created_by = $2`,
+      [id, req.user.id]
+    );
+
+    if (childResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Child not found' });
+    }
+
+    const existingPhotoPath = childResult.rows[0].profile_photo_path;
+
+    await pool.query(
+      `UPDATE children
+       SET profile_photo_path = NULL,
+           profile_photo_original_filename = NULL,
+           profile_photo_mime_type = NULL,
+           profile_photo_updated_at = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND created_by = $2`,
+      [id, req.user.id]
+    );
+
+    if (existingPhotoPath) {
+      try {
+        await fsPromises.unlink(existingPhotoPath);
+      } catch (unlinkError) {
+        // ignore cleanup failures
+      }
+    }
+
+    return res.json({ message: 'Profile photo removed' });
+  } catch (error) {
+    console.error('Delete child profile photo error:', error);
+    return res.status(500).json({ error: 'Failed to remove profile photo' });
   }
 });
 
@@ -329,7 +534,7 @@ router.delete('/:id', async (req, res) => {
 
     // Get the child being deleted to check if on waitlist
     const childCheck = await client.query(
-      'SELECT status, waitlist_priority FROM children WHERE id = $1 AND created_by = $2',
+      'SELECT status, waitlist_priority, profile_photo_path FROM children WHERE id = $1 AND created_by = $2',
       [id, req.user.id]
     );
 
@@ -345,6 +550,14 @@ router.delete('/:id', async (req, res) => {
       'DELETE FROM children WHERE id = $1 AND created_by = $2',
       [id, req.user.id]
     );
+
+    if (deletedChild.profile_photo_path) {
+      try {
+        await fsPromises.unlink(deletedChild.profile_photo_path);
+      } catch (unlinkError) {
+        // ignore cleanup failures
+      }
+    }
 
     // If child was on waitlist, reorder the priorities
     if (deletedChild.status === 'WAITLIST' && deletedChild.waitlist_priority) {

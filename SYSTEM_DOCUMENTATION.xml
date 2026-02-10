@@ -18,8 +18,8 @@
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>38</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 037_*.sql)</migration-pattern>
+    <total-migrations>39</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 038_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -101,6 +101,10 @@
         </column>
         <column name="allergies" type="TEXT"/>
         <column name="medical_notes" type="TEXT"/>
+        <column name="profile_photo_path" type="TEXT" description="Filesystem path for dedicated child profile photo"/>
+        <column name="profile_photo_original_filename" type="TEXT"/>
+        <column name="profile_photo_mime_type" type="VARCHAR(100)"/>
+        <column name="profile_photo_updated_at" type="TIMESTAMP"/>
         <column name="waitlist_priority" type="INTEGER" description="Auto-assigned for WAITLIST status (Migration 005)"/>
         <column name="notes" type="TEXT"/>
         <column name="created_by" type="INTEGER" references="users(id)"/>
@@ -815,6 +819,9 @@
           <call endpoint="GET /families"/>
           <call endpoint="PATCH /families/:id/toggle-status"/>
           <call endpoint="GET /children"/>
+          <call endpoint="GET /children/:id/photo"/>
+          <call endpoint="POST /children/:id/photo"/>
+          <call endpoint="DELETE /children/:id/photo"/>
           <call endpoint="GET /children/:id/emergency-contacts"/>
           <call endpoint="PATCH /children/:id"/>
           <call endpoint="GET /parents/directory"/>
@@ -824,6 +831,7 @@
           <call endpoint="DELETE /emergency-contacts/:id"/>
           <call endpoint="GET /files?linked_child_id={id}"/>
           <call endpoint="GET /files?linked_parent_id={id}"/>
+          <call endpoint="POST /files/upload"/>
           <call endpoint="/files/:id/download"/>
           <call endpoint="/files/:id" method="DELETE"/>
           <call endpoint="DELETE /families/:id"/>
@@ -839,9 +847,15 @@
           <feature>Active/Inactive status badges</feature>
           <feature>Tabbed views for families, children directory, parent directory</feature>
           <feature>Children directory search, status filter, and sorting</feature>
+          <feature>Children directory card layout with quick profile details</feature>
+          <feature>Children cards show allergies, medical notes, and emergency contact</feature>
+          <feature>Child profile photo upload/replace/remove via dedicated child photo endpoints (not Files)</feature>
+          <feature>Profile avatar hover actions for Upload New and Remove Photo</feature>
           <feature>Waitlist priority updates from directory</feature>
+          <feature>Family card icon quick actions for linked parent files</feature>
+          <feature>Parents directory redesigned to detail cards (contact, children, billing, status)</feature>
           <feature>Parent directory search and account/billing filters</feature>
-          <feature>View/download/delete files linked to children or parents</feature>
+          <feature>View/upload/download/delete files linked to children or parents from the shared files modal</feature>
           <feature>Family login toggle (enable/disable parent accounts)</feature>
           <feature>Allergy management with toggle buttons</feature>
           <feature>Emergency contacts add/edit with primary contact selection</feature>
@@ -1929,7 +1943,7 @@
         <var name="SMTP_FROM">Default from address</var>
         <var name="RESEND_API_KEY">Optional direct key; when set, backend defaults SMTP transport to smtp.resend.com</var>
         <var name="CONTACT_TO_EMAIL">Inbox recipient for /api/contact form submissions</var>
-        <var name="CONTACT_SUBJECT_PREFIX">Subject prefix for /api/contact notifications</var>
+        <var name="CONTACT_SUBJECT_PREFIX">Legacy subject prefix (contact emails now use fixed title format)</var>
         <var name="SMTP_SECURE">true for SMTPS, false for STARTTLS</var>
         <var name="SYNC_TIMEZONE">Timezone for scheduler (default: UTC)</var>
         <var name="SYNC_LOOKBACK_DAYS">Number of days to look back on each sync (default: 7)</var>
@@ -1948,14 +1962,20 @@
       <max-file-size>20MB</max-file-size>
       <allowed-types>PDF, JPG, PNG, DOCX, DOC</allowed-types>
       <note>Runtime/user-generated uploads are stored in backend/uploads and should not be committed.</note>
+      <note>Child profile photos are stored separately under backend/uploads/child-photos and managed by /api/children/:id/photo endpoints.</note>
+      <note>Child profile photos are not stored in the documents/files tables and do not appear in Files listings.</note>
+      <note>Child profile photo upload accepts JPG/PNG/WEBP up to 10MB per file.</note>
+      <note>Docker Compose persists uploads via named volume: backend-uploads -&gt; /app/uploads.</note>
+      <note>Kubernetes persists uploads via PVC: backend-pvc mounted at /app/uploads.</note>
+      <note>GET /api/files/:id/download returns 404 when DB metadata exists but the file is missing on disk.</note>
       <note>Public-site marketing assets are shipped from frontend/public/uploads and are versioned with the frontend build.</note>
     </file-storage>
 
       <database-setup>
         <migration-command>node backend/src/db/migrate.js</migration-command>
         <migrations-directory>backend/migrations/</migrations-directory>
-        <naming-pattern>000_*.sql through 037_*.sql (sequential)</naming-pattern>
-        <total-migrations>38</total-migrations>
+        <naming-pattern>000_*.sql through 038_*.sql (sequential)</naming-pattern>
+        <total-migrations>39</total-migrations>
       </database-setup>
 
       <backend-server>
@@ -1966,7 +1986,7 @@
         <production-origins>https://littlesparrowsacademy.com, https://www.littlesparrowsacademy.com, https://portal.littlesparrowsacademy.com (plus local http variants)</production-origins>
         <health-check>GET /health</health-check>
         <time-endpoint>GET /api/time</time-endpoint>
-        <contact-endpoint>POST /api/contact (rate-limited public form -> email notification)</contact-endpoint>
+        <contact-endpoint>POST /api/contact (rate-limited public form -> styled email notification titled "New Form Submission: {name}" with submitted date/time)</contact-endpoint>
       </backend-server>
 
     <frontend-server>
