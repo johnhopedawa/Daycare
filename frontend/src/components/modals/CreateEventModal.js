@@ -1,7 +1,43 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BaseModal } from './BaseModal';
-import { Calendar, Clock, MapPin, Users } from 'lucide-react';
+import { DatePickerModal } from './DatePickerModal';
+import { Calendar, ChevronDown, Clock, MapPin, Users } from 'lucide-react';
 import api from '../../utils/api';
+
+const buildTimeOptions = () => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      const labelDate = new Date(2000, 0, 1, hour, minute);
+      const label = labelDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      options.push({ value, label });
+    }
+  }
+  return options;
+};
+
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const formatDateInput = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateLabel = (value) => {
+  if (!value) return 'Select date';
+  const parsed = parseDateInput(value) || new Date(value);
+  if (!parsed || Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 export function CreateEventModal({ isOpen, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -16,6 +52,43 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
+  const timeDropdownRef = useRef(null);
+  const timeOptions = useMemo(() => buildTimeOptions(), []);
+  const selectedTimeLabel = useMemo(
+    () => timeOptions.find((option) => option.value === formData.time)?.label || '',
+    [formData.time, timeOptions]
+  );
+
+  useEffect(() => {
+    if (!isTimeDropdownOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target)) {
+        setIsTimeDropdownOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsTimeDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isTimeDropdownOpen]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    setIsDatePickerOpen(false);
+    setIsTimeDropdownOpen(false);
+  }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +96,15 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
+      if (!formData.date) {
+        setError('Please select an event date.');
+        return;
+      }
+      if (!formData.time) {
+        setError('Please select an event time.');
+        return;
+      }
+
       await api.post('/events', {
         title: formData.eventName,
         eventDate: formData.date,
@@ -92,37 +174,66 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Date
             </label>
-            <div className="relative">
-              <Calendar
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-              />
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
-                required
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsDatePickerOpen(true)}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+            >
+              <span className="flex items-center gap-3">
+                <Calendar size={18} className="text-stone-400" />
+                <span className={formData.date ? 'text-stone-800' : 'text-stone-400'}>
+                  {formatDateLabel(formData.date)}
+                </span>
+              </span>
+              <ChevronDown size={16} className="text-stone-400" />
+            </button>
           </div>
-          <div>
+          <div ref={timeDropdownRef} className="relative">
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Time
             </label>
-            <div className="relative">
-              <Clock
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            <button
+              type="button"
+              onClick={() => setIsTimeDropdownOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+              aria-expanded={isTimeDropdownOpen}
+            >
+              <span className="flex items-center gap-3">
+                <Clock size={18} className="text-stone-400" />
+                <span className={selectedTimeLabel ? 'text-stone-800' : 'text-stone-400'}>
+                  {selectedTimeLabel || 'Select time'}
+                </span>
+              </span>
+              <ChevronDown
+                size={16}
+                className={`text-stone-400 transition-transform ${isTimeDropdownOpen ? 'rotate-180' : ''}`}
               />
-              <input
-                type="time"
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white"
-                required
-              />
-            </div>
+            </button>
+
+            {isTimeDropdownOpen && (
+              <div className="absolute z-20 mt-2 w-full rounded-2xl border border-[#FFE5D9] bg-white shadow-lg shadow-[#FF9B85]/10">
+                <div className="max-h-56 overflow-y-auto p-2 space-y-1">
+                  {timeOptions.map((option) => {
+                    const isSelected = option.value === formData.time;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, time: option.value }));
+                          setIsTimeDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                          isSelected ? 'bg-[#FF9B85] text-white' : 'text-stone-700 hover:bg-[#FFF8F3]'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -221,6 +332,24 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
           </button>
         </div>
       </form>
+
+      <DatePickerModal
+        isOpen={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        initialDate={parseDateInput(formData.date) || undefined}
+        onConfirm={(date) => {
+          setFormData((prev) => ({ ...prev, date: formatDateInput(date) }));
+          setIsDatePickerOpen(false);
+        }}
+        onClear={() => {
+          setFormData((prev) => ({ ...prev, date: '' }));
+          setIsDatePickerOpen(false);
+        }}
+        title="Select event date"
+        subtitle="Choose when this event will happen"
+        confirmLabel="Save date"
+        clearLabel="Clear date"
+      />
     </BaseModal>
   );
 }
