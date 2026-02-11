@@ -7,6 +7,14 @@ Startup sequence:
 3. If anything is unclear, ask questions instead of guessing.
 4. After reading and understanding these rules, reply exactly: `I understand.`
 
+## Environment & Deployment Topology (Source of Truth)
+- Development runs on the local computer using Docker Compose.
+- Production runs in a separate k3s cluster (not local Docker Compose).
+- Promotion path is: Dev -> GitHub -> GitHub Actions -> Docker Hub -> Prod (k3s).
+- Do not assume direct local-to-production deployments.
+- When providing commands or deployment guidance, clearly separate local Docker Compose steps from production k3s steps.
+- If environment target is ambiguous, ask before running potentially destructive or deploy-impacting commands.
+
 Non-negotiable engineering behavior:
 - Do not guess.
 - Do not hallucinate features that do not exist.

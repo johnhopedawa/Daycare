@@ -10,8 +10,8 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-02-10</last-updated>
-    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, and defensive families aggregation de-duplication (parents/children) with full child names in family cards.</documentation-status>
+    <last-updated>2026-02-11</last-updated>
+    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, defensive families aggregation de-duplication (parents/children) with full child names in family cards, and admin dashboard staged loading where finance snapshot and time-off requests fetch asynchronously after core metrics.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -780,6 +780,7 @@
           <feature>Responsive spacing: gap-6 md:gap-8</feature>
         </responsive-features>
         <notes>
+          <note date="2026-02-11">Dashboard now loads core operations widgets first while finance snapshot and time-off requests fetch asynchronously, so slower external/business-expense calls do not block initial dashboard rendering.</note>
           <note date="2026-02-10">Visual redesign refresh: dashboard now uses an operations command-strip header, elevated gradient panel styling, and updated interaction affordances for action/control buttons while preserving existing data/API behavior.</note>
           <note date="2026-02-10">Dashboard title copy simplified to a greeting ("Hi, {first_name}"), and command-strip headline text removed while retaining summary badges.</note>
           <note date="2026-02-03">/finance now serves as the admin Messages inbox; finance KPIs remain in the dashboard snapshot.</note>

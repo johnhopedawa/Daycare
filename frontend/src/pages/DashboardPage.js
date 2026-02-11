@@ -314,12 +314,44 @@ export function DashboardPage() {
     loadDashboardData();
   }, []);
 
+  const loadFinanceSnapshot = async () => {
+    setFinanceLoading(true);
+    setFinanceError('');
+    try {
+      const response = await api.get('/business-expenses', {
+        params: {
+          start: financeRange.start,
+          end: financeRange.end,
+          limit: 1000,
+        },
+      });
+      const payload = response.data || {};
+      setFinanceTransactions(payload.transactions || payload.expenses || []);
+    } catch (error) {
+      setFinanceError('Finance snapshot unavailable.');
+      setFinanceTransactions([]);
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
+  const loadTimeOffData = async () => {
+    setTimeOffLoading(true);
+    try {
+      const response = await api.get('/time-off-requests', { params: { status: 'ALL' } });
+      setTimeOffRequests(response.data.requests || []);
+    } catch (error) {
+      setTimeOffRequests([]);
+    } finally {
+      setTimeOffLoading(false);
+    }
+  };
+
   const loadDashboardData = async () => {
     setLoading(true);
-    setFinanceLoading(true);
     setComplianceLoading(true);
-    setTimeOffLoading(true);
-    setFinanceError('');
+    void loadFinanceSnapshot();
+    void loadTimeOffData();
     try {
       const results = await Promise.allSettled([
         api.get('/children?status=ACTIVE'),
@@ -335,14 +367,6 @@ export function DashboardPage() {
             ratio_staff: ratio.staff,
           },
         }),
-        api.get('/business-expenses', {
-          params: {
-            start: financeRange.start,
-            end: financeRange.end,
-            limit: 1000,
-          },
-        }),
-        api.get('/time-off-requests', { params: { status: 'ALL' } }),
       ]);
 
       const [
@@ -353,8 +377,6 @@ export function DashboardPage() {
         invoicesRes,
         eventsRes,
         complianceRes,
-        financeRes,
-        timeOffRes,
       ] = results;
 
       setChildren(childrenRes.status === 'fulfilled' ? (childrenRes.value.data.children || []) : []);
@@ -398,27 +420,11 @@ export function DashboardPage() {
           in_compliance: staffScheduled >= requiredStaff,
         });
       }
-
-      if (financeRes.status === 'fulfilled') {
-        const payload = financeRes.value.data || {};
-        setFinanceTransactions(payload.transactions || payload.expenses || []);
-      } else {
-        setFinanceError('Finance snapshot unavailable.');
-        setFinanceTransactions([]);
-      }
-
-      if (timeOffRes.status === 'fulfilled') {
-        setTimeOffRequests(timeOffRes.value.data.requests || []);
-      } else {
-        setTimeOffRequests([]);
-      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
-      setFinanceLoading(false);
       setComplianceLoading(false);
-      setTimeOffLoading(false);
     }
   };
 
