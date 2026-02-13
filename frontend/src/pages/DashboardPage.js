@@ -930,7 +930,7 @@ export function DashboardPage() {
           style={{ backgroundColor: 'rgba(15, 23, 42, 0.09)' }}
         />
         <div className="relative">
-          <div className="mb-5 flex flex-wrap items-center justify-end gap-2 rounded-3xl border px-4 py-4 sm:px-5" style={COMMAND_BAR_STYLE}>
+          <div className="mb-5 flex flex-wrap items-center justify-start gap-2 rounded-3xl border px-4 py-4 sm:px-5" style={COMMAND_BAR_STYLE}>
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={COMMAND_BADGE_STYLE}>
                 <Users size={14} style={{ color: 'var(--primary-dark)' }} />
@@ -960,6 +960,7 @@ export function DashboardPage() {
               value={`${summary.presentCount}/${summary.expectedCount}`}
               icon={UserCheck}
               themeIndex={1}
+              variant="dashboard"
               delay={0.1}
             />
             <MetricCard
@@ -967,6 +968,7 @@ export function DashboardPage() {
               value={summary.staffScheduled}
               icon={Briefcase}
               themeIndex={2}
+              variant="dashboard"
               delay={0.2}
             />
             <MetricCard
@@ -980,6 +982,7 @@ export function DashboardPage() {
               }
               icon={ShieldCheck}
               themeIndex={3}
+              variant="dashboard"
               delay={0.3}
               footer={complianceFooter}
               onClick={handleOpenRatio}
@@ -989,6 +992,7 @@ export function DashboardPage() {
               value={pendingTasks}
               icon={ClipboardList}
               themeIndex={4}
+              variant="dashboard"
               delay={0.4}
               onClick={openPendingTasks}
             />

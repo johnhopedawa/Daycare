@@ -71,6 +71,8 @@ export function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [deletingEventId, setDeletingEventId] = useState(null);
+  const [rsvpLoadingEventId, setRsvpLoadingEventId] = useState(null);
 
   const monthTitle = useMemo(
     () => currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -97,6 +99,66 @@ export function EventsPage() {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  useEffect(() => {
+    if (!selectedEvent) {
+      setRsvpLoadingEventId(null);
+    }
+  }, [selectedEvent]);
+
+  useEffect(() => {
+    if (!selectedEvent?.id) return undefined;
+
+    const eventType = String(selectedEvent.entry_type || 'EVENT').toUpperCase();
+    const audience = String(selectedEvent.audience || 'ALL').toUpperCase();
+    const shouldLoadRsvps = (
+      eventType === 'EVENT'
+      && Boolean(selectedEvent.requires_rsvp)
+      && ['ALL', 'PARENTS', 'CHILDREN'].includes(audience)
+    );
+    if (!shouldLoadRsvps) return undefined;
+
+    const eventId = selectedEvent.id;
+    let cancelled = false;
+
+    const loadRsvpResponses = async () => {
+      try {
+        setRsvpLoadingEventId(eventId);
+        const response = await api.get(`/events/${eventId}/rsvps`);
+        if (cancelled) return;
+
+        const summary = response.data?.totals || null;
+        const responses = response.data?.responses || [];
+
+        setSelectedEvent((prev) => {
+          if (!prev || prev.id !== eventId) return prev;
+          return {
+            ...prev,
+            rsvp_summary: summary,
+            rsvp_responses: responses,
+          };
+        });
+
+        setEvents((prev) => prev.map((item) => (
+          item.id === eventId
+            ? { ...item, rsvp_summary: summary, rsvp_responses: responses }
+            : item
+        )));
+      } catch (error) {
+        console.error('Failed to load event RSVP responses:', error);
+      } finally {
+        if (!cancelled) {
+          setRsvpLoadingEventId(null);
+        }
+      }
+    };
+
+    loadRsvpResponses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent?.id, selectedEvent?.requires_rsvp, selectedEvent?.entry_type, selectedEvent?.audience]);
 
   const activeFilterConfig = useMemo(
     () => filterConfigs.find((item) => item.key === activeFilter) || filterConfigs[0],
@@ -132,21 +194,48 @@ export function EventsPage() {
   const selectedEvents = eventsByDate.get(selectedKey) || [];
 
   const toggleMaintenanceStatus = async (event, clickEvent) => {
-    clickEvent.stopPropagation();
+    if (clickEvent?.stopPropagation) {
+      clickEvent.stopPropagation();
+    }
     const currentStatus = toStatus(event);
     const nextStatus = currentStatus === 'DONE' ? 'OPEN' : 'DONE';
     try {
       setStatusUpdatingId(event.id);
       const response = await api.patch(`/events/${event.id}`, { status: nextStatus });
-      const updated = response.data.event;
-      setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-      if (selectedEvent?.id === updated.id) {
-        setSelectedEvent(updated);
-      }
+      const updated = response.data.event || {};
+
+      setEvents((prev) => prev.map((item) => {
+        if (item.id !== updated.id) return item;
+        // Preserve rendered occurrence date for recurring calendar instances.
+        return { ...item, ...updated, event_date: item.event_date || updated.event_date };
+      }));
+
+      setSelectedEvent((prev) => {
+        if (!prev || prev.id !== updated.id) return prev;
+        return { ...prev, ...updated, event_date: prev.event_date || updated.event_date };
+      });
     } catch (error) {
       console.error('Failed to update maintenance status:', error);
     } finally {
       setStatusUpdatingId(null);
+    }
+  };
+
+  const deleteEvent = async (event) => {
+    if (!event?.id) return;
+
+    const confirmed = window.confirm(`Delete "${event.title}"? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingEventId(event.id);
+      await api.delete(`/events/${event.id}`);
+      setEvents((prev) => prev.filter((item) => item.id !== event.id));
+      setSelectedEvent((prev) => (prev?.id === event.id ? null : prev));
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+    } finally {
+      setDeletingEventId(null);
     }
   };
 
@@ -312,6 +401,16 @@ export function EventsPage() {
                         {event.location && (
                           <p className="text-xs text-stone-400 mt-1 truncate">{event.location}</p>
                         )}
+                        {event.requires_rsvp ? (
+                          <p className="mt-1 text-[11px] text-stone-500">
+                            RSVP required
+                            {event.rsvp_summary ? (
+                              <span className="ml-2 font-semibold text-stone-600">
+                                {event.rsvp_summary.going + event.rsvp_summary.notGoing}/{event.rsvp_summary.totalFamilies} replied
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span
@@ -362,6 +461,7 @@ export function EventsPage() {
       <CreateEventModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        initialDate={selectedDate}
         onSuccess={() => {
           setShowCreateModal(false);
           loadEvents();
@@ -372,6 +472,10 @@ export function EventsPage() {
         event={selectedEvent}
         isOpen={Boolean(selectedEvent)}
         onClose={() => setSelectedEvent(null)}
+        onToggleStatus={toggleMaintenanceStatus}
+        isStatusUpdating={Boolean(selectedEvent) && (statusUpdatingId === selectedEvent.id || rsvpLoadingEventId === selectedEvent.id)}
+        onDelete={deleteEvent}
+        isDeleting={Boolean(selectedEvent) && deletingEventId === selectedEvent.id}
       />
     </Layout>
   );

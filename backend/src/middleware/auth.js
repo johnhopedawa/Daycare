@@ -37,12 +37,23 @@ async function requireAuth(req, res, next) {
 
     req.user = result.rows[0];
 
-    // For PARENT users, also fetch parent-specific data
-    if (req.user.role === 'PARENT' && decoded.parentId) {
-      const parentResult = await pool.query(
-        'SELECT id, first_name, last_name, email, phone, is_active FROM parents WHERE id = $1',
-        [decoded.parentId]
-      );
+    // For PARENT users, bind parent profile strictly to this authenticated user.
+    if (req.user.role === 'PARENT') {
+      const hasParentIdInToken = Number.isInteger(decoded.parentId) || /^\d+$/.test(String(decoded.parentId || ''));
+      const parentQuery = hasParentIdInToken
+        ? `SELECT id, user_id, first_name, last_name, email, phone, is_active
+           FROM parents
+           WHERE id = $1 AND user_id = $2
+           LIMIT 1`
+        : `SELECT id, user_id, first_name, last_name, email, phone, is_active
+           FROM parents
+           WHERE user_id = $1
+           ORDER BY id ASC
+           LIMIT 1`;
+      const parentParams = hasParentIdInToken
+        ? [parseInt(decoded.parentId, 10), req.user.id]
+        : [req.user.id];
+      const parentResult = await pool.query(parentQuery, parentParams);
 
       if (parentResult.rows.length > 0) {
         req.parent = parentResult.rows[0];

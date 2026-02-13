@@ -39,6 +39,15 @@ const formatDateLabel = (value) => {
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+const resolveInitialDateInput = (value) => {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return formatDateInput(value);
+  }
+  const parsed = parseDateInput(value) || new Date(value);
+  return formatDateInput(parsed);
+};
+
 const ENTRY_TYPE_OPTIONS = [
   { value: 'event', label: 'Family/Event Calendar Item' },
   { value: 'maintenance', label: 'Maintenance/Compliance Item' },
@@ -61,7 +70,7 @@ const STATUS_OPTIONS = [
   { value: 'done', label: 'Done' },
 ];
 
-export function CreateEventModal({ isOpen, onClose, onSuccess }) {
+export function CreateEventModal({ isOpen, onClose, onSuccess, initialDate }) {
   const audienceValueMap = {
     all: 'ALL',
     daycare: 'STAFF',
@@ -110,6 +119,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
     () => timeOptions.find((option) => option.value === formData.time)?.label || '',
     [formData.time, timeOptions]
   );
+  const canRequireRsvp = formData.entryType !== 'maintenance' && formData.attendees === 'all';
 
   useEffect(() => {
     if (!openMenu) return undefined;
@@ -149,6 +159,21 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
     setIsDatePickerOpen(false);
     setOpenMenu(null);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const nextDateInput = resolveInitialDateInput(initialDate);
+    if (!nextDateInput) return;
+
+    setFormData((prev) => ({ ...prev, date: nextDateInput }));
+  }, [isOpen, initialDate]);
+
+  useEffect(() => {
+    if (canRequireRsvp) return;
+    if (!formData.requireRsvp) return;
+    setFormData((prev) => ({ ...prev, requireRsvp: false }));
+  }, [canRequireRsvp, formData.requireRsvp]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -534,20 +559,28 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }) {
 
         {/* RSVP */}
         {formData.entryType !== 'maintenance' ? (
-          <div className="flex items-center gap-3 p-4 bg-[#FFF8F3] rounded-2xl">
-            <input
-              type="checkbox"
-              id="require-rsvp"
-              checked={formData.requireRsvp}
-              onChange={(e) => setFormData({ ...formData, requireRsvp: e.target.checked })}
-              className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]"
-            />
-            <label
-              htmlFor="require-rsvp"
-              className="text-sm text-stone-600 font-medium"
-            >
-              Require RSVP from families
-            </label>
+          <div className="p-4 bg-[#FFF8F3] rounded-2xl">
+            {canRequireRsvp ? (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="require-rsvp"
+                  checked={formData.requireRsvp}
+                  onChange={(e) => setFormData({ ...formData, requireRsvp: e.target.checked })}
+                  className="w-5 h-5 rounded border-[#FFE5D9] text-[#FF9B85] focus:ring-[#FF9B85]"
+                />
+                <label
+                  htmlFor="require-rsvp"
+                  className="text-sm text-stone-600 font-medium"
+                >
+                  Require RSVP from families
+                </label>
+              </div>
+            ) : (
+              <p className="text-sm text-stone-600">
+                RSVP is available for <span className="font-semibold">All Families</span> audience items.
+              </p>
+            )}
           </div>
         ) : null}
 

@@ -11,7 +11,7 @@
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
     <last-updated>2026-02-11</last-updated>
-    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, defensive families aggregation de-duplication (parents/children) with full child names in family cards, and admin dashboard staged loading where finance snapshot and time-off requests fetch asynchronously after core metrics.</documentation-status>
+    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, defensive families aggregation de-duplication (parents/children) with full child names in family cards, admin dashboard staged loading where finance snapshot and time-off requests fetch asynchronously after core metrics, recurrence-aware calendar range expansion in events APIs so monthly/annual items render on month views even when their base event_date is in prior months/years, a redesigned EventDetailsModal with richer metadata presentation and in-modal maintenance status toggles that preserve recurring instance visibility on the selected day, CreateEventModal date prefill from the currently selected calendar day when opened from EventsPage, parent events API visibility filtering based on audience exclusion (hide STAFF/PRIVATE) plus robust owner resolution (children, parent user linkage, invoice linkage, and single-admin fallback for legacy unlinked parent records), a parent events page UX refresh with an inviting Upcoming Events feed, selected-day focus, and richer event cards, theme-aware modal rendering so parent event detail popups follow parent theme tokens instead of staff/admin styling, and admin popup delete support in EventDetailsModal wired to DELETE /events/:id with immediate calendar state removal after confirmation.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -828,14 +828,19 @@
           <feature>Month grid with daily item counts and filter chips (all/family/private/maintenance)</feature>
           <feature>Agenda list for selected day with maintenance status and recurrence badges</feature>
           <feature>Create calendar item modal supports EVENT or MAINTENANCE entry types</feature>
+          <feature>Add Item opens CreateEventModal with Date prefilled from the currently selected calendar day</feature>
           <feature>Audience choices standardized to All Families, Daycare (admins+staff), and Admin Only; default is Daycare</feature>
           <feature>Maintenance items support monthly/annual recurrence metadata</feature>
           <feature>Maintenance items can be marked done/reopened from the agenda panel</feature>
-          <feature>Event details modal</feature>
+          <feature>Event details modal supports admin delete with confirmation and inline calendar/agenda removal</feature>
+          <feature>Event details modal with visual metadata cards (type/date/time/audience/location/recurrence/status/details)</feature>
+          <feature>Maintenance status can be toggled directly from EventDetailsModal</feature>
         </features>
         <notes>
           <note date="2026-02-10">Navigation copy changed from "Events" to "Calendar" (route remains /events).</note>
           <note date="2026-02-10">Admin-only audience items are hidden from non-admin staff in GET /events.</note>
+          <note date="2026-02-11">GET /events with from/to now expands MONTHLY and ANNUAL recurrence into the requested date window so recurring maintenance items appear on month grids even when created in a previous month/year.</note>
+          <note date="2026-02-11">Maintenance status PATCH merge in EventsPage preserves rendered occurrence event_date for recurring instances so items stay visible on the active day after Mark Done/Reopen.</note>
         </notes>
         <status>ROUTED</status>
       </page>
@@ -1345,7 +1350,20 @@
       </page>
 
       <page file="ParentEvents.js">
-        <description>Parent read-only events calendar (month view); excludes private daycare and maintenance entries</description>
+        <description>Parent read-only events calendar (month view); excludes internal daycare-only items</description>
+        <features>
+          <feature>Calendar card with selected-day focus and quick "Go to today" action</feature>
+          <feature>Summary tiles for selected day, monthly count, and upcoming count</feature>
+          <feature>"Upcoming Events" panel replaces generic agenda copy and prioritizes what families need next</feature>
+          <feature>Two-part event feed: selected day items plus "Next up" list from selected date forward</feature>
+          <feature>Inviting event cards with clear date chips, time labels, location hints, and click-through details modal</feature>
+        </features>
+        <notes>
+          <note date="2026-02-11">GET /parent/events now filters by audience visibility rule (excludes STAFF and PRIVATE) rather than hardcoding entry_type = EVENT, so parent-visible items are not dropped by type.</note>
+          <note date="2026-02-11">GET /parent/events with from/to also expands MONTHLY and ANNUAL recurrence into the requested date window for family-visible event rows.</note>
+          <note date="2026-02-11">Owner resolution for parent events now aggregates owner ids from linked children, parent user created_by, and parent invoice created_by, with single-admin fallback when legacy parent records have no linkage.</note>
+          <note date="2026-02-11">UI refresh changed the right panel heading from "Agenda" to "Upcoming Events" and added richer, easier-to-scan event cards for families.</note>
+        </notes>
         <status>ROUTED</status>
       </page>
 
@@ -1457,12 +1475,14 @@
           <prop name="title" type="string" description="Modal header title"/>
           <prop name="children" type="ReactNode" description="Modal body content"/>
           <prop name="maxWidth" type="string" optional="true" default="max-w-2xl" description="Tailwind max-width class"/>
+          <prop name="theme" type="string" optional="true" default="default" description="Visual mode: default or parent"/>
         </props>
         <features>
           <feature>Backdrop with blur effect</feature>
           <feature>Framer Motion animations (scale, fade, slide)</feature>
           <feature>Close button in header</feature>
           <feature>Scrollable content area with max-h-[90vh]</feature>
+          <feature>Theme-aware header/container/close button styling via theme prop</feature>
           <feature>Responsive padding: p-4 sm:p-6</feature>
           <feature>Responsive border radius: rounded-2xl sm:rounded-3xl</feature>
           <feature>Responsive title size: text-xl sm:text-2xl</feature>
@@ -1521,12 +1541,12 @@
 
       <modal file="CreateEventModal.js">
         <description>Create calendar item (family event or private maintenance/compliance task)</description>
-        <status>FUNCTIONAL - Used in DashboardPage and EventsPage; supports recurrence/status metadata for maintenance items</status>
+        <status>FUNCTIONAL - Used in DashboardPage and EventsPage; supports recurrence/status metadata for maintenance items and accepts an optional initialDate prefill when opened from calendar context</status>
       </modal>
 
       <modal file="EventDetailsModal.js">
-        <description>Read-only event details modal</description>
-        <status>FUNCTIONAL - Used in EventsPage and ParentEvents</status>
+        <description>Event details modal with card-style metadata layout and optional maintenance status action</description>
+        <status>FUNCTIONAL - Used in EventsPage and ParentEvents; accepts theme=parent for parent portal styling and admin calendar wiring enables Mark Done/Reopen and Delete Event actions</status>
       </modal>
 
       <modal file="ConfirmModal.js">
@@ -1847,6 +1867,7 @@
       <utility-file>notifications.js</utility-file>
       <utility-file>appNotifications.js</utility-file>
       <utility-file>owner.js</utility-file>
+      <utility-file>eventRecurrence.js</utility-file>
     </utility-files>
 
     <scheduler>
