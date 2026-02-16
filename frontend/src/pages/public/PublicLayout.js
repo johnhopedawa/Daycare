@@ -24,6 +24,7 @@ let publicBodyClasses = [];
 export function PublicLayout({ bodyClassName, children, banner, title }) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showPortalCta, setShowPortalCta] = useState(true);
 
   const configuredPortalBase = (process.env.REACT_APP_PORTAL_BASE_URL || '').trim().replace(/\/$/, '');
 
@@ -126,6 +127,61 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const collapseBreakpoint = window.matchMedia('(max-width: 992px)');
+    const threshold = 6;
+    let lastScrollY = window.scrollY || 0;
+
+    const updatePortalCtaVisibility = () => {
+      if (!collapseBreakpoint.matches) {
+        setShowPortalCta(true);
+        lastScrollY = window.scrollY || 0;
+        return;
+      }
+
+      const currentScrollY = window.scrollY || 0;
+
+      if (currentScrollY <= 16) {
+        setShowPortalCta(true);
+      } else if (currentScrollY > lastScrollY + threshold) {
+        setShowPortalCta(false);
+      } else if (currentScrollY < lastScrollY - threshold) {
+        setShowPortalCta(true);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    const handleBreakpointChange = () => {
+      lastScrollY = window.scrollY || 0;
+      if (!collapseBreakpoint.matches) {
+        setShowPortalCta(true);
+      }
+    };
+
+    updatePortalCtaVisibility();
+    window.addEventListener('scroll', updatePortalCtaVisibility, { passive: true });
+
+    if (collapseBreakpoint.addEventListener) {
+      collapseBreakpoint.addEventListener('change', handleBreakpointChange);
+    } else {
+      collapseBreakpoint.addListener(handleBreakpointChange);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updatePortalCtaVisibility);
+      if (collapseBreakpoint.removeEventListener) {
+        collapseBreakpoint.removeEventListener('change', handleBreakpointChange);
+      } else {
+        collapseBreakpoint.removeListener(handleBreakpointChange);
+      }
+    };
+  }, []);
+
   const isActivePath = (path) => {
     if (path === '/') {
       return location.pathname === '/' || location.pathname === '/index.html';
@@ -135,7 +191,7 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
 
   return (
     <div className="body-wrap">
-      <div className="public-portals-cta" aria-label="Portal quick links">
+      <div className={`public-portals-cta${showPortalCta ? '' : ' is-hidden'}`} aria-label="Portal quick links">
         <a
           href={staffPortalHref}
           className="public-portals-cta-link wsite-button wsite-button-large wsite-button-highlight"

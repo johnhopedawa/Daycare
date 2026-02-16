@@ -1637,9 +1637,9 @@
         <public-layout-file>frontend/src/pages/public/PublicLayout.js</public-layout-file>
         <public-pages-path>frontend/src/pages/public/</public-pages-path>
         <persistent-cta>
-          <item>Global fixed portal quick links are rendered by PublicLayout on all public pages and breakpoints.</item>
+          <item>Global portal quick links are rendered by PublicLayout on all public pages; at collapsed-menu widths (<= 992px), they hide on downward scroll and reappear on upward scroll.</item>
           <target-url>Staff: {portalBase}/staff, Parent: {portalBase}/parents where portalBase comes from REACT_APP_PORTAL_BASE_URL or is derived from current hostname (localhost uses same origin + mode=portal).</target-url>
-          <placement>Top-right inset on desktop; at viewport widths <= 1024px, CTA is placed below the fixed header. Staff/Parent pills use equal fixed widths.</placement>
+          <placement>Top-right inset on desktop; at viewport widths <= 1024px, CTA is placed below the fixed header, and at <= 480px both pills use smaller dimensions for compact phones.</placement>
         </persistent-cta>
         <public-style-files>
           <file>frontend/public/files/main_style.css</file>

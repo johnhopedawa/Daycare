@@ -200,7 +200,9 @@ body.public-site .public-portals-cta {
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
-  transform: translateZ(0);
+  opacity: 1;
+  transform: translateY(0) translateZ(0);
+  transition: opacity 180ms ease, transform 220ms ease;
 }
 
 body.public-site .public-portals-cta-link {
@@ -236,5 +238,32 @@ body.public-site .public-portals-cta-link .wsite-button-inner {
 
   body.public-site .public-portals-cta-link .wsite-button-inner {
     font-size: 12px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  body.public-site .public-portals-cta.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-12px) translateZ(0);
+  }
+}
+
+@media (max-width: 480px) {
+  body.public-site .public-portals-cta {
+    right: 10px;
+    top: 74px;
+    gap: 6px;
+  }
+
+  body.public-site .public-portals-cta-link {
+    width: 150px;
+    min-height: 38px;
+    padding: 8px 14px !important;
+  }
+
+  body.public-site .public-portals-cta-link .wsite-button-inner {
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
   }
 }
