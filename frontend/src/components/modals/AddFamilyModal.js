@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { BaseModal } from './BaseModal';
 import { DatePickerModal } from './DatePickerModal';
 import { User, Mail, Phone, MapPin, Plus, X, Cake, DollarSign } from 'lucide-react';
 import api from '../../utils/api';
 
 export function AddFamilyModal({ isOpen, onClose, onSuccess, initialChild, onCreated }) {
-  const createChild = (seed = {}) => ({
+  const createChild = useCallback((seed = {}) => ({
     id: `child-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     firstName: seed.firstName || '',
     lastName: seed.lastName || '',
@@ -14,9 +14,9 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess, initialChild, onCre
     allergies: { common: [], other: '' },
     medicalNotes: seed.medicalNotes || '',
     notes: seed.notes || ''
-  });
+  }), []);
 
-  const buildInitialFormData = (seed) => {
+  const buildInitialFormData = useCallback((seed) => {
     const childSeed = seed && typeof seed === 'object' ? seed : {};
     return {
       familyName: childSeed.lastName ? `${childSeed.lastName} Family` : '',
@@ -28,7 +28,7 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess, initialChild, onCre
       province: '',
       postalCode: '',
     };
-  };
+  }, [createChild]);
 
   const [formData, setFormData] = useState(() => buildInitialFormData(initialChild));
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -47,7 +47,7 @@ export function AddFamilyModal({ isOpen, onClose, onSuccess, initialChild, onCre
     setActiveChildIndex(null);
     setIsDatePickerOpen(false);
     setError('');
-  }, [isOpen, initialChild]);
+  }, [buildInitialFormData, initialChild, isOpen]);
 
   const COMMON_ALLERGIES = [
     'None', 'Milk', 'Eggs', 'Nuts', 'Tree Nuts', 'Soy', 'Wheat (Gluten)',

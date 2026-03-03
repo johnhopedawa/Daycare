@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PublicLayout from './PublicLayout';
 
 const galleryItems = [
@@ -71,7 +71,8 @@ const banner = (
         className="wsite-section wsite-header-section wsite-section-bg-image wsite-section-effect-parallax"
         style={{
           verticalAlign: 'middle',
-          height: '543px',
+          height: 'min(74vh, 560px)',
+          minHeight: '420px',
           backgroundImage:
             'url("/uploads/1/4/8/8/148835555/background-images/1730075260.jpg")',
           backgroundRepeat: 'no-repeat',
@@ -85,7 +86,7 @@ const banner = (
           <div id="banner">
             <div id="banner-container">
               <div className="wsite-section-elements">
-                <div className="wsite-spacer" style={{ height: '112px' }}></div>
+                <div className="wsite-spacer" style={{ height: '58px' }}></div>
                 <div className="paragraph" style={{ textAlign: 'center' }}>
                   <span>
                     <strong>
@@ -107,7 +108,7 @@ const banner = (
                   </a>
                   <div style={{ height: '10px', overflow: 'hidden' }}></div>
                 </div>
-                <div className="wsite-spacer" style={{ height: '97px' }}></div>
+                <div className="wsite-spacer" style={{ height: '44px' }}></div>
               </div>
             </div>
           </div>
@@ -119,6 +120,89 @@ const banner = (
 );
 
 export function PublicHome() {
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const isLightboxOpen = lightboxIndex !== null;
+  const activeImage = isLightboxOpen ? galleryItems[lightboxIndex] : null;
+
+  const openLightbox = (index) => {
+    setLightboxIndex(index);
+  };
+
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+  };
+
+  const showNextImage = () => {
+    setLightboxIndex((previousIndex) => {
+      if (previousIndex === null) {
+        return 0;
+      }
+      return (previousIndex + 1) % galleryItems.length;
+    });
+  };
+
+  const showPreviousImage = () => {
+    setLightboxIndex((previousIndex) => {
+      if (previousIndex === null) {
+        return galleryItems.length - 1;
+      }
+      return (previousIndex - 1 + galleryItems.length) % galleryItems.length;
+    });
+  };
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    if (isLightboxOpen) {
+      document.body.classList.add('public-gallery-lightbox-open');
+    } else {
+      document.body.classList.remove('public-gallery-lightbox-open');
+    }
+
+    return () => {
+      document.body.classList.remove('public-gallery-lightbox-open');
+    };
+  }, [isLightboxOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isLightboxOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setLightboxIndex(null);
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        setLightboxIndex((previousIndex) => {
+          if (previousIndex === null) {
+            return galleryItems.length - 1;
+          }
+          return (previousIndex - 1 + galleryItems.length) % galleryItems.length;
+        });
+        return;
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setLightboxIndex((previousIndex) => {
+          if (previousIndex === null) {
+            return 0;
+          }
+          return (previousIndex + 1) % galleryItems.length;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isLightboxOpen]);
+
   return (
     <PublicLayout
       bodyClassName="header-page wsite-page-index full-width-on wsite-theme-light"
@@ -153,8 +237,9 @@ export function PublicHome() {
                       {galleryItems.map((item, index) => (
                         <div
                           key={item.thumb}
+                          className="public-home-gallery-item"
                           id={`496520863490730145-imageContainer${index}`}
-                          style={{ float: 'left', width: '33.28%', margin: 0 }}
+                          style={{ margin: 0 }}
                         >
                           <div
                             id={`496520863490730145-insideImageContainer${index}`}
@@ -170,14 +255,19 @@ export function PublicHome() {
                               }}
                               >
                               <div className="galleryInnerImageHolder">
-                                <a href={item.full} rel="lightbox[gallery496520863490730145]">
+                                <button
+                                  type="button"
+                                  className="public-home-gallery-trigger"
+                                  onClick={() => openLightbox(index)}
+                                  aria-label={`Open gallery image ${index + 1}`}
+                                >
                                   <img
                                     src={item.thumb}
                                     className="galleryImage"
-                                    alt="Gallery"
+                                    alt={`Gallery ${index + 1}`}
                                     style={item.style}
                                   />
-                                </a>
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -197,6 +287,52 @@ export function PublicHome() {
           </div>
         </div>
       </div>
+
+      {isLightboxOpen && activeImage ? (
+        <div
+          className="public-gallery-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Gallery image viewer"
+          onClick={closeLightbox}
+        >
+          <div
+            className="public-gallery-lightbox-stage"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="public-gallery-lightbox-hotspot is-prev"
+              onClick={showPreviousImage}
+              aria-label="Previous image"
+            ></button>
+            <button
+              type="button"
+              className="public-gallery-lightbox-hotspot is-next"
+              onClick={showNextImage}
+              aria-label="Next image"
+            ></button>
+
+            <img
+              src={activeImage.full}
+              className="public-gallery-lightbox-image"
+              alt={`Gallery ${lightboxIndex + 1}`}
+            />
+
+            <button
+              type="button"
+              className="public-gallery-lightbox-close"
+              onClick={closeLightbox}
+              aria-label="Close gallery"
+            >
+              &#10005;
+            </button>
+            <div className="public-gallery-lightbox-count">
+              {lightboxIndex + 1} / {galleryItems.length}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PublicLayout>
   );
 }

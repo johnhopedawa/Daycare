@@ -26,6 +26,8 @@ const notificationsRoutes = require('./routes/notifications');
 const timeOffRequestsRoutes = require('./routes/timeOffRequests');
 const developerRoutes = require('./routes/developer');
 const contactRoutes = require('./routes/contact');
+const newslettersRoutes = require('./routes/newsletters');
+const careLogsRoutes = require('./routes/careLogs');
 
 // Parent portal routes
 const parentDashboardRoutes = require('./routes/parentDashboard');
@@ -113,6 +115,8 @@ app.use('/api/themes', themesRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/newsletters', newslettersRoutes);
+app.use('/api/care-logs', careLogsRoutes);
 app.use('/api/time-off-requests', timeOffRequestsRoutes);
 app.use('/api/developer', developerRoutes);
 app.use('/api', contactRoutes);

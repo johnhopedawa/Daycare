@@ -10,6 +10,7 @@ const navItems = [
   { label: 'My Hours', path: '/educator/my-hours', icon: Clock },
   { label: 'Attendance', path: '/educator/attendance', icon: ClipboardCheck },
   { label: 'Messages', path: '/educator/messages', icon: Mail },
+  { label: 'Newsletters', path: '/educator/newsletters', icon: FileText },
   { label: 'Paystubs', path: '/educator/my-paystubs', icon: FileText },
 ];
 

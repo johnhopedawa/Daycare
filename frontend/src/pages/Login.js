@@ -91,7 +91,7 @@ function Login() {
         return;
       }
 
-      navigate('/dashboard');
+      navigate('/today');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     } finally {

@@ -197,9 +197,9 @@ body.public-site .public-portals-cta {
   top: 20px;
   z-index: 1002;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   opacity: 1;
   transform: translateY(0) translateZ(0);
   transition: opacity 180ms ease, transform 220ms ease;
@@ -210,34 +210,37 @@ body.public-site .public-portals-cta-link {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 186px;
-  min-height: 44px;
+  min-width: 144px;
+  min-height: 40px;
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
   text-decoration: none !important;
-  padding: 12px 24px !important;
+  padding: 10px 18px !important;
   text-align: center;
 }
 
 body.public-site .public-portals-cta-link .wsite-button-inner {
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
-  letter-spacing: 1.4px !important;
+  letter-spacing: 1.2px !important;
 }
 
-@media (max-width: 1024px) {
+@media (min-width: 993px) and (max-width: 1180px) {
   body.public-site .public-portals-cta {
-    right: 16px;
-    top: 76px;
+    right: 12px;
+    top: 16px;
+    gap: 8px;
   }
 
   body.public-site .public-portals-cta-link {
-    width: 186px;
-    padding: 11px 20px !important;
+    min-width: 128px;
+    min-height: 36px;
+    padding: 8px 14px !important;
   }
 
   body.public-site .public-portals-cta-link .wsite-button-inner {
-    font-size: 12px !important;
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
   }
 }
 
@@ -265,5 +268,470 @@ body.public-site .public-portals-cta-link .wsite-button-inner {
   body.public-site .public-portals-cta-link .wsite-button-inner {
     font-size: 10px !important;
     letter-spacing: 1px !important;
+  }
+}
+
+/* Mobile-first polish pass (2026-03) */
+body.public-site .public-mobile-backdrop {
+  display: none;
+}
+
+body.public-site .public-home-gallery-item {
+  float: left;
+  width: 33.3333%;
+  margin: 0;
+}
+
+body.public-site .public-home-gallery-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+body.public-site.public-gallery-lightbox-open {
+  overflow: hidden;
+}
+
+body.public-site .public-gallery-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(6, 10, 14, 0.68);
+  backdrop-filter: blur(1.5px);
+}
+
+body.public-site .public-gallery-lightbox-stage {
+  position: relative;
+  width: min(94vw, 980px);
+  max-height: 92vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.public-site .public-gallery-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: 92vh;
+  border-radius: 14px;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.45);
+  background: #111;
+  position: relative;
+  z-index: 2;
+}
+
+body.public-site .public-gallery-lightbox-hotspot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  z-index: 3;
+  cursor: pointer;
+}
+
+body.public-site .public-gallery-lightbox-hotspot.is-prev {
+  left: 0;
+}
+
+body.public-site .public-gallery-lightbox-hotspot.is-next {
+  right: 0;
+}
+
+body.public-site .public-gallery-lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -6px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(9, 15, 19, 0.72);
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+body.public-site .public-gallery-lightbox-count {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
+  color: #f7fbfc;
+  font-family: "Montserrat", "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(8, 14, 18, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+@media (max-width: 992px) {
+  body.public-site .public-portals-cta {
+    display: none !important;
+  }
+
+  body.public-site #header {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    min-height: 76px !important;
+    height: 76px !important;
+    z-index: 1200 !important;
+    padding: 0 12px !important;
+  }
+
+  body.public-site .nav-trigger {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 1202;
+  }
+
+  body.public-site .public-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    background: rgba(10, 24, 30, 0.44);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  body.public-site .public-mobile-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.public-site #sitename {
+    margin: 0 !important;
+    padding: 0 64px !important;
+    text-align: center;
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.public-site .wsite-logo {
+    margin: 0 !important;
+  }
+
+  body.public-site .wsite-logo a {
+    display: block !important;
+    text-align: center;
+  }
+
+  body.public-site #wsite-title {
+    display: block !important;
+    width: 100%;
+    max-width: 100%;
+    letter-spacing: 0.35px !important;
+    font-size: 1.2rem !important;
+    line-height: 1.2 !important;
+    padding-top: 0.06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.public-site .open-btn {
+    padding: 12px !important;
+  }
+
+  body.public-site #wrapper {
+    left: 0 !important;
+  }
+
+  body.public-site .navmobile-wrapper {
+    width: min(84vw, 320px) !important;
+    z-index: 1100 !important;
+    opacity: 1 !important;
+    padding: 98px 0 22px !important;
+    transform: translateX(-100%);
+    transition: transform 220ms ease !important;
+    box-shadow: 20px 0 46px rgba(0, 0, 0, 0.28);
+  }
+
+  body.public-site.menu-open .navmobile-wrapper {
+    transform: translateX(0);
+  }
+
+  body.public-site #navmobile {
+    margin: 0 18px !important;
+    font-size: 0.95em !important;
+  }
+
+  body.public-site #navmobile ul {
+    width: 100% !important;
+  }
+
+  body.public-site #navmobile .wsite-menu-item {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.8px !important;
+    line-height: 1.25 !important;
+    padding: 12px 12px !important;
+  }
+
+  body.public-site #navmobile .wsite-menu-item-wrap:not(.public-nav-portal-item) .wsite-menu-item {
+    border-bottom: 1px solid rgba(117, 141, 136, 0.22);
+  }
+
+  body.public-site .public-nav-portal-item .wsite-menu-item {
+    margin: 0 0 10px;
+    border-radius: 999px;
+    background: #5199a8;
+    color: #ffffff !important;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-align: center;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+  }
+}
+
+@media (max-width: 767px) {
+  body.public-site #wsite-title {
+    font-size: 1.2rem !important;
+    line-height: 1.2 !important;
+  }
+
+  body.public-site.wsite-page-index .wsite-header-section {
+    height: 72svh !important;
+    min-height: 520px !important;
+  }
+
+  body.public-site.wsite-page-index .wsite-header-section:before {
+    background: linear-gradient(
+      180deg,
+      rgba(10, 18, 20, 0.46) 0%,
+      rgba(10, 18, 20, 0.35) 42%,
+      rgba(10, 18, 20, 0.42) 100%
+    ) !important;
+  }
+
+  body.public-site.wsite-page-index #banner-container {
+    padding: 2.1rem 1rem 2.7rem !important;
+  }
+
+  body.public-site.wsite-page-index #banner .paragraph {
+    font-size: 1.04rem !important;
+    line-height: 1.35 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 0.45rem !important;
+  }
+
+  body.public-site.wsite-page-index #banner h2 {
+    font-size: 3.05rem !important;
+    line-height: 1.02 !important;
+    margin-bottom: 1.05rem !important;
+  }
+
+  body.public-site.wsite-page-index #banner .wsite-button-large {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 232px !important;
+    min-height: 52px !important;
+    padding: 13px 22px !important;
+    border-radius: 0 !important;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22) !important;
+  }
+
+  body.public-site.wsite-page-index #banner .wsite-button-large .wsite-button-inner {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100%;
+    text-align: center !important;
+    line-height: 1.08 !important;
+    font-size: 0.93rem !important;
+    letter-spacing: 2px !important;
+    font-weight: 800 !important;
+  }
+
+  body.public-site.wsite-page-index #banner .wsite-button-large .wsite-button-inner > span {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  body.public-site.wsite-page-index #wsite-content h2 {
+    font-size: 2.1rem !important;
+    line-height: 1.08 !important;
+    letter-spacing: 0.4px !important;
+    margin-bottom: 0.8rem !important;
+  }
+
+  body.public-site.wsite-page-index #wsite-content .wsite-section-elements > .paragraph:first-child {
+    font-size: 1.45rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: 1.4px !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  body.public-site.wsite-page-index #wsite-content .wsite-section-elements > .paragraph:first-child font {
+    font-size: clamp(2.15rem, 11vw, 2.85rem) !important;
+    line-height: 1 !important;
+  }
+
+  body.public-site.wsite-page-index #wsite-content .wsite-section-content > .container {
+    padding: 2.3rem 1rem 2.7rem !important;
+  }
+
+  body.public-site .public-home-gallery-item {
+    width: 50% !important;
+  }
+
+  body.public-site .public-home-gallery-item .galleryImageHolder {
+    border-radius: 12px;
+  }
+
+  body.public-site .public-gallery-lightbox {
+    padding: 10px;
+    background: rgba(6, 10, 14, 0.6);
+  }
+
+  body.public-site .public-gallery-lightbox-image {
+    border-radius: 10px;
+    max-height: 86vh;
+  }
+
+  body.public-site .public-gallery-lightbox-close {
+    top: -10px;
+    right: 0;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  body.public-site .public-gallery-lightbox-count {
+    bottom: 8px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  body.public-site.wsite-page-vision #wsite-content .container,
+  body.public-site.wsite-page-services-rates #wsite-content .container,
+  body.public-site.wsite-page-about-the-director #wsite-content .container {
+    padding: 2.35rem 1.1rem !important;
+  }
+
+  body.public-site.wsite-page-vision #wsite-content .paragraph,
+  body.public-site.wsite-page-services-rates #wsite-content .paragraph,
+  body.public-site.wsite-page-about-the-director #wsite-content .paragraph {
+    text-align: left !important;
+    font-size: 1.15rem !important;
+    line-height: 1.72 !important;
+    color: rgba(255, 255, 255, 0.96) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.34);
+    margin-bottom: 1.25rem !important;
+  }
+
+  body.public-site.wsite-page-vision #wsite-content h2,
+  body.public-site.wsite-page-services-rates #wsite-content h2,
+  body.public-site.wsite-page-about-the-director #wsite-content h2 {
+    font-size: 2.25rem !important;
+    line-height: 1.12 !important;
+  }
+
+  body.public-site.wsite-page-contact-hours #wsite-content h2 {
+    font-size: 2.6rem !important;
+    line-height: 1.08 !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  body.public-site.wsite-page-contact-hours #wsite-content .paragraph {
+    line-height: 1.5 !important;
+    font-size: 1.1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  body.public-site.wsite-page-contact-hours .wsite-form {
+    margin-top: 14px !important;
+    border-radius: 20px !important;
+    padding: 22px !important;
+  }
+
+  body.public-site.wsite-page-contact-hours .wsite-form button[type="submit"] {
+    min-height: 50px !important;
+    min-width: 100% !important;
+    font-size: 1rem !important;
+  }
+
+  body.public-site.wsite-page-policies #banner h2 {
+    font-size: 2.7rem !important;
+    line-height: 1.06 !important;
+  }
+
+  body.public-site.wsite-page-policies #wsite-content .container {
+    padding: 2rem 1rem 2.6rem !important;
+  }
+
+  body.public-site.wsite-page-policies .wsite-multicol-col > div > div {
+    margin: 0 0 12px !important;
+    padding: 14px 12px 10px !important;
+    background: #ffffff;
+    border: 1px solid rgba(124, 146, 141, 0.26);
+    border-radius: 14px;
+    box-shadow: 0 8px 18px rgba(33, 44, 41, 0.08);
+  }
+
+  body.public-site.wsite-page-policies .wsite-multicol-col b {
+    font-size: 1.02rem !important;
+    letter-spacing: 0.2px;
+  }
+
+  body.public-site.wsite-page-policies .wsite-multicol-col a[href$=".pdf"] {
+    font-size: 1.02rem !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  body.public-site #sitename {
+    padding: 0 58px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  body.public-site.wsite-page-index #banner .wsite-button-large {
+    min-width: 188px !important;
+    min-height: 44px !important;
+    padding: 10px 16px !important;
+  }
+
+  body.public-site.wsite-page-index #banner .wsite-button-large .wsite-button-inner {
+    font-size: 0.78rem !important;
+    letter-spacing: 1.3px !important;
   }
 }

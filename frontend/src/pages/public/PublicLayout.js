@@ -60,6 +60,11 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
     ? `${portalBaseUrl}/parents?mode=portal`
     : `${portalBaseUrl}/parents`;
 
+  const portalNavItems = [
+    { label: 'Staff Portal', href: staffPortalHref },
+    { label: 'Parent Portal', href: parentPortalHref },
+  ];
+
   useLayoutEffect(() => {
     if (typeof document === 'undefined') {
       return undefined;
@@ -131,6 +136,21 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
     if (typeof window === 'undefined') {
       return undefined;
     }
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
 
     const collapseBreakpoint = window.matchMedia('(max-width: 992px)');
     const threshold = 6;
@@ -191,6 +211,12 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
 
   return (
     <div className="body-wrap">
+      <div
+        className={`public-mobile-backdrop${menuOpen ? ' is-visible' : ''}`}
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+      ></div>
+
       <div className={`public-portals-cta${showPortalCta ? '' : ' is-hidden'}`} aria-label="Portal quick links">
         <a
           href={staffPortalHref}
@@ -246,7 +272,7 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
                   className="wsite-menu-item-wrap"
                   id={isActivePath(item.path) ? 'active' : `pg${item.pageId}`}
                 >
-                  <Link to={item.path} className="wsite-menu-item">
+                  <Link to={item.path} className="wsite-menu-item" onClick={() => setMenuOpen(false)}>
                     {item.label}
                   </Link>
                 </li>
@@ -267,13 +293,20 @@ export function PublicLayout({ bodyClassName, children, banner, title }) {
       <div className="navmobile-wrapper">
         <div id="navmobile" className="nav">
           <ul className="wsite-menu-default">
+            {portalNavItems.map((item) => (
+              <li key={`${item.label}-mobile-portal`} className="wsite-menu-item-wrap public-nav-portal-item">
+                <a href={item.href} className="wsite-menu-item public-nav-portal-link">
+                  {item.label}
+                </a>
+              </li>
+            ))}
             {navItems.map((item) => (
               <li
                 key={`${item.path}-mobile`}
                 className="wsite-menu-item-wrap"
                 id={isActivePath(item.path) ? 'active' : `pg${item.pageId}`}
               >
-                <Link to={item.path} className="wsite-menu-item">
+                <Link to={item.path} className="wsite-menu-item" onClick={() => setMenuOpen(false)}>
                   {item.label}
                 </Link>
               </li>

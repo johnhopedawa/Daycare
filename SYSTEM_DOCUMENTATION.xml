@@ -10,16 +10,16 @@
       <pdf-generation>PDFKit</pdf-generation>
       <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-02-11</last-updated>
-    <documentation-status>Updated with portal host production ingress routing (portal.littlesparrowsacademy.com), expanded production CORS allowlist (root/www/portal), single-domain production portal/public build defaults, static asset tracking under frontend/public/uploads, browser-cache warmup behavior for first-hit performance, educator attendance roster loading via staff-safe /attendance/children when scheduled, attendance log in-row status with explicit drop-off/pick-up detail columns, defensive families aggregation de-duplication (parents/children) with full child names in family cards, admin dashboard staged loading where finance snapshot and time-off requests fetch asynchronously after core metrics, recurrence-aware calendar range expansion in events APIs so monthly/annual items render on month views even when their base event_date is in prior months/years, a redesigned EventDetailsModal with richer metadata presentation and in-modal maintenance status toggles that preserve recurring instance visibility on the selected day, CreateEventModal date prefill from the currently selected calendar day when opened from EventsPage, parent events API visibility filtering based on audience exclusion (hide STAFF/PRIVATE) plus robust owner resolution (children, parent user linkage, invoice linkage, and single-admin fallback for legacy unlinked parent records), a parent events page UX refresh with an inviting Upcoming Events feed, selected-day focus, and richer event cards, theme-aware modal rendering so parent event detail popups follow parent theme tokens instead of staff/admin styling, and admin popup delete support in EventDetailsModal wired to DELETE /events/:id with immediate calendar state removal after confirmation.</documentation-status>
+    <last-updated>2026-03-02</last-updated>
+    <documentation-status>Updated with a dedicated admin Today workspace route (/today), staff-only care-log publishing (parents read-only), educator care-log publishing retained, admin sidebar restructuring into pinned Today + Dashboard + Messages plus clear Daily Operations and Management sections, DashboardPage refocused on management-level metrics (day-of care/reminder workflows moved to TodayPage), and legacy Admin*/backup frontend artifacts removed after a fresh checkpoint-latest snapshot. UI refresh on 2026-02-18 removed Today hero marketing copy, made the Daily Workspace badge more prominent, replaced Today care-log child/type/time native controls with menu-based custom dropdowns matching the app design system, and fixed Dashboard time-off data loading to call /api/time-off-requests without unsupported status=ALL filtering. Public-site mobile UX refresh on 2026-03-02 removed fixed floating portal pills on phone widths, moved portal access into the mobile navigation drawer, added a mobile backdrop/drawer behavior that no longer pushes page content, increased mobile readability and hierarchy across Home + all public menu pages (Vision, Services, Director, Policies, Contact), enlarged/centered the mobile site title in a flex-based header to prevent menu-icon overlap, upgraded mobile nav-drawer item typography, restyled mobile policy download cards for clearer document actions, switched the home gallery to two-column tiles on small screens, and converted desktop portal pills to a compact single-row top-right layout that avoids overlap with the navigation line on narrower desktops. Follow-up tuning on 2026-03-02 further increased mobile header title scale/fit behavior, centered the Home banner Contact Us button text within its pill container, boosted mobile Home gallery heading typography for clearer readability, normalized header spacing consistency across small and large phone widths to match mid-size devices, adjusted mobile logo title line-height/padding to prevent top-edge glyph clipping on smaller phones, and replaced Home gallery image link navigation with an in-page lightbox popup that supports semi-transparent dark backdrop, outside-click close, and left/right cycling controls using invisible click zones (no visible arrow buttons). A subsequent 2026-03-02 style correction keeps gallery image corner treatment unchanged while making only the mobile Home Contact Us CTA button square-cornered to match desktop, plus a smallest-phone override (`max-width: 380px`) that reduces CTA box/text size to avoid visual hierarchy collisions with nearby hero copy.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
   <!-- ======================= DATABASE SCHEMA ======================= -->
   <database-schema>
     <migrations-directory>backend/migrations/</migrations-directory>
-    <total-migrations>39</total-migrations>
-    <migration-pattern>Sequential numbered migrations (000_*.sql through 038_*.sql)</migration-pattern>
+    <total-migrations>43</total-migrations>
+    <migration-pattern>Sequential numbered migrations (000_*.sql through 042_*.sql)</migration-pattern>
 
     <!-- Core User Management -->
     <table name="users">
@@ -426,6 +426,40 @@
       </columns>
     </table>
 
+    <table name="newsletters">
+      <description>Parent-facing daycare updates authored by admins and educators (Migration 042)</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="owner_id" type="INTEGER" references="users(id)" required="true"/>
+        <column name="title" type="VARCHAR(180)" required="true"/>
+        <column name="body" type="TEXT" required="true"/>
+        <column name="image_url" type="TEXT"/>
+        <column name="is_published" type="BOOLEAN" default="true"/>
+        <column name="published_at" type="TIMESTAMP"/>
+        <column name="created_by" type="INTEGER" references="users(id)" required="true"/>
+        <column name="updated_by" type="INTEGER" references="users(id)"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+        <column name="updated_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+    </table>
+
+    <table name="care_logs">
+      <description>Daily child care entries for naps/pees/poos visible to parents and staff; created by admin/educator only (Migration 042)</description>
+      <columns>
+        <column name="id" type="SERIAL" primary-key="true"/>
+        <column name="owner_id" type="INTEGER" references="users(id)" required="true"/>
+        <column name="child_id" type="INTEGER" references="children(id)" required="true"/>
+        <column name="log_date" type="DATE" required="true"/>
+        <column name="log_type" type="VARCHAR(10)" required="true">
+          <constraints>CHECK IN ('NAP', 'PEE', 'POO')</constraints>
+        </column>
+        <column name="occurred_at" type="TIME"/>
+        <column name="notes" type="TEXT"/>
+        <column name="created_by" type="INTEGER" references="users(id)" required="true"/>
+        <column name="created_at" type="TIMESTAMP" default="CURRENT_TIMESTAMP"/>
+      </columns>
+    </table>
+
     <!-- Documents -->
     <table name="documents">
       <description>File management and storage</description>
@@ -720,6 +754,7 @@
       <route path="/parents" component="ParentLogin"/>
       <route path="/parent/login" component="ParentLogin"/>
       <route path="/parent/reset-password" component="ParentResetPassword"/>
+      <route path="/today" component="TodayPage"/>
       <route path="/dashboard" component="DashboardPage"/>
       <route path="/attendance" component="AttendancePage"/>
       <route path="/events" component="EventsPage"/>
@@ -737,6 +772,7 @@
       <route path="/banking" redirect-to="/finance/accounts"/>
       <route path="/finance/reports" redirect-to="/reporting"/>
       <route path="/paperwork" component="PaperworkPage"/>
+      <route path="/newsletters" component="NewslettersPage"/>
       <route path="/reporting" component="ReportingPage"/>
       <route path="/settings" component="SettingsPage"/>
       <route path="/educator/dashboard" component="EducatorDashboard"/>
@@ -744,6 +780,7 @@
       <route path="/educator/my-hours" component="MyHours"/>
       <route path="/educator/attendance" component="AttendancePage (EducatorLayout)"/>
       <route path="/educator/messages" component="EducatorMessages"/>
+      <route path="/educator/newsletters" component="NewslettersPage"/>
       <route path="/educator/my-paystubs" component="MyPaystubs"/>
       <route path="/parent/dashboard" component="ParentDashboard"/>
       <route path="/parent/invoices" component="ParentInvoices"/>
@@ -752,22 +789,44 @@
       <route path="/parent/children" component="ParentChildren"/>
     </current-routes>
     <note>Role-gated routing enforced via RequireRole in App.js</note>
+    <note>Admin default destination now points to /today (staff login and ADMIN fallback redirects).</note>
     <note>Parent sign-out in ParentLayout redirects to /parents (not /login).</note>
     <note>Public marketing contact page canonical path is /contact (legacy /contact-hours and /contact--hours URLs redirect).</note>
 
     <pages-directory path="pages/">
       <!-- Admin Dashboard & Core Pages -->
-      <page file="DashboardPage.js">
-        <description>Main admin dashboard with ops metrics, staffing compliance, and finance snapshot</description>
+      <page file="TodayPage.js">
+        <description>Dedicated day-of admin workspace focused on attendance pulse, care logging, and coming-up maintenance reminders</description>
         <api-calls>
           <call endpoint="/children?status=ACTIVE"/>
-          <call endpoint="/attendance?start_date={date}&end_date={date}"/>
-          <call endpoint="/attendance/compliance?date={date}&ratio_kids={kids}&ratio_staff={staff}"/>
-          <call endpoint="/schedules/admin/schedules?from={date}&to={date}"/>
+          <call endpoint="/attendance?start_date={date}&amp;end_date={date}"/>
+          <call endpoint="/attendance/compliance?date={date}&amp;ratio_kids={kids}&amp;ratio_staff={staff}"/>
+          <call endpoint="/schedules/admin/schedules?from={date}&amp;to={date}"/>
+          <call endpoint="/notifications/unread-count"/>
+          <call endpoint="/care-logs?date={date}"/>
+          <call endpoint="/care-logs"/>
+          <call endpoint="/events?from={date}&amp;limit={n}"/>
+        </api-calls>
+        <features>
+          <feature>Focused quick actions for Attendance, Families, Calendar, and Dashboard</feature>
+          <feature>Daily readiness cards (attendance, staffing, care-log volume, pending tasks)</feature>
+          <feature>Inline day-of care-log publishing (naps/pees/poos) for admins</feature>
+          <feature>Dedicated "Coming Up &amp; Maintenance" panel with maintenance keyword highlighting</feature>
+        </features>
+        <status>ROUTED - /today (admin)</status>
+      </page>
+
+      <page file="DashboardPage.js">
+        <description>Main admin management dashboard with staffing compliance, finance snapshot, time-off workflow, upcoming events, and financial alerts</description>
+        <api-calls>
+          <call endpoint="/children?status=ACTIVE"/>
+          <call endpoint="/attendance?start_date={date}&amp;end_date={date}"/>
+          <call endpoint="/attendance/compliance?date={date}&amp;ratio_kids={kids}&amp;ratio_staff={staff}"/>
+          <call endpoint="/schedules/admin/schedules?from={date}&amp;to={date}"/>
           <call endpoint="/notifications/unread-count"/>
           <call endpoint="/invoices"/>
-          <call endpoint="/events?from={date}&to={date}"/>
-          <call endpoint="/business-expenses?start={date}&end={date}&limit={n}"/>
+          <call endpoint="/events?from={date}&amp;limit={n}"/>
+          <call endpoint="/business-expenses?start={date}&amp;end={date}&amp;limit={n}"/>
           <call endpoint="/time-off-requests?status=ALL"/>
           <call endpoint="/time-off-requests/:id/approve"/>
           <call endpoint="/time-off-requests/:id/reject"/>
@@ -781,13 +840,14 @@
         </responsive-features>
         <notes>
           <note date="2026-02-11">Dashboard now loads core operations widgets first while finance snapshot and time-off requests fetch asynchronously, so slower external/business-expense calls do not block initial dashboard rendering.</note>
+          <note date="2026-02-18">Day-of care logging and maintenance reminder workflows were moved to TodayPage (/today) so DashboardPage stays management-focused.</note>
           <note date="2026-02-10">Visual redesign refresh: dashboard now uses an operations command-strip header, elevated gradient panel styling, and updated interaction affordances for action/control buttons while preserving existing data/API behavior.</note>
           <note date="2026-02-10">Dashboard title copy simplified to a greeting ("Hi, {first_name}"), and command-strip headline text removed while retaining summary badges.</note>
-          <note date="2026-02-03">/finance now serves as the admin Messages inbox; finance KPIs remain in the dashboard snapshot.</note>
+          <note date="2026-02-18">Sidebar keeps /finance pinned as Messages for admin inbox access; finance analytics remain available from the Finance section and dashboard snapshot.</note>
           <note date="2026-02-03">Dashboard widgets updated: Present Today, Staff Scheduled, In Compliance (ratio popup), Pending Tasks. Attendance CTA added to header action bar.</note>
           <note date="2026-02-03">Finance snapshot panel replaces arrivals/absences; includes expense category pie chart, cash flow snapshot, and profit indicator.</note>
           <note date="2026-02-03">Time Off Requests panel replaces Staff Coverage; shows up to 2 items, includes a Time Requests header button, and opens an inline Time Off Details modal for approvals.</note>
-          <note date="2026-02-03">Upcoming Events panel replaces Today's Events; shows next 2 upcoming events with a See More button when additional events exist.</note>
+          <note date="2026-02-18">Upcoming events remain in DashboardPage as a management reminder panel; maintenance emphasis is now handled in TodayPage.</note>
         </notes>
         <status>COMPLETE - Fully responsive</status>
       </page>
@@ -795,7 +855,7 @@
       <page file="AttendancePage.js">
         <description>Attendance tracking with check-in/out times</description>
         <api-calls>
-          <call endpoint="GET /attendance?start_date={date}&end_date={date}"/>
+          <call endpoint="GET /attendance?start_date={date}&amp;end_date={date}"/>
           <call endpoint="GET /attendance/children?status=ACTIVE&amp;date={date}"/>
           <call endpoint="POST /attendance/check-in"/>
           <call endpoint="POST /attendance/check-out"/>
@@ -820,7 +880,7 @@
       <page file="EventsPage.js">
         <description>Admin calendar for family events and private daycare maintenance/compliance items</description>
         <api-calls>
-          <call endpoint="GET /events?from={date}&to={date}"/>
+          <call endpoint="GET /events?from={date}&amp;to={date}"/>
           <call endpoint="POST /events"/>
           <call endpoint="PATCH /events/:id"/>
         </api-calls>
@@ -1033,7 +1093,7 @@
       <page file="StaffSchedulingPage.js">
         <description>Staff shift scheduling with monthly calendar view</description>
         <api-calls>
-          <call endpoint="GET /schedules/admin/schedules?from={date}&to={date}&user_id={id}"/>
+          <call endpoint="GET /schedules/admin/schedules?from={date}&amp;to={date}&amp;user_id={id}"/>
           <call endpoint="POST /schedules/admin/schedules"/>
           <call endpoint="PATCH /schedules/admin/schedules/:id"/>
           <call endpoint="DELETE /schedules/admin/schedules/:id"/>
@@ -1064,18 +1124,18 @@
       <page file="ReportingPage.js">
         <description>Analytics and reporting dashboard</description>
         <api-calls>
-          <call endpoint="GET /reports/financial/revenue?start_date={date}&end_date={date}"/>
+          <call endpoint="GET /reports/financial/revenue?start_date={date}&amp;end_date={date}"/>
           <call endpoint="GET /reports/financial/outstanding"/>
           <call endpoint="GET /reports/financial/aging"/>
-          <call endpoint="GET /reports/financial/payment-history?start_date={date}&end_date={date}"/>
+          <call endpoint="GET /reports/financial/payment-history?start_date={date}&amp;end_date={date}"/>
           <call endpoint="GET /reports/enrollment/summary"/>
           <call endpoint="GET /reports/enrollment/trends"/>
           <call endpoint="GET /reports/enrollment/waitlist"/>
-          <call endpoint="GET /reports/staffing/hours?start_date={date}&end_date={date}"/>
+          <call endpoint="GET /reports/staffing/hours?start_date={date}&amp;end_date={date}"/>
           <call endpoint="GET /reports/staffing/payroll"/>
-          <call endpoint="GET /reports/staffing/coverage?start_date={date}&end_date={date}"/>
-          <call endpoint="GET /attendance/report?start_date={date}&end_date={date}"/>
-          <call endpoint="GET /attendance?start_date={date}&end_date={date}"/>
+          <call endpoint="GET /reports/staffing/coverage?start_date={date}&amp;end_date={date}"/>
+          <call endpoint="GET /attendance/report?start_date={date}&amp;end_date={date}"/>
+          <call endpoint="GET /attendance?start_date={date}&amp;end_date={date}"/>
         </api-calls>
         <sections>
           <section name="Financial">Revenue, outstanding balances, aging</section>
@@ -1221,72 +1281,18 @@
         <status>PARTIAL - Password change, billing, and themes functional</status>
       </page>
 
-      <!-- Additional Admin Pages (legacy - kept as reference, not routed) -->
-      <page file="AdminChildren.js">
-        <description>Legacy children management page</description>
-        <status>LEGACY - Not routed. Kept as reference only.</status>
-      </page>
-
-      <page file="AdminEducators.js">
-        <description>Legacy educators management page with old UI</description>
-        <note>Functionality has been migrated to EducatorsPage.js with MagicPattern UI</note>
-        <status>LEGACY - Not routed. Kept as reference only.</status>
-      </page>
-
-      <page file="AdminFamilies.js">
-        <description>Legacy families management page with old UI (3,422 lines)</description>
-        <note>Functionality has been migrated to FamiliesPage.js with MagicPattern UI</note>
-        <status>LEGACY - Not routed. Kept as reference only.</status>
-      </page>
-
-      <page file="AdminParents.js">
-        <description>Parents-only management page</description>
-        <status>EXISTS - Not routed in App.js</status>
-      </page>
-
-      <page file="AdminInvoices.js">
-        <description>Invoice management page</description>
-        <status>EXISTS - May duplicate BillingPage</status>
-      </page>
-
-      <page file="AdminPayments.js">
-        <description>Payment tracking page</description>
-        <status>EXISTS - Not routed in App.js</status>
-      </page>
-
-      <page file="AdminTimeEntries.js">
-        <description>Time entry approval/management</description>
-        <status>EXISTS - Not routed in App.js</status>
-      </page>
-
-      <page file="AdminSchedule.js">
-        <description>Schedule management page</description>
-        <status>EXISTS - May duplicate StaffSchedulingPage</status>
-      </page>
-
-      <page file="AdminPayPeriods.js">
-        <description>Pay period management page</description>
-        <status>EXISTS - May duplicate PayPeriodsPage</status>
-      </page>
-
-      <page file="AdminBilling.js">
-        <description>Billing management page</description>
-        <status>EXISTS - May duplicate BillingPage</status>
-      </page>
-
-      <page file="AdminFiles.js">
-        <description>File management page</description>
-        <status>EXISTS - May duplicate PaperworkPage</status>
-      </page>
-
-      <page file="AdminBusinessExpenses.js">
-        <description>Business expenses page</description>
-        <status>EXISTS - May duplicate BankAccountsPage</status>
-      </page>
+      <note date="2026-02-18">Legacy unrouted Admin* page files were removed from frontend/src/pages to reduce duplicate maintenance paths; canonical routed pages in App.js remain the single source of truth.</note>
 
       <!-- Educator Portal Pages -->
       <page file="EducatorDashboard.js">
-        <description>Educator dashboard</description>
+        <description>Educator dashboard with YTD hours, shifts, and same-day child care logging (naps/pees/poos)</description>
+        <api-calls>
+          <call endpoint="GET /reports/staff/hours"/>
+          <call endpoint="GET /schedules/my-schedules"/>
+          <call endpoint="GET /attendance/children?status=ACTIVE&amp;date={date}"/>
+          <call endpoint="GET /care-logs?date={date}"/>
+          <call endpoint="POST /care-logs"/>
+        </api-calls>
         <status>ROUTED - Educator portal entry</status>
       </page>
 
@@ -1328,9 +1334,25 @@
         <status>ROUTED</status>
       </page>
 
+      <page file="NewslettersPage.js">
+        <description>Staff newsletter management page for admin/educator publishing and editing</description>
+        <api-calls>
+          <call endpoint="GET /newsletters"/>
+          <call endpoint="POST /newsletters"/>
+          <call endpoint="PATCH /newsletters/:id"/>
+          <call endpoint="DELETE /newsletters/:id"/>
+        </api-calls>
+        <status>ROUTED - /newsletters and /educator/newsletters</status>
+      </page>
+
       <!-- Parent Portal Pages -->
       <page file="ParentDashboard.js">
-        <description>Parent portal dashboard</description>
+        <description>Parent dashboard with top-of-page newsletter feed and read-only today's child care logs (naps/pees/poos)</description>
+        <api-calls>
+          <call endpoint="GET /parent/dashboard"/>
+          <call endpoint="GET /newsletters?limit={n}"/>
+          <call endpoint="GET /care-logs?date={date}"/>
+        </api-calls>
         <status>ROUTED - Parent portal entry</status>
       </page>
 
@@ -1421,15 +1443,17 @@
       </component>
 
       <component file="Sidebar.js">
-        <description>Collapsible Operations/Finance sidebar with pinned dashboards</description>
+        <description>Collapsible admin sidebar with pinned "Today", "Dashboard", and "Messages" entries plus separate Daily Operations and Management sections</description>
         <props>
           <prop name="isOpen" type="boolean" description="Controls sidebar visibility on mobile"/>
           <prop name="onClose" type="function" description="Callback to close mobile sidebar"/>
         </props>
         <features>
-          <feature>Operations + Finance sections with chevron toggles</feature>
-          <feature>Dashboards remain visible even when sections are collapsed</feature>
-          <feature>Grouped sub-links for Payroll &amp; Time and Billing &amp; Payments</feature>
+          <feature>Pinned quick links for Today (/today), Dashboard (/dashboard), and Messages (/finance)</feature>
+          <feature>Daily Operations section for classroom/day-of workflows</feature>
+          <feature>Management section grouped into Team, Payroll &amp; Time, Finance, and Other</feature>
+          <feature>Section auto-expand logic opens Daily Operations or Management when navigating into a route within that group</feature>
+          <feature>Active route matching supports nested paths while keeping pinned Messages exact to /finance</feature>
           <feature>Active route highlighting with animated indicator</feature>
           <feature>Mobile drawer with overlay backdrop + close button</feature>
         </features>
@@ -1438,23 +1462,25 @@
           <desktop>Always visible, fixed position, no overlay</desktop>
         </responsive-behavior>
         <menu-items>
-          <item path="/dashboard" icon="LayoutDashboard">Daycare Dashboard</item>
-          <item section="Operations" path="/attendance" icon="ClipboardCheck">Attendance</item>
-          <item section="Operations" path="/events" icon="Calendar">Calendar</item>
-          <item section="Operations" path="/families" icon="Users">Families</item>
-          <item section="Operations" path="/educators" icon="GraduationCap">Staff</item>
-          <item section="Operations" path="/scheduling" icon="Calendar">Scheduling</item>
-          <item section="Operations" path="/paperwork" icon="FileText">Paperwork</item>
-          <item section="Operations" path="/pay" icon="DollarSign">Pay Periods</item>
-          <item section="Operations" path="/time-entries" icon="Clock">Time Entries</item>
-          <item section="Operations" path="/settings" icon="Settings">Settings</item>
+          <item path="/today" icon="ClipboardCheck">Today</item>
+          <item path="/dashboard" icon="LayoutDashboard">Dashboard</item>
           <item path="/finance" icon="Mail">Messages</item>
-          <item section="Finance" path="/finance/transactions" icon="Wallet">Transactions</item>
-          <item section="Finance" path="/finance/accounts" icon="Landmark">Bank Accounts</item>
-          <item section="Finance" path="/finance/categories" icon="Tag">Categories</item>
-          <item section="Finance" path="/reporting" icon="BarChart3">Reports</item>
-          <item section="Finance" path="/billing" icon="CreditCard">Billing</item>
-          <item section="Finance" path="/payments" icon="DollarSign">Payments</item>
+          <item section="Daily Operations" path="/attendance" icon="ClipboardCheck">Attendance</item>
+          <item section="Daily Operations" path="/events" icon="Calendar">Calendar</item>
+          <item section="Daily Operations" path="/families" icon="Users">Families</item>
+          <item section="Daily Operations" path="/newsletters" icon="FileText">Newsletters</item>
+          <item section="Management/Team" path="/educators" icon="GraduationCap">Staff</item>
+          <item section="Management/Team" path="/scheduling" icon="Calendar">Scheduling</item>
+          <item section="Management/Payroll &amp; Time" path="/pay" icon="DollarSign">Pay Periods</item>
+          <item section="Management/Payroll &amp; Time" path="/time-entries" icon="Clock">Time Requests</item>
+          <item section="Management/Finance" path="/finance/transactions" icon="Wallet">Transactions</item>
+          <item section="Management/Finance" path="/finance/accounts" icon="Landmark">Bank Accounts</item>
+          <item section="Management/Finance" path="/finance/categories" icon="Tag">Categories</item>
+          <item section="Management/Finance" path="/billing" icon="CreditCard">Billing</item>
+          <item section="Management/Finance" path="/payments" icon="DollarSign">Payments</item>
+          <item section="Management/Other" path="/paperwork" icon="FileText">Paperwork</item>
+          <item section="Management/Other" path="/reporting" icon="BarChart3">Reports</item>
+          <item section="Management/Other" path="/settings" icon="Settings">Settings</item>
         </menu-items>
       </component>
 
@@ -1637,9 +1663,9 @@
         <public-layout-file>frontend/src/pages/public/PublicLayout.js</public-layout-file>
         <public-pages-path>frontend/src/pages/public/</public-pages-path>
         <persistent-cta>
-          <item>Global portal quick links are rendered by PublicLayout on all public pages; at collapsed-menu widths (<= 992px), they hide on downward scroll and reappear on upward scroll.</item>
+          <item>Global portal quick links are rendered by PublicLayout on all public pages; at collapsed-menu widths (&lt;= 992px), they hide on downward scroll and reappear on upward scroll.</item>
           <target-url>Staff: {portalBase}/staff, Parent: {portalBase}/parents where portalBase comes from REACT_APP_PORTAL_BASE_URL or is derived from current hostname (localhost uses same origin + mode=portal).</target-url>
-          <placement>Top-right inset on desktop; at viewport widths <= 1024px, CTA is placed below the fixed header, and at <= 480px both pills use smaller dimensions for compact phones.</placement>
+          <placement>Top-right inset on desktop; at viewport widths &lt;= 1024px, CTA is placed below the fixed header, and at &lt;= 480px both pills use smaller dimensions for compact phones.</placement>
         </persistent-cta>
         <public-style-files>
           <file>frontend/public/files/main_style.css</file>
@@ -1724,7 +1750,7 @@
         </breakpoints>
         <patterns>
           <pattern name="Sidebar Collapse">
-            Sidebar hidden on mobile (<lg), accessible via hamburger menu.
+            Sidebar hidden on mobile (&lt;lg), accessible via hamburger menu.
             Uses translate-x animation with overlay backdrop on mobile.
           </pattern>
           <pattern name="Responsive Padding">
@@ -1734,7 +1760,7 @@
           </pattern>
           <pattern name="Header Layout">
             Flexbox switches from column (mobile) to row (desktop).
-            Search bar hidden on mobile (<md), shows on medium+ screens.
+            Search bar hidden on mobile (&lt;md), shows on medium+ screens.
             Title font size: text-2xl sm:text-3xl
           </pattern>
           <pattern name="Widget Heights">
@@ -1839,6 +1865,8 @@
       <route-file>themes.js</route-file>
       <route-file>messages.js</route-file>
       <route-file>events.js</route-file>
+      <route-file>newsletters.js</route-file>
+      <route-file>careLogs.js</route-file>
       <route-file>notifications.js</route-file>
       <route-file>timeOffRequests.js</route-file>
       <route-file>parentEvents.js</route-file>
@@ -2030,8 +2058,8 @@
       <database-setup>
         <migration-command>node backend/src/db/migrate.js</migration-command>
         <migrations-directory>backend/migrations/</migrations-directory>
-        <naming-pattern>000_*.sql through 038_*.sql (sequential)</naming-pattern>
-        <total-migrations>39</total-migrations>
+        <naming-pattern>000_*.sql through 042_*.sql (sequential)</naming-pattern>
+        <total-migrations>43</total-migrations>
       </database-setup>
 
       <backend-server>
@@ -2048,6 +2076,8 @@
     <frontend-server>
       <framework>Create React App</framework>
       <port>3000 (default)</port>
+      <dev-command>npm run dev (binds HOST=0.0.0.0 and PORT=3000 for LAN/mobile testing)</dev-command>
+      <start-command>npm start (default localhost development)</start-command>
       <build-command>npm run build</build-command>
       <build-output>frontend/build/</build-output>
       <nginx-config>frontend/nginx.conf</nginx-config>
@@ -2091,7 +2121,7 @@
   <current-state-assessment>
 
     <strengths>
-      <strength>Complete database schema with 20+ tables and 28 migrations</strength>
+      <strength>Complete database schema with 20+ tables and 43 migrations</strength>
       <strength>Comprehensive backend API with 100+ endpoints</strength>
       <strength>Clean MagicPattern UI design with Tailwind CSS</strength>
       <strength>Robust authentication with unified user table and parent profiles</strength>
@@ -2103,8 +2133,7 @@
     </strengths>
 
     <weaknesses>
-      <weakness>Multiple duplicate pages (Admin* vs regular pages) - unclear which is canonical</weakness>
-      <weakness>Legacy Admin* pages exist but are not routed and may drift from canonical pages</weakness>
+      <weakness>Admin navigation still carries many options and needs tighter "Today vs Management" grouping for day-to-day clarity</weakness>
       <weakness>Many modals exist but unclear which are wired to pages</weakness>
       <weakness>Billing templates feature has no frontend</weakness>
       <weakness>Many reports available in backend but not shown in UI</weakness>
@@ -2115,27 +2144,20 @@
     </weaknesses>
 
     <immediate-priorities>
-      <priority rank="1">Consolidate duplicate pages (Admin* vs regular) - decide canonical version</priority>
+      <priority rank="1">Finalize "Today vs Management" information architecture across admin navigation and dashboard entry points</priority>
       <priority rank="2">Wire up existing modals to pages (AddChild, CreateInvoice, UploadDocument, etc.)</priority>
-      <priority rank="3">Clarify which Admin* pages remain as reference vs remove/redirect</priority>
-      <priority rank="4">Harden notification workflows (email/SMS) and delivery status tracking</priority>
-      <priority rank="5">Add edit/delete functionality to existing pages</priority>
-      <priority rank="6">Add notification templates and SMS/in-app delivery paths</priority>
+      <priority rank="3">Harden notification workflows (email/SMS) and delivery status tracking</priority>
+      <priority rank="4">Add edit/delete functionality to existing pages</priority>
+      <priority rank="5">Add notification templates and SMS/in-app delivery paths</priority>
+      <priority rank="6">Add automated tests and API documentation</priority>
     </immediate-priorities>
 
     <technical-debt>
-      <issue category="Code Organization">
-        <title>Duplicate Pages and Components</title>
-        <description>Many Admin* pages duplicate functionality of regular pages (AdminDashboard vs DashboardPage, AdminFamilies vs FamiliesPage, etc.)</description>
-        <impact>Confusion, maintenance burden, potential for drift</impact>
-        <recommendation>Audit all pages, consolidate duplicates, establish single canonical version</recommendation>
-      </issue>
-
-      <issue category="Routing">
-        <title>Legacy Admin Pages Not Routed</title>
-        <description>Admin* pages exist but are not routed; canonical pages are routed via App.js with RequireRole gating.</description>
-        <impact>Potential confusion and drift between legacy and canonical implementations</impact>
-        <recommendation>Decide canonical pages, remove or redirect legacy Admin* pages</recommendation>
+      <issue category="Information Architecture">
+        <title>Admin Navigation Density</title>
+        <description>Admins still navigate many concerns from one sidebar, which can blur daily operations versus periodic management work.</description>
+        <impact>Higher cognitive load and slower onboarding for daily users</impact>
+        <recommendation>Complete role-first grouping with "Today" for daily workflows and "Management" for periodic operations</recommendation>
       </issue>
 
       <issue category="Database Schema">
@@ -2180,13 +2202,13 @@
   <summary>
 
     <overview>
-      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 25 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, plus in-app notifications, time-off requests, and events calendars. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, messaging, events, and business expense tracking via SimpleFIN/Firefly III.
+      This is a comprehensive full-stack daycare management system built with Node.js/Express backend and React frontend. The database schema is extensive (20+ tables, 43 migrations), and the backend API is robust (100+ endpoints). The frontend has a MagicPattern design with RequireRole-gated routes for admin, educator, and parent portals, plus in-app notifications, time-off requests, and events calendars. The system manages children enrollment, attendance tracking, parent billing, educator scheduling, payroll, messaging, events, and business expense tracking via SimpleFIN/Firefly III.
     </overview>
 
     <key-architectural-decisions>
       <decision>Unified authentication via users table; parents are linked via parents.user_id and tokens include parentId</decision>
       <decision>Many-to-many parent-child relationships via parent_children junction table</decision>
-      <decision>Migration-based schema evolution (25 migrations applied)</decision>
+      <decision>Migration-based schema evolution (43 migrations applied)</decision>
       <decision>Scheduled tasks only run in production mode</decision>
       <decision>Document categories hardcoded in code, not database-driven</decision>
       <decision>Modular route structure with separate parent portal routes</decision>
@@ -2199,8 +2221,7 @@
       <step>Configure environment variables (.env file)</step>
       <step>Install dependencies: npm install in both backend/ and frontend/</step>
       <step>Start backend server: npm start in backend/ (port 5000)</step>
-      <step>Start frontend server: npm start in frontend/ (port 3000)</step>
-      <step>Audit duplicate pages: Compare Admin* pages with regular pages</step>
+      <step>Start frontend server: npm run dev in frontend/ for LAN/mobile testing on port 3000 (or npm start for localhost-only)</step>
       <step>Review App.js to understand current routing</step>
       <step>Check which modals are wired to which pages</step>
       <step>Choose a high-priority task from immediate-priorities list</step>

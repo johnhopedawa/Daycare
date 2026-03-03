@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { MetricCard } from '../components/DashboardWidgets';
@@ -310,11 +310,7 @@ export function DashboardPage() {
     end: `${reportingYear}-12-31`,
   }), [reportingYear]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadFinanceSnapshot = async () => {
+  const loadFinanceSnapshot = useCallback(async () => {
     setFinanceLoading(true);
     setFinanceError('');
     try {
@@ -333,21 +329,21 @@ export function DashboardPage() {
     } finally {
       setFinanceLoading(false);
     }
-  };
+  }, [financeRange.end, financeRange.start]);
 
-  const loadTimeOffData = async () => {
+  const loadTimeOffData = useCallback(async () => {
     setTimeOffLoading(true);
     try {
-      const response = await api.get('/time-off-requests', { params: { status: 'ALL' } });
+      const response = await api.get('/time-off-requests');
       setTimeOffRequests(response.data.requests || []);
     } catch (error) {
       setTimeOffRequests([]);
     } finally {
       setTimeOffLoading(false);
     }
-  };
+  }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setComplianceLoading(true);
     void loadFinanceSnapshot();
@@ -359,7 +355,7 @@ export function DashboardPage() {
         api.get(`/schedules/admin/schedules?from=${today}&to=${today}`),
         api.get('/notifications/unread-count'),
         api.get('/invoices'),
-        api.get('/events', { params: { from: today, limit: 3 } }),
+        api.get('/events', { params: { from: today, limit: 12 } }),
         api.get('/attendance/compliance', {
           params: {
             date: today,
@@ -379,7 +375,8 @@ export function DashboardPage() {
         complianceRes,
       ] = results;
 
-      setChildren(childrenRes.status === 'fulfilled' ? (childrenRes.value.data.children || []) : []);
+      const loadedChildren = childrenRes.status === 'fulfilled' ? (childrenRes.value.data.children || []) : [];
+      setChildren(loadedChildren);
       setAttendance(attendanceRes.status === 'fulfilled' ? (attendanceRes.value.data.attendance || []) : []);
       setSchedules(schedulesRes.status === 'fulfilled' ? (schedulesRes.value.data.schedules || []) : []);
       setInvoices(invoicesRes.status === 'fulfilled' ? (invoicesRes.value.data.invoices || []) : []);
@@ -426,7 +423,11 @@ export function DashboardPage() {
       setLoading(false);
       setComplianceLoading(false);
     }
-  };
+  }, [loadFinanceSnapshot, loadTimeOffData, ratio.kids, ratio.staff, today]);
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, [loadDashboardData]);
 
   const summary = useMemo(() => {
     const presentRecords = attendance.filter((record) => {
@@ -577,7 +578,7 @@ export function DashboardPage() {
   const refreshTimeOffRequests = async () => {
     try {
       setTimeOffLoading(true);
-      const response = await api.get('/time-off-requests', { params: { status: 'ALL' } });
+      const response = await api.get('/time-off-requests');
       setTimeOffRequests(response.data.requests || []);
     } catch (error) {
       console.error('Failed to load time off requests:', error);
@@ -1237,50 +1238,50 @@ export function DashboardPage() {
               </section>
 
               <section className="border rounded-[28px] bg-[var(--surface)]" style={PANEL_STYLE}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title font-quicksand font-bold text-xl">Upcoming Events</h3>
-              <button
-                onClick={() => navigate('/events')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
-                style={OUTLINE_STYLE}
-              >
-                <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
-                Full Calendar
-              </button>
-            </div>
-            {upcomingEvents.total === 0 ? (
-              <p className="text-xs text-stone-500 italic">No upcoming events scheduled.</p>
-            ) : (
-              <div className="space-y-2">
-                {upcomingEvents.visible.map((eventItem) => (
-                  <div
-                    key={eventItem.id}
-                    className="p-3 rounded-xl border transition-transform duration-200 hover:-translate-y-0.5"
-                    style={ROW_STYLE}
-                  >
-                    <p className="text-sm font-semibold text-stone-800">{eventItem.title}</p>
-                    <p className="text-xs text-stone-500">
-                      {eventItem.event_date ? `${new Date(eventItem.event_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })} | ` : ''}
-                      {eventItem.start_time ? `${formatTime(eventItem.start_time)} - ` : ''}
-                      {eventItem.location || 'Location not set'}
-                    </p>
-                  </div>
-                ))}
-                {upcomingEvents.total > 2 && (
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="section-title font-quicksand font-bold text-xl">Upcoming Events</h3>
                   <button
                     onClick={() => navigate('/events')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
                     style={OUTLINE_STYLE}
                   >
-                    See More
+                    <CalendarCheck size={16} style={{ color: 'var(--primary-dark)' }} />
+                    Full Calendar
                   </button>
+                </div>
+                {upcomingEvents.total === 0 ? (
+                  <p className="text-xs text-stone-500 italic">No upcoming events scheduled.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingEvents.visible.map((eventItem) => (
+                      <div
+                        key={eventItem.id}
+                        className="p-3 rounded-xl border transition-transform duration-200 hover:-translate-y-0.5"
+                        style={ROW_STYLE}
+                      >
+                        <p className="text-sm font-semibold text-stone-800">{eventItem.title}</p>
+                        <p className="text-xs text-stone-500">
+                          {eventItem.event_date ? `${new Date(eventItem.event_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })} | ` : ''}
+                          {eventItem.start_time ? `${formatTime(eventItem.start_time)} - ` : ''}
+                          {eventItem.location || 'Location not set'}
+                        </p>
+                      </div>
+                    ))}
+                    {upcomingEvents.total > 2 && (
+                      <button
+                        onClick={() => navigate('/events')}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold text-stone-600 transition-all duration-200 hover:-translate-y-0.5"
+                        style={OUTLINE_STYLE}
+                      >
+                        See More
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
               </section>
 
               <section className="border rounded-[28px] bg-[var(--surface)]" style={PANEL_STYLE}>

@@ -92,21 +92,7 @@ function MySchedule() {
   const scrollHintTimerRef = useRef(null);
   const lastHintDateKeyRef = useRef(null);
 
-  useEffect(() => {
-    loadSchedules();
-    loadBalances();
-    loadRequests();
-  }, [currentMonth]);
-
-  useEffect(() => {
-    return () => {
-      if (scrollHintTimerRef.current) {
-        clearTimeout(scrollHintTimerRef.current);
-      }
-    };
-  }, []);
-
-  const loadSchedules = async () => {
+  const loadSchedules = useCallback(async () => {
     try {
       const range = getRangeForMonth(currentMonth);
       const params = new URLSearchParams({ from: range.from, to: range.to });
@@ -115,9 +101,9 @@ function MySchedule() {
     } catch (error) {
       console.error('Load schedules error:', error);
     }
-  };
+  }, [currentMonth]);
 
-  const loadBalances = async () => {
+  const loadBalances = useCallback(async () => {
     try {
       const response = await api.get('/auth/me');
       setBalances({
@@ -127,9 +113,9 @@ function MySchedule() {
     } catch (error) {
       console.error('Load balances error:', error);
     }
-  };
+  }, []);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
       setRequestsLoading(true);
       const response = await api.get('/time-off-requests/mine');
@@ -139,7 +125,21 @@ function MySchedule() {
     } finally {
       setRequestsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadSchedules();
+    void loadBalances();
+    void loadRequests();
+  }, [loadBalances, loadRequests, loadSchedules]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollHintTimerRef.current) {
+        clearTimeout(scrollHintTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleDeclineClick = (id) => {
     setDeclineId(id);

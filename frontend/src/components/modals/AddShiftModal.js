@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Repeat, User } from 'lucide-react';
 import api from '../../utils/api';
 import { DateTimePickerModal } from './DateTimePickerModal';
@@ -12,7 +12,7 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
     endDate: '',
   });
   const [selection, setSelection] = useState(null);
-  const resolveInitialDate = () => {
+  const resolveInitialDate = useCallback(() => {
     if (initialDate instanceof Date && !Number.isNaN(initialDate.getTime())) {
       return new Date(initialDate);
     }
@@ -23,7 +23,7 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
       }
     }
     return new Date();
-  };
+  }, [initialDate]);
   const [selectedDateTime, setSelectedDateTime] = useState(() => resolveInitialDate());
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,13 +32,6 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
   const [conflictMessage, setConflictMessage] = useState('');
   const [isStaffMenuOpen, setIsStaffMenuOpen] = useState(false);
   const staffMenuRef = useRef(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      resetForm();
-      loadEducators();
-    }
-  }, [isOpen, initialDate]);
 
   useEffect(() => {
     if (!isStaffMenuOpen) return undefined;
@@ -64,14 +57,14 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
     };
   }, [isStaffMenuOpen]);
 
-  const loadEducators = async () => {
+  const loadEducators = useCallback(async () => {
     try {
       const response = await api.get('/admin/users?role=EDUCATOR');
       setEducators(response.data.users || []);
     } catch (error) {
       console.error('Failed to load educators:', error);
     }
-  };
+  }, []);
 
   const formatDateForApi = (date) => {
     const year = date.getFullYear();
@@ -135,7 +128,7 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
     checkConflicts();
   }, [formData.educatorId, selection]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       educatorId: '',
       notes: '',
@@ -149,7 +142,14 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
     setError('');
     setValidationMessage('');
     setConflictMessage('');
-  };
+  }, [resolveInitialDate]);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+      void loadEducators();
+    }
+  }, [isOpen, loadEducators, resetForm]);
 
   const selectedEducatorLabel = useMemo(() => {
     if (!formData.educatorId) {

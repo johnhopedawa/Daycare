@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import { DashboardPage } from './pages/DashboardPage';
+import TodayPage from './pages/TodayPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { FamiliesPage } from './pages/FamiliesPage';
 import { BillingPage } from './pages/BillingPage';
@@ -32,6 +33,7 @@ import MyPaystubs from './pages/MyPaystubs';
 import EventsPage from './pages/EventsPage';
 import ParentEvents from './pages/ParentEvents';
 import EducatorMessages from './pages/EducatorMessages';
+import NewslettersPage from './pages/NewslettersPage';
 import { EducatorLayout } from './components/EducatorLayout';
 import PortalLanding from './pages/PortalLanding';
 import PublicHome from './pages/public/PublicHome';
@@ -103,7 +105,7 @@ function RequireRole({ roles, children, loginPath = '/login' }) {
     case 'EDUCATOR':
       return <Navigate to="/educator/dashboard" replace />;
     case 'ADMIN':
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/today" replace />;
     default:
       return <Navigate to={loginPath} replace />;
   }
@@ -144,6 +146,14 @@ function PortalRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/parent/login" element={<ParentLogin />} />
       <Route path="/parent/reset-password" element={<ParentResetPassword />} />
+      <Route
+        path="/today"
+        element={
+          <RequireRole roles={['ADMIN']} loginPath="/staff">
+            <TodayPage />
+          </RequireRole>
+        }
+      />
       <Route
         path="/dashboard"
         element={
@@ -267,6 +277,14 @@ function PortalRoutes() {
         }
       />
       <Route
+        path="/newsletters"
+        element={
+          <RequireRole roles={['ADMIN']} loginPath="/staff">
+            <NewslettersPage />
+          </RequireRole>
+        }
+      />
+      <Route
         path="/reporting"
         element={
           <RequireRole roles={['ADMIN']} loginPath="/staff">
@@ -331,6 +349,14 @@ function PortalRoutes() {
         element={
           <RequireRole roles={['EDUCATOR', 'ADMIN']} loginPath="/staff">
             <EducatorMessages />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/educator/newsletters"
+        element={
+          <RequireRole roles={['EDUCATOR', 'ADMIN']} loginPath="/staff">
+            <NewslettersPage />
           </RequireRole>
         }
       />
@@ -431,6 +457,7 @@ function PublicRoutes() {
       <Route path="/login" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/parent/login" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/dashboard" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
+      <Route path="/today" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/attendance" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/events" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/families" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
@@ -447,6 +474,7 @@ function PublicRoutes() {
       <Route path="/banking" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/finance/reports" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/paperwork" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
+      <Route path="/newsletters" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/reporting" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/settings" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
       <Route path="/firefly-redirect" element={<ExternalRedirect toBase={portalBaseUrl} mode="portal" />} />
