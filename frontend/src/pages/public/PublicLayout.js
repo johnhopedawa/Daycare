@@ -1,13 +1,15 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+const publicOverridesVersion = process.env.REACT_APP_PUBLIC_OVERRIDES_VERSION || '20260303-1';
+
 const styleLinks = [
   { id: 'public-weebly-sites', href: 'https://cdn2.editmysite.com/css/sites.css?buildTime=1715364408' },
   { id: 'public-weebly-fancybox', href: 'https://cdn2.editmysite.com/css/old/fancybox.css?1715364408' },
   { id: 'public-weebly-social-icons', href: 'https://cdn2.editmysite.com/css/social-icons.css?buildtime=1715364408' },
   { id: 'public-main-style', href: '/files/main_style.css' },
   { id: 'public-fonts', href: '/fonts.css' },
-  { id: 'public-overrides', href: '/public-overrides.css' },
+  { id: 'public-overrides', href: `/public-overrides.css?v=${publicOverridesVersion}` },
 ];
 
 const navItems = [

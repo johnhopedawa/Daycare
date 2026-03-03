@@ -82,7 +82,20 @@ else
 fi
 
 echo "1. Creating secrets..."
-kubectl apply -f "$K8S_DIR/secrets/"
+kubectl apply -f "$K8S_DIR/secrets/daycare-secrets.yaml"
+
+DOCKERHUB_SECRET_FILE="$K8S_DIR/secrets/dockerhub-credentials.yaml"
+if [[ -f "$DOCKERHUB_SECRET_FILE" ]]; then
+    if grep -q "REPLACE_WITH_DOCKERHUB" "$DOCKERHUB_SECRET_FILE"; then
+        echo "1.1 Docker Hub pull secret template detected; skipping apply."
+        echo "    Create a real dockerhub-credentials secret if image pulls require auth."
+    else
+        echo "1.1 Applying Docker Hub pull secret..."
+        kubectl apply -f "$DOCKERHUB_SECRET_FILE"
+    fi
+else
+    echo "1.1 dockerhub-credentials.yaml not found; skipping pull secret apply."
+fi
 
 echo "2. Creating storage..."
 kubectl apply -f "$K8S_DIR/storage/"

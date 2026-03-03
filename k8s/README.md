@@ -40,10 +40,10 @@ k8s/
 This will:
 1. Apply CRDs (Traefik middleware)
 2. Build Docker images
-2. Push to registry
-3. Apply all manifests in correct order
-4. Wait for services to be ready
-5. Run database migrations
+3. Push to registry
+4. Apply all manifests in correct order
+5. Wait for services to be ready
+6. Run database migrations
 
 ### Option 2: Manual Step-by-Step
 
@@ -69,7 +69,7 @@ kubectl -n littlesparrows get all
 
 ```bash
 kubectl -n littlesparrows apply -f namespace.yaml
-kubectl -n littlesparrows apply -f secrets/
+kubectl -n littlesparrows apply -f secrets/daycare-secrets.yaml
 kubectl -n littlesparrows apply -f storage/
 kubectl -n littlesparrows apply -f deployments/postgres.yaml
 kubectl -n littlesparrows apply -f services/postgres-service.yaml
@@ -153,6 +153,11 @@ kubectl -n littlesparrows create secret docker-registry dockerhub-credentials \
   --docker-password="$DOCKERHUB_TOKEN" \
   --docker-email="you@example.com"
 ```
+
+`deploy.sh` and `apply-all.sh` always apply `secrets/daycare-secrets.yaml`.
+They apply `secrets/dockerhub-credentials.yaml` only when it is present and not
+left at template placeholder values.
+
 ### Update CORS Origin (IMPORTANT!)
 
 Edit `deployments/backend.yaml` and set `FRONTEND_URL` to your real domain:
@@ -342,7 +347,7 @@ kubectl -n littlesparrows get events --sort-by='.lastTimestamp'
 If pods show `ImagePullBackOff`:
 
 1. Check registry is accessible from k3s nodes
-2. For local registry, ensure k3s can reach localhost:5000
+2. Ensure `dockerhub-credentials` exists in `littlesparrows` if private images are used
 3. Consider importing images directly to k3s
 
 ### Database Connection Issues
@@ -376,10 +381,11 @@ kubectl -n littlesparrows delete pvc postgres-pvc
 ## Resource Usage
 
 Current configuration:
-- **Backend**: 256Mi-512Mi RAM, 250m-500m CPU × 2 replicas
-- **Frontend**: 128Mi-256Mi RAM, 100m-200m CPU × 2 replicas
-- **Postgres**: ~200-300Mi RAM
-- **Total**: ~1.5-2GB
+- **Backend**: requests 128Mi RAM / 100m CPU, limits 256Mi RAM / 300m CPU × 1 replica
+- **Frontend**: requests 64Mi RAM / 50m CPU, limits 128Mi RAM / 200m CPU × 1 replica
+- **Postgres**: requests 256Mi RAM / 100m CPU, limits 512Mi RAM / 500m CPU × 1 replica
+- **Firefly**: requests 256Mi RAM / 200m CPU, limits 512Mi RAM / 500m CPU × 1 replica
+- **Total steady-state requests**: ~704Mi RAM / 450m CPU
 
 Adjust in deployment YAMLs under `resources:` section if needed.
 

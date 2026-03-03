@@ -1,5 +1,38 @@
 # Public Site Mobile Fixes (2026-03-02)
 
+## Frontend Cache Bust Fix (2026-03-03)
+- [x] Add explicit no-cache handling for `public-overrides.css` in frontend nginx config
+- [x] Add deterministic cache-busting query version to the public overrides stylesheet link
+- [x] Verify frontend build and document outcome
+- [x] Update `SYSTEM_DOCUMENTATION.xml` with frontend cache-bust behavior
+- Files updated:
+  - `frontend/nginx.conf`
+  - `frontend/src/pages/public/PublicLayout.js`
+- Outcome:
+  - `/public-overrides.css` is now served with no-cache/no-store headers
+  - Public layout now requests `/public-overrides.css?v=20260303-1` (or `REACT_APP_PUBLIC_OVERRIDES_VERSION` when set)
+- Validation:
+  - `npm run build` succeeds in `frontend/` (warnings only)
+
+## K8s Audit And Drift Fixes (2026-03-03)
+- [x] Sanitize Kubernetes Docker registry secret manifest to remove sensitive/static credential values
+- [x] Update k8s deploy/apply scripts to avoid blindly applying placeholder docker credentials
+- [x] Refresh k8s docs (`README.md`, `STRUCTURE.md`) for current replica/resource defaults and credential flow
+- [x] Verify shell script syntax and summarize outcomes
+- [x] Update `SYSTEM_DOCUMENTATION.xml` for k8s behavior/documentation changes
+- Files updated:
+  - `k8s/secrets/dockerhub-credentials.yaml`
+  - `k8s/apply-all.sh`
+  - `k8s/deploy.sh`
+  - `k8s/README.md`
+  - `k8s/STRUCTURE.md`
+- Outcome:
+  - Docker pull secret manifest is now sanitized template content (no static credential values)
+  - Deploy/apply scripts now always apply `daycare-secrets.yaml` and only apply docker pull secret when template placeholders are replaced
+  - K8s docs now reflect current resource requests/limits, replica counts, and manual deployment order (including Firefly)
+- Validation note:
+  - Attempted shell syntax checks with `bash -n`, but this Windows environment has no `/bin/bash`, so syntax check could not be executed here
+
 ## Gallery Popup Behavior (2026-03-02)
 - [x] Replace gallery link navigation with in-page lightbox popup
 - [x] Implement transparent-black backdrop with outside-click close behavior

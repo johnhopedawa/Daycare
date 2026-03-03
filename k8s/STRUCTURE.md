@@ -85,18 +85,21 @@ kubectl -n littlesparrows apply -f deployments/backend.yaml
 4. **Update image location** (if needed):
    - deployments/backend.yaml
    - deployments/frontend.yaml
-   - Change `localhost:5000` to your registry
+   - Change image repository/tag to your registry (defaults use `johnhopedawa/*:latest`)
+   - Ensure `dockerhub-credentials` exists if private images are used
 
 ## Deployment Order (if doing manually)
 
 1. namespace.yaml
-2. secrets/
-3. storage/
-4. deployments/postgres.yaml + services/postgres-service.yaml
-5. Wait for postgres ready
-6. jobs/db-migration.yaml
-7. deployments/backend.yaml + services/backend-service.yaml
-8. deployments/frontend.yaml + services/frontend-service.yaml
-9. ingress/
+2. secrets/daycare-secrets.yaml
+3. optional: secrets/dockerhub-credentials.yaml (if private registry auth is needed)
+4. storage/
+5. deployments/postgres.yaml + services/postgres-service.yaml
+6. Wait for postgres ready
+7. jobs/db-migration.yaml
+8. deployments/backend.yaml + services/backend-service.yaml
+9. deployments/frontend.yaml + services/frontend-service.yaml
+10. deployments/firefly.yaml + services/firefly-service.yaml
+11. ingress/
 
 Or just use `./deploy.sh` - it handles the order automatically!

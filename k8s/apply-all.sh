@@ -29,7 +29,20 @@ else
   echo "Cloudflare origin cert/key not found; skipping TLS secret."
 fi
 
-kubectl apply -f "$K8S_DIR/secrets/"
+kubectl apply -f "$K8S_DIR/secrets/daycare-secrets.yaml"
+
+DOCKERHUB_SECRET_FILE="$K8S_DIR/secrets/dockerhub-credentials.yaml"
+if [[ -f "$DOCKERHUB_SECRET_FILE" ]]; then
+  if grep -q "REPLACE_WITH_DOCKERHUB" "$DOCKERHUB_SECRET_FILE"; then
+    echo "dockerhub-credentials.yaml is still a template; skipping apply."
+    echo "Create/paste a real pull secret first if your repos are private."
+  else
+    kubectl apply -f "$DOCKERHUB_SECRET_FILE"
+  fi
+else
+  echo "dockerhub-credentials.yaml not found; skipping pull secret apply."
+fi
+
 kubectl apply -f "$K8S_DIR/storage/"
 
 kubectl apply -f "$K8S_DIR/deployments/postgres.yaml"
