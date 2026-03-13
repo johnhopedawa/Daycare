@@ -183,7 +183,14 @@ const ensurePaystubForPayout = async (payoutId) => {
 
 const getPaystubRow = async (id) => {
   const result = await pool.query(
-    `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date, pp.pay_date,
+    `SELECT ps.id AS paystub_id,
+            ps.payout_id AS paystub_payout_id,
+            ps.user_id AS paystub_user_id,
+            ps.pay_period_id AS paystub_pay_period_id,
+            ps.stub_number,
+            ps.generated_at,
+            po.*,
+            pp.name, pp.start_date, pp.end_date, pp.pay_date,
             u.first_name, u.last_name, u.email,
             u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
             u.payment_type, u.hourly_rate AS profile_hourly_rate, u.salary_amount,
@@ -250,8 +257,8 @@ const buildPaystubContext = async (id) => {
   };
 
   const paystub = {
-    id: data.id,
-    payout_id: data.payout_id,
+    id: data.paystub_id,
+    payout_id: data.paystub_payout_id,
     stub_number: data.stub_number,
     generated_at: data.generated_at
   };

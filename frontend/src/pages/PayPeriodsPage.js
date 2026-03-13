@@ -626,13 +626,6 @@ export function PayPeriodsPage() {
                         <Eye size={16} /> Open
                       </button>
                       <button
-                        onClick={() => openDeleteModal(period)}
-                        className="px-4 py-2 font-bold text-sm rounded-xl transition-colors flex items-center gap-2"
-                        style={{ backgroundColor: '#FFF1ED', color: '#C2410C' }}
-                      >
-                        <Trash2 size={16} /> Delete
-                      </button>
-                      <button
                         onClick={() => handleOpenPeriodPreview(period.id, 'close')}
                         className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md hover:opacity-90 transition-colors"
                         style={{ backgroundColor: 'var(--primary)' }}
@@ -661,6 +654,13 @@ export function PayPeriodsPage() {
                       </button>
                     </>
                   )}
+                  <button
+                    onClick={() => openDeleteModal(period)}
+                    className="px-4 py-2 font-bold text-sm rounded-xl transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#FFF1ED', color: '#C2410C' }}
+                  >
+                    <Trash2 size={16} /> Delete
+                  </button>
                 </div>
               </div>
 
@@ -1500,7 +1500,7 @@ export function PayPeriodsPage() {
               Delete {deleteTarget?.name || 'this pay period'}?
             </p>
             <p className="mt-2 text-sm text-red-800">
-              This permanently removes the open pay period. Closed periods cannot be deleted because they lock payroll history.
+              This permanently removes the pay period. If it is closed, its stored payouts and paystubs are deleted with it.
             </p>
           </div>
 

@@ -238,22 +238,18 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
 
       let leftCursor = headerTop;
       doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink);
-      const companyIndent = 76;
-      const companyTextWidth = Math.max(0, leftWidth - companyIndent);
-      leftCursor += writeLines([companyName], leftX + companyIndent, leftCursor, companyTextWidth);
+      leftCursor += writeLines([companyName], leftX, leftCursor, leftWidth);
       doc.font('Helvetica').fontSize(11).fillColor(colors.ink);
       if (companyAddressLines.length) {
-        leftCursor += writeLines(companyAddressLines, leftX + companyIndent, leftCursor, companyTextWidth);
+        leftCursor += writeLines(companyAddressLines, leftX, leftCursor, leftWidth);
       }
 
       leftCursor += 52;
-      const employeeIndent = 58;
-      const employeeTextWidth = Math.max(0, leftWidth - employeeIndent);
       doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink);
-      leftCursor += writeLines([employeeName], leftX + employeeIndent, leftCursor, employeeTextWidth);
+      leftCursor += writeLines([employeeName], leftX, leftCursor, leftWidth);
       doc.font('Helvetica').fontSize(11).fillColor(colors.ink);
       if (employeeAddressLines.length) {
-        leftCursor += writeLines(employeeAddressLines, leftX + employeeIndent, leftCursor, employeeTextWidth);
+        leftCursor += writeLines(employeeAddressLines, leftX, leftCursor, leftWidth);
       }
 
       const detailLineHeight = doc.currentLineHeight();
@@ -428,11 +424,15 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: colWidth,
         headers: payHeaders,
         rows: payRows,
-        colPercents: [0.40, 0.15, 0.15, 0.15, 0.15],
+        colPercents: [0.28, 0.18, 0.18, 0.18, 0.18],
         alignments: ['left', 'right', 'right', 'right', 'right'],
         headerBorderWidth: 2,
         headerBorderColor: '#777777',
-        rowHeight: 13,
+        rowHeight: 15,
+        cellPaddingX: 2,
+        headerPaddingX: 2,
+        fontSize: 9,
+        headerFontSize: 9,
       });
 
       const deductionsHeaders = ['DEDUCTIONS', 'Current', 'YTD'];

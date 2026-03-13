@@ -1,3 +1,20 @@
+## Closed Pay Period Deletion (2026-03-13)
+- [x] Confirm whether payroll-related rows cascade safely when a pay period is deleted
+- [x] Allow deleting closed pay periods in the backend without leaving orphaned payroll data
+- [x] Update the pay periods UI so delete actions and confirmation copy match the new behavior
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with review notes, then verify the changed paths
+
+## Review
+- Confirmed the payroll schema already supports safe pay-period removal: [`payouts.pay_period_id`](/C:/src/Daycare/backend/migrations/000_initial_schema.sql#L60), [`paystubs.pay_period_id`](/C:/src/Daycare/backend/migrations/000_initial_schema.sql#L87), and related payout-linked records all use `ON DELETE CASCADE`.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so the delete endpoint no longer blocks closed periods or periods with payouts; it still locks the target row in a transaction before deleting the pay period.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so both open and closed period cards expose the Delete action, and the confirmation modal now explains that deleting a closed period also removes its stored payouts and paystubs.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to replace the old open-only deletion rule with the current closed-period deletion behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+- Rebuilt the local backend with `docker compose up -d --build backend`.
+- Live API verification created a temporary pay period (`id=20`, `December 15, 2026` through `December 28, 2026`), closed it successfully, deleted that closed period successfully, and a follow-up `GET /api/pay-periods/20/close-preview` returned `404`, confirming the closed record was removed. Cleaned up the earlier failed-test temp open period (`id=19`) as well.
+
 ## Pay Period Educator Query Scope Fix (2026-03-13)
 - [x] Confirm whether the employee list was using real DB records or hardcoded values
 - [x] Restrict pay-period preview, close, payout list, and payroll summary queries to educators owned by the current admin
@@ -33,11 +50,14 @@
 - Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) payout list queries to include profile compensation fields (`payment_type`, `profile_hourly_rate`, `profile_salary_amount`, `employment_type`) so the frontend can show where pay is being derived from.
 - Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) paystub detail payloads so the paystub preview modal also knows the educator's live compensation settings.
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to add `Edit` actions in the paystubs flow, an hours-focused payout edit modal, computed gross/net previews sourced from educator profile data, preview-header edit access for already-open paystubs, and an `Open` action for open periods that shows current hours plus gross/net payroll detail without starting the close flow.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) paystub layout so the top-third company/employee names render flush-left instead of indented, and the `Hours` / `Rate` / `Current` / `YTD` pay columns now use equal-width numeric spacing with more room for larger values.
 - Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new payout edit API and pay-period paystub editing behavior.
 - Verification:
 - `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
+- `node --check` passed for [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
 - `npm exec eslint -- src/pages/PayPeriodsPage.js` completed with no errors.
 - `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+- Direct PDF layout probes confirmed the top-third `Little Sparrows Academy` / employee name text now renders at the left margin and that large sample values fit inside the rebalanced pay-table numeric columns.
 
 ## Review
 - Added [`backend/migrations/045_add_user_date_of_birth.sql`](/C:/src/Daycare/backend/migrations/045_add_user_date_of_birth.sql) so educator birthdays are stored on the `users` table.
@@ -102,6 +122,24 @@
 - The running Docker container was initially stale and still serving the pre-aggregation version of [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), so `/api/pay-periods` returned only raw pay-period fields.
 - Rebuilt the local backend with `docker compose up -d --build backend`.
 - After rebuild, live `GET /api/pay-periods` for pay period `id=18` returned `total_hours: 24`, `employee_count: 2`, and `scheduled_shifts: 3`, matching the in-range schedule rows.
+
+## Closed Paystub Schedule Alignment (2026-03-13)
+- [x] Confirm whether zero-hour paystubs after closing are caused by preview/rendering or by stored payout data
+- [x] Update close-preview and close-processing so hourly payout generation uses the same in-range schedule totals shown on open pay periods
+- [x] Repair the already-closed February pay period payouts in the local development database so the current paystubs stop showing zero hours
+- [x] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the corrected behavior
+- [x] Run focused verification against the backend route and live API/database state
+
+## Review
+- Confirmed the bug was persisted data, not a frontend parsing issue. Closed pay period `id=18` had stored payout rows with `0.00` hours/gross/net because [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) was still closing periods from approved `time_entries` while the open-period UI had already switched to live `schedules`.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so close-preview and close-processing now use the same in-range, non-declined schedule totals for hourly educators that the open-period cards already display, while salaried educators still close at their configured salary amount.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) to alias paystub columns explicitly in the paystub-details query, fixing the nearby payload bug where `paystub.id` could be overwritten by the payout id.
+- Rebuilt the local backend container with `docker compose up -d --build backend`.
+- Repaired the already-closed February 16 to February 27, 2026 pay period (`id=18`) directly in the local development database so the current payout rows now store `8.00` hours / `$240.00` for `test educator` and `16.00` hours / `$416.00` for `Lory Cao`.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
+- Live `GET /api/pay-periods/18/payouts` now returns the corrected stored hours and amounts.
+- Live paystub generation plus `GET /api/documents/paystubs/:id/details` returned the corrected values for both payout `7` and payout `8`, and the paystub payload now reports the real paystub id (`3` / `4`) instead of the payout id.
 
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to replace all native date inputs in the create-period and auto-generate flows with the shared [`DatePickerModal`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) pattern already used elsewhere in the portal.
 - Verification:

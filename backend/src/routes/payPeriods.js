@@ -449,23 +449,6 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Pay period not found' });
     }
 
-    const period = periodResult.rows[0];
-
-    if (period.status !== 'OPEN') {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Only open pay periods can be deleted' });
-    }
-
-    const payoutResult = await client.query(
-      'SELECT COUNT(*)::int AS payout_count FROM payouts WHERE pay_period_id = $1',
-      [id]
-    );
-
-    if (payoutResult.rows[0].payout_count > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Cannot delete a pay period that already has payouts' });
-    }
-
     await client.query(
       'DELETE FROM pay_periods WHERE id = $1',
       [id]

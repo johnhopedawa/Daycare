@@ -17,8 +17,10 @@
 ## 2026-03-13
 - When a user reports the wrong people appearing in payroll or employee lists, verify the live DB rows and the exact period dates before assuming a frontend bug; distinguish between a bad query scope and a legitimate historical snapshot.
 - After backend route changes in local Docker Compose, verify the running container is using the updated file; this repo does not bind-mount backend source, so `docker compose up -d --build backend` is required before trusting live API results.
+- When open-period cards are changed to show schedule-based payroll projections, keep close-preview and close-processing on the same source of truth or the UI will show one set of hours and store another.
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.
 - When a user asks for an "Open" preview of a document inside the app, confirm whether they want a real PDF embed or a frontend-rendered HTML preview before defaulting to an iframe/object PDF viewer.
 - When updating a portal form to match the existing design system, replace all remaining native date and select controls in that flow, not just the first obvious one.
+- When a user corrects a payroll business rule like closed-period deletion, update the backend guard and the frontend delete messaging/actions in the same change so the product does not enforce two conflicting policies.
