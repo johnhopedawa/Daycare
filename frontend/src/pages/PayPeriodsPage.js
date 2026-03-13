@@ -1677,7 +1677,7 @@ export function PayPeriodsPage() {
                   <p>Tax: {formatCurrency(paystubPreview.user.ytd_tax)}</p>
                 </div>
                 <p className="mt-3 text-xs text-stone-500">
-                  Required employee deductions in BC: Income Tax, EI, CPP, and CPP2 when applicable.
+                  Deductions include Income Tax, EI, CPP, and CPP2 when applicable.
                 </p>
               </div>
             </div>

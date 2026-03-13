@@ -1,3 +1,31 @@
+## Paystub PDF Layout Spacing And Benefits Header (2026-03-13)
+- [x] Inspect the current paystub PDF layout for label/value crowding in pay, taxes, summary, and benefits sections
+- [x] Record the planned work in `tasks/todo.md` before implementation
+- [x] Update the paystub PDF layout so long labels have breathing room and `Accrued / Used / Available` sit inline with `Benefits`
+- [x] Verify the updated PDF generator and document the results in `tasks/todo.md` and `SYSTEM_DOCUMENTATION.xml`
+
+## Review
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so the paystub PDF widens the label columns in the pay, deductions, taxes, and summary tables and adds consistent left/right cell padding, which prevents rows like `Retro Payment`, `Income Tax`, `Total Pay`, and `Deductions` from crowding the adjacent numeric columns.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) benefits rendering so the header now reads `Benefits | Accrued | Used | Available` on one line, with the table nudged slightly lower for cleaner spacing above the Vacation and Sick rows.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the refined paystub PDF spacing and the inline Benefits header behavior.
+- Verification:
+- `node --check` passed for [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- A direct Node smoke test invoked `generatePaystub(...)` with sample payroll data and returned a non-empty PDF buffer (`ok:2801`).
+
+## Paystub Deduction Label Revert (2026-03-13)
+- [x] Identify the paystub wording changes that renamed established deduction labels
+- [x] Revert the visible paystub labels back to the original `DEDUCTIONS` / `TAXES` wording without changing deduction logic
+- [x] Update `tasks/todo.md` and `tasks/lessons.md` with the correction
+- [x] Run focused verification for the touched frontend/backend files
+
+## Review
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) to restore the paystub section headers from `BC/Canada Required` and `GOV'T DEDUCTIONS` back to `DEDUCTIONS` and `TAXES`.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to tone the HTML preview note back down to a normal deductions sentence instead of the earlier BC-required memo wording.
+- Preserved the underlying deduction-category logic from the earlier fix; this change is wording-only.
+- Verification:
+- `node --check` passed for [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` passed.
+
 ## Bonus Pay Line On Paystubs (2026-03-13)
 - [x] Inspect the current persisted paystub breakdown fields and paystub rendering flow
 - [x] Add stored bonus payout fields and backend recalculation support
@@ -16,11 +44,22 @@
 - `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
 
 ## Pre-Close Paystub Editing (2026-03-13)
-- [ ] Confirm the current open-period close preview and paystub editor flows
-- [ ] Reuse the paystub editor in the pre-close preview so draft paystub changes are visible before closing
-- [ ] Send the edited preview paystub breakdowns into the close endpoint so the stored payouts match the reviewed draft
-- [ ] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the resulting behavior and review notes
-- [ ] Run focused verification for the updated frontend/backend files without rebuilding the backend
+- [x] Confirm the current open-period close preview and paystub editor flows
+- [x] Reuse the paystub editor in the pre-close preview so draft paystub changes are visible before closing
+- [x] Send the edited preview paystub breakdowns into the close endpoint so the stored payouts match the reviewed draft
+- [x] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the resulting behavior and review notes
+- [x] Run focused verification for the updated frontend/backend files without rebuilding the backend
+
+## Review
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so the open-period close preview now exposes `Edit Paystub` actions for both hourly and salaried employees, reuses the existing HTML paystub editor modal in a draft context, and keeps the edited draft values visible in the preview totals before the period is closed.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) close handling so `Confirm & Close` now sends the reviewed per-employee paystub breakdown overrides from the preview state to the backend instead of closing with only the original preview snapshot.
+- Confirmed [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) now accepts `payoutOverrides` on `POST /pay-periods/:id/close`, validates the employee targets and non-negative line-item values, and persists the recalculated preview rows as the final payouts.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) and [`tasks/lessons.md`](/C:/src/Daycare/tasks/lessons.md) to record that pre-close paystub review/editing is now part of the pay-period workflow.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` passed.
+- `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
+- Per user instruction, the backend was not rebuilt/restarted in local Docker Compose, so the new close-route behavior will not be live until the normal backend restart/deploy path picks it up.
 
 ## BC Mandated Payroll Deductions On Paystubs (2026-03-13)
 - [x] Verify the official BC/CRA list of mandatory employee payroll deductions

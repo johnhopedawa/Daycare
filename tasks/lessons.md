@@ -21,6 +21,7 @@
 - If the user explicitly says not to rebuild or restart the backend, stop at code-level verification and clearly call out that the new backend behavior will not be live until their normal restart/deploy path picks it up.
 - In numeric payroll editors, spinner step behavior and typed-decimal behavior are separate concerns: use whole-number `step` increments when requested without blocking manual decimal entry.
 - When the user gives a multiplier hint like `0.04 so 4%`, interpret it literally as `0.04x` unless they explicitly say `0.4x`.
+- When paystub editing exists for closed periods, check whether the same draft-review capability is also expected before closing so the preview and stored payout flows stay aligned.
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.
@@ -29,3 +30,5 @@
 - When a user corrects a payroll business rule like closed-period deletion, update the backend guard and the frontend delete messaging/actions in the same change so the product does not enforce two conflicting policies.
 - When a shared date picker is used for birthdays or other historical dates, provide direct year navigation inside the custom picker; month-by-month navigation alone is not acceptable.
 - When a user gives a payroll percentage in decimal shorthand, confirm whether they mean the stored decimal fraction (`0.04`) or the displayed percent (`4%`) before wiring the rule into accrual logic.
+- When a user corrects a paystub/table grouping inside the same request, match that exact grouping in the rendered output instead of treating it as a spacing-only tweak.
+- Do not rename established payroll/paystub labels like `TAXES` or `DEDUCTIONS` unless the user explicitly asks for wording changes; preserve existing memo language when only the data logic needs correction.

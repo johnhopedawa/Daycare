@@ -325,13 +325,11 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       }
       leftY += 14;
 
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink);
-      doc.text('BENEFITS', leftColX, leftY);
-      leftY += 13;
+      leftY += 4;
 
-      const benefitColPercents = [0.44, 0.19, 0.19, 0.18];
+      const benefitColPercents = [0.46, 0.18, 0.18, 0.18];
       const benefitAligns = ['left', 'right', 'right', 'right'];
-      const benefitHeaders = ['', 'Accrued', 'Used', 'Available'];
+      const benefitHeaders = ['Benefits', 'Accrued', 'Used', 'Available'];
       const benefitRows = [
         [
           'Vacation',
@@ -357,7 +355,9 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         alignments: benefitAligns,
         headerBorderWidth: 0,
         headerBorderColor: colors.line,
-        rowHeight: 13,
+        rowHeight: 14,
+        cellPaddingX: 4,
+        headerPaddingX: 4,
       });
 
       let rightY = midTop;
@@ -458,18 +458,18 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: colWidth,
         headers: payHeaders,
         rows: payRows,
-        colPercents: [0.28, 0.18, 0.18, 0.18, 0.18],
+        colPercents: [0.36, 0.16, 0.16, 0.16, 0.16],
         alignments: ['left', 'right', 'right', 'right', 'right'],
         headerBorderWidth: 2,
         headerBorderColor: '#777777',
         rowHeight: 15,
-        cellPaddingX: 2,
-        headerPaddingX: 2,
+        cellPaddingX: 5,
+        headerPaddingX: 5,
         fontSize: 9,
         headerFontSize: 9,
       });
 
-      const deductionsHeaders = ["BC/Canada Required", '', ''];
+      const deductionsHeaders = ["DEDUCTIONS", '', ''];
       const deductionsRows = [
         ['Income Tax, EI, CPP', '', ''],
         [currentCpp2 !== null || ytdCpp2 > 0 ? 'CPP2 also applies when required' : 'CPP2 if earnings are high enough', '', ''],
@@ -481,16 +481,20 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: colWidth,
         headers: deductionsHeaders,
         rows: deductionsRows,
-        colPercents: [0.50, 0.25, 0.25],
+        colPercents: [0.62, 0.19, 0.19],
         alignments: ['left', 'right', 'right'],
         headerBorderWidth: 2,
         headerBorderColor: '#777777',
         rowHeight: 13,
+        cellPaddingX: 4,
+        headerPaddingX: 4,
+        fontSize: 9,
+        headerFontSize: 9,
       });
 
       // Bottom tables (row 2)
       const row2Top = bottomTop + payHeight + 18;
-      const taxesHeaders = ["GOV'T DEDUCTIONS", 'Current', 'YTD'];
+      const taxesHeaders = ["TAXES", 'Current', 'YTD'];
       const taxesRows = [
         ['Income Tax', currentIncomeTax !== null ? formatCurrency(currentIncomeTax) : '', formatCurrency(ytdTax)],
         ['Employment Insurance (EI)', currentEi !== null ? formatCurrency(currentEi) : '', formatCurrency(ytdEi)],
@@ -506,13 +510,15 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: colWidth,
         headers: taxesHeaders,
         rows: taxesRows,
-        colPercents: [0.58, 0.21, 0.21],
+        colPercents: [0.66, 0.17, 0.17],
         alignments: ['left', 'right', 'right'],
         headerBorderWidth: 2,
         headerBorderColor: '#777777',
         rowHeight: 13,
-        fontSize: 10,
-        headerFontSize: 10,
+        cellPaddingX: 4,
+        headerPaddingX: 4,
+        fontSize: 9,
+        headerFontSize: 9,
       });
 
       const summaryHeaders = ['SUMMARY', 'Current', 'YTD'];
@@ -531,13 +537,14 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: summaryTableWidth,
         headers: summaryHeaders,
         rows: summaryRows,
-        colPercents: [0.50, 0.25, 0.25],
+        colPercents: [0.58, 0.21, 0.21],
         alignments: ['left', 'right', 'right'],
         headerBorderWidth: 1,
         headerBorderColor: '#777777',
         rowHeight: 13,
-        cellPaddingX: 0,
+        cellPaddingX: 4,
         cellPaddingY: 0,
+        headerPaddingX: 4,
       });
 
       const summaryBoxHeight = summaryHeight + summaryPadding * 2;
