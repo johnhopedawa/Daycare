@@ -56,6 +56,21 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         return formatCurrency(num);
       };
 
+      const getNumericValue = (source, keys) => {
+        if (!source) {
+          return null;
+        }
+
+        for (const key of keys) {
+          const value = safeNumber(source[key]);
+          if (value !== null) {
+            return value;
+          }
+        }
+
+        return null;
+      };
+
       const writeLines = (lines, x, y, width, align = 'left') => {
         let cursor = y;
         lines.forEach((line) => {
@@ -100,11 +115,13 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         cellPaddingY = 0,
         headerPaddingX = 0,
         headerPaddingY = 0,
+        fontSize = 11,
+        headerFontSize = 11,
       }) => {
         const colWidths = colPercents.map((percent) => width * percent);
         let cursorY = y;
 
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink);
+        doc.font('Helvetica-Bold').fontSize(headerFontSize).fillColor(colors.ink);
         let colX = x;
         headers.forEach((header, index) => {
           const colWidth = colWidths[index];
@@ -122,7 +139,7 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         doc.moveTo(x, cursorY).lineTo(x + width, cursorY).stroke();
         doc.restore();
 
-        doc.font('Helvetica').fontSize(11).fillColor(colors.ink);
+        doc.font('Helvetica').fontSize(fontSize).fillColor(colors.ink);
         rows.forEach((row) => {
           colX = x;
           row.forEach((cell, index) => {
@@ -181,6 +198,30 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const ytdCpp = safeNumber(user.ytd_cpp) ?? 0;
       const ytdEi = safeNumber(user.ytd_ei) ?? 0;
       const ytdTaxTotal = ytdTax + ytdCpp + ytdEi;
+      const isFullTime = String(user.employment_type || '').toUpperCase() === 'FULL_TIME';
+
+      const buildPayRow = (label, values = {}) => {
+        const hours = safeNumber(values.hours);
+        const explicitRate = safeNumber(values.rate);
+        const current = safeNumber(values.current);
+        const ytd = safeNumber(values.ytd);
+        const rate = explicitRate !== null
+          ? explicitRate
+          : (hours !== null ? safeNumber(payout.hourly_rate) : null);
+        const hasNumbers = [hours, rate, current, ytd].some((value) => value !== null);
+
+        if (!hasNumbers) {
+          return [label, '-', '-', '-', '-'];
+        }
+
+        return [
+          label,
+          hours !== null ? formatHours(hours) : '',
+          rate !== null ? formatRate(rate) : '',
+          current !== null ? formatCurrency(current) : '',
+          ytd !== null ? formatCurrency(ytd) : '',
+        ];
+      };
 
       // Fold lines
       drawBar(top);
@@ -341,18 +382,45 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
 
       const payHeaders = ['PAY', 'Hours', 'Rate', 'Current', 'YTD'];
       const payRows = [
-        [
-          'Regular Pay',
-          formatHours(payout.total_hours),
-          formatRate(payout.hourly_rate),
-          formatCurrency(gross),
-          formatCurrency(ytdGross),
-        ],
-        ['Sick Pay', '-', '-', '-', '-'],
-        ['Vacation Pay', '-', '-', '-', '-'],
-        ['Bonus', '-', '-', '-', '-'],
-        ['Retro Payment- Amour', '-', '-', '-', '-'],
+        buildPayRow('Regular Pay', {
+          hours: payout.total_hours,
+          rate: payout.hourly_rate,
+          current: gross,
+          ytd: ytdGross,
+        }),
+        buildPayRow('Sick Pay', {
+          hours: getNumericValue(payout, ['sick_hours', 'sick_pay_hours']),
+          rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']),
+          current: getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount']),
+          ytd: getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
+        }),
+        buildPayRow('Vacation Pay', {
+          hours: getNumericValue(payout, ['vacation_hours', 'vacation_pay_hours']),
+          rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']),
+          current: getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount']),
+          ytd: getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
+        }),
       ];
+
+      if (isFullTime) {
+        payRows.push(
+          buildPayRow('Stat Pay', {
+            hours: getNumericValue(payout, ['stat_hours', 'stat_pay_hours', 'holiday_hours']),
+            rate: getNumericValue(payout, ['stat_rate', 'stat_pay_rate', 'holiday_rate']),
+            current: getNumericValue(payout, ['stat_pay_current', 'stat_pay', 'holiday_pay']),
+            ytd: getNumericValue(payout, ['stat_pay_ytd', 'ytd_stat_pay', 'holiday_pay_ytd']),
+          })
+        );
+      }
+
+      payRows.push(
+        buildPayRow('Retro Payment', {
+          hours: getNumericValue(payout, ['retro_hours', 'retro_payment_hours']),
+          rate: getNumericValue(payout, ['retro_rate', 'retro_payment_rate']),
+          current: getNumericValue(payout, ['retro_payment_current', 'retro_payment', 'retro_pay']),
+          ytd: getNumericValue(payout, ['retro_payment_ytd', 'ytd_retro_payment', 'retro_pay_ytd']),
+        })
+      );
 
       const payHeight = drawTable({
         x: leftTableX,
@@ -402,11 +470,13 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         width: colWidth,
         headers: taxesHeaders,
         rows: taxesRows,
-        colPercents: [0.50, 0.25, 0.25],
+        colPercents: [0.58, 0.21, 0.21],
         alignments: ['left', 'right', 'right'],
         headerBorderWidth: 2,
         headerBorderColor: '#777777',
         rowHeight: 13,
+        fontSize: 10,
+        headerFontSize: 10,
       });
 
       const summaryHeaders = ['SUMMARY', 'Current', 'YTD'];

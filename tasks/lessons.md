@@ -16,3 +16,4 @@
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.
+- When a user asks for an "Open" preview of a document inside the app, confirm whether they want a real PDF embed or a frontend-rendered HTML preview before defaulting to an iframe/object PDF viewer.

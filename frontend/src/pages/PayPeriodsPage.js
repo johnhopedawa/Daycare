@@ -20,14 +20,20 @@ export function PayPeriodsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFrequencyMenuOpen, setIsFrequencyMenuOpen] = useState(false);
-  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
-  const [isPdfLoading, setIsPdfLoading] = useState(false);
-  const [pdfPreview, setPdfPreview] = useState({ url: '', title: '', filename: '' });
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [summaryPreviewPeriod, setSummaryPreviewPeriod] = useState(null);
+  const [summaryPreviewPayouts, setSummaryPreviewPayouts] = useState([]);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [isDownloadingSummaryPdf, setIsDownloadingSummaryPdf] = useState(false);
   const [isPaystubsOpen, setIsPaystubsOpen] = useState(false);
   const [selectedPayPeriod, setSelectedPayPeriod] = useState(null);
   const [paystubPayouts, setPaystubPayouts] = useState([]);
   const [isPaystubsLoading, setIsPaystubsLoading] = useState(false);
   const [paystubActionId, setPaystubActionId] = useState(null);
+  const [isPaystubPreviewOpen, setIsPaystubPreviewOpen] = useState(false);
+  const [isPaystubPreviewLoading, setIsPaystubPreviewLoading] = useState(false);
+  const [isDownloadingPaystubPdf, setIsDownloadingPaystubPdf] = useState(false);
+  const [paystubPreview, setPaystubPreview] = useState(null);
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({ name: '', startDate: '', endDate: '', payDate: '' });
   const [generateData, setGenerateData] = useState({ frequency: 'BI_WEEKLY', startDate: '' });
@@ -78,12 +84,6 @@ export function PayPeriodsPage() {
     }
   }, [isGenerateOpen]);
 
-  useEffect(() => () => {
-    if (pdfPreview.url) {
-      window.URL.revokeObjectURL(pdfPreview.url);
-    }
-  }, [pdfPreview.url]);
-
   const formatDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -110,9 +110,21 @@ export function PayPeriodsPage() {
     color: 'var(--muted)',
   };
   const formatCurrency = (value) => `$${parseFloat(value || 0).toFixed(2)}`;
+  const formatHours = (value) => parseFloat(value || 0).toFixed(2);
   const selectedFrequencyLabel = FREQUENCY_OPTIONS.find(
     (option) => option.value === generateData.frequency
   )?.label || 'Select frequency';
+  const summaryTotals = summaryPreviewPayouts.reduce((totals, payout) => ({
+    totalHours: totals.totalHours + parseFloat(payout.total_hours || 0),
+    grossAmount: totals.grossAmount + parseFloat(payout.gross_amount || 0),
+    deductions: totals.deductions + parseFloat(payout.deductions || 0),
+    netAmount: totals.netAmount + parseFloat(payout.net_amount || 0),
+  }), {
+    totalHours: 0,
+    grossAmount: 0,
+    deductions: 0,
+    netAmount: 0,
+  });
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -189,52 +201,62 @@ export function PayPeriodsPage() {
     }
   };
 
-  const resetPdfPreview = useCallback(() => {
-    if (pdfPreview.url) {
-      window.URL.revokeObjectURL(pdfPreview.url);
-    }
-    setPdfPreview({ url: '', title: '', filename: '' });
-    setIsPdfPreviewOpen(false);
-  }, [pdfPreview.url]);
-
-  const openPdfPreview = async (endpoint, { title, filename, errorMessage }) => {
+  const downloadBlob = async (endpoint, filename, errorMessage, setLoading) => {
     try {
-      setIsPdfLoading(true);
+      if (setLoading) {
+        setLoading(true);
+      }
       const response = await api.get(endpoint, {
         responseType: 'blob',
       });
 
-      if (pdfPreview.url) {
-        window.URL.revokeObjectURL(pdfPreview.url);
-      }
-
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      setPdfPreview({ url, title, filename });
-      setIsPdfPreviewOpen(true);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       alert(error.response?.data?.error || errorMessage);
     } finally {
-      setIsPdfLoading(false);
+      if (setLoading) {
+        setLoading(false);
+      }
     }
   };
 
-  const downloadPreviewPdf = () => {
-    if (!pdfPreview.url || !pdfPreview.filename) return;
-
-    const link = document.createElement('a');
-    link.href = pdfPreview.url;
-    link.setAttribute('download', pdfPreview.filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  const closeSummaryModal = () => {
+    setIsSummaryOpen(false);
+    setSummaryPreviewPeriod(null);
+    setSummaryPreviewPayouts([]);
   };
 
   const handleOpenPayrollSummary = async (period) => {
-    await openPdfPreview(`/documents/pay-periods/${period.id}/export-pdf`, {
-      title: `${period.name || `Pay Period ${period.id}`} Payroll Summary`,
-      filename: `payroll-${period.name || `period-${period.id}`}.pdf`,
-      errorMessage: 'Failed to open payroll PDF',
-    });
+    try {
+      setSummaryPreviewPeriod(period);
+      setIsSummaryOpen(true);
+      setIsSummaryLoading(true);
+      const response = await api.get(`/pay-periods/${period.id}/payouts`);
+      setSummaryPreviewPayouts(response.data.payouts || []);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to open payroll summary');
+      setIsSummaryOpen(false);
+      setSummaryPreviewPeriod(null);
+    } finally {
+      setIsSummaryLoading(false);
+    }
+  };
+
+  const handleDownloadPayrollSummaryPdf = async () => {
+    if (!summaryPreviewPeriod) return;
+    await downloadBlob(
+      `/documents/pay-periods/${summaryPreviewPeriod.id}/export-pdf`,
+      `payroll-${summaryPreviewPeriod.name || `period-${summaryPreviewPeriod.id}`}.pdf`,
+      'Failed to download payroll PDF',
+      setIsDownloadingSummaryPdf
+    );
   };
 
   const closePaystubsModal = () => {
@@ -263,6 +285,7 @@ export function PayPeriodsPage() {
   const handleOpenPaystub = async (payout) => {
     try {
       setPaystubActionId(payout.id);
+      setIsPaystubPreviewLoading(true);
       let paystubId = payout.paystub_id;
       let stubNumber = payout.stub_number;
 
@@ -277,17 +300,35 @@ export function PayPeriodsPage() {
         )));
       }
 
-      setIsPaystubsOpen(false);
-      await openPdfPreview(`/documents/paystubs/${paystubId}/pdf`, {
-        title: `${payout.first_name} ${payout.last_name} Paystub`,
-        filename: `paystub-${stubNumber}.pdf`,
-        errorMessage: 'Failed to open paystub PDF',
+      const detailResponse = await api.get(`/documents/paystubs/${paystubId}/details`);
+      setPaystubPreview({
+        ...detailResponse.data,
+        paystubId,
+        stubNumber: stubNumber || detailResponse.data.paystub?.stub_number,
       });
+      setIsPaystubsOpen(false);
+      setIsPaystubPreviewOpen(true);
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to open paystub');
     } finally {
+      setIsPaystubPreviewLoading(false);
       setPaystubActionId(null);
     }
+  };
+
+  const closePaystubPreview = () => {
+    setIsPaystubPreviewOpen(false);
+    setPaystubPreview(null);
+  };
+
+  const handleDownloadPaystubPdf = async () => {
+    if (!paystubPreview?.paystubId) return;
+    await downloadBlob(
+      `/documents/paystubs/${paystubPreview.paystubId}/pdf`,
+      `paystub-${paystubPreview.stubNumber}.pdf`,
+      'Failed to download paystub PDF',
+      setIsDownloadingPaystubPdf
+    );
   };
 
   if (loading) {
@@ -386,7 +427,7 @@ export function PayPeriodsPage() {
                     <>
                       <button
                         onClick={() => handleOpenPayrollSummary(period)}
-                        disabled={isPdfLoading}
+                        disabled={isSummaryLoading && summaryPreviewPeriod?.id === period.id}
                         className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2 disabled:opacity-60"
                         style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
                       >
@@ -724,7 +765,7 @@ export function PayPeriodsPage() {
       <BaseModal
         isOpen={isPaystubsOpen}
         onClose={closePaystubsModal}
-        title={selectedPayPeriod ? `Paystubs for ${selectedPayPeriod.name}` : 'Paystubs'}
+        title={selectedPayPeriod ? `Paystubs for ${selectedPayPeriod.name || `Period ${selectedPayPeriod.id}`}` : 'Paystubs'}
         maxWidth="max-w-5xl"
       >
         {selectedPayPeriod ? (
@@ -777,7 +818,7 @@ export function PayPeriodsPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenPaystub(payout)}
-                            disabled={paystubActionId === payout.id || isPdfLoading}
+                            disabled={paystubActionId === payout.id || isPaystubPreviewLoading}
                             className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md hover:opacity-90 disabled:opacity-60"
                             style={{ backgroundColor: 'var(--primary)' }}
                           >
@@ -809,41 +850,207 @@ export function PayPeriodsPage() {
       </BaseModal>
 
       <BaseModal
-        isOpen={isPdfPreviewOpen}
-        onClose={resetPdfPreview}
-        title={pdfPreview.title || 'PDF Preview'}
+        isOpen={isSummaryOpen}
+        onClose={closeSummaryModal}
+        title={summaryPreviewPeriod ? `${summaryPreviewPeriod.name || `Pay Period ${summaryPreviewPeriod.id}`} Summary` : 'Payroll Summary'}
         maxWidth="max-w-6xl"
       >
-        <div className="space-y-4">
-          <div className="flex flex-wrap justify-between gap-3">
-            <p className="text-sm text-stone-500">
-              Review the PDF below, then download it if needed.
-            </p>
-            <div className="flex gap-3">
+        {summaryPreviewPeriod ? (
+          <div className="space-y-6">
+            <div className="flex flex-wrap justify-between gap-4">
+              <div>
+                <p className="text-stone-700 font-bold">
+                  {formatDate(summaryPreviewPeriod.start_date)} - {formatDate(summaryPreviewPeriod.end_date)}
+                </p>
+                <p className="text-sm text-stone-500">Pay Date: {formatDate(summaryPreviewPeriod.pay_date)}</p>
+              </div>
               <button
                 type="button"
-                onClick={downloadPreviewPdf}
-                disabled={!pdfPreview.url}
+                onClick={handleDownloadPayrollSummaryPdf}
+                disabled={isDownloadingSummaryPdf}
                 className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
                 style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
               >
-                <Download size={16} /> Download PDF
+                <Download size={16} /> {isDownloadingSummaryPdf ? 'Downloading...' : 'Download PDF'}
               </button>
             </div>
-          </div>
 
-          {pdfPreview.url ? (
-            <iframe
-              title={pdfPreview.title || 'PDF Preview'}
-              src={pdfPreview.url}
-              className="h-[70vh] w-full rounded-2xl border themed-border bg-white"
-            />
-          ) : (
-            <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
-              Loading PDF...
+            {isSummaryLoading ? (
+              <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+                Loading payroll summary...
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl" style={cardStyles[0]}>
+                    <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[0].color }}>
+                      <Users size={16} />
+                      <span>Employees</span>
+                    </div>
+                    <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>
+                      {summaryPreviewPayouts.length}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={cardStyles[1]}>
+                    <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[1].color }}>
+                      <Clock size={16} />
+                      <span>Total Hours</span>
+                    </div>
+                    <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
+                      {formatHours(summaryTotals.totalHours)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={cardStyles[2]}>
+                    <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[2].color }}>
+                      <DollarSign size={16} />
+                      <span>Gross Payroll</span>
+                    </div>
+                    <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>
+                      {formatCurrency(summaryTotals.grossAmount)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={cardStyles[3]}>
+                    <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[3].color }}>
+                      <FileText size={16} />
+                      <span>Net Payroll</span>
+                    </div>
+                    <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>
+                      {formatCurrency(summaryTotals.netAmount)}
+                    </p>
+                  </div>
+                </div>
+
+                {summaryPreviewPayouts.length === 0 ? (
+                  <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+                    No payouts were found for this pay period yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead style={{ backgroundColor: 'var(--background)' }}>
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Employee</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Deductions</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y themed-border">
+                        {summaryPreviewPayouts.map((payout) => (
+                          <tr key={payout.id} className="themed-row">
+                            <td className="px-4 py-3 text-sm text-stone-700">{payout.first_name} {payout.last_name}</td>
+                            <td className="px-4 py-3 text-sm text-stone-600">{formatHours(payout.total_hours)}</td>
+                            <td className="px-4 py-3 text-sm text-stone-600">
+                              {parseFloat(payout.hourly_rate || 0) > 0 ? `${formatCurrency(payout.hourly_rate)}/hr` : 'Salary'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-stone-700">{formatCurrency(payout.gross_amount)}</td>
+                            <td className="px-4 py-3 text-sm text-stone-600">{formatCurrency(payout.deductions)}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-stone-700">{formatCurrency(payout.net_amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+            Loading payroll summary...
+          </div>
+        )}
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isPaystubPreviewOpen}
+        onClose={closePaystubPreview}
+        title={paystubPreview ? `${paystubPreview.user.first_name} ${paystubPreview.user.last_name} Paystub` : 'Paystub Preview'}
+        maxWidth="max-w-5xl"
+      >
+        {paystubPreview ? (
+          <div className="space-y-6">
+            <div className="flex flex-wrap justify-between gap-4">
+              <div>
+                <p className="font-bold text-stone-800">{paystubPreview.payPeriod.name}</p>
+                <p className="text-sm text-stone-500">
+                  {formatDate(paystubPreview.payPeriod.start_date)} - {formatDate(paystubPreview.payPeriod.end_date)}
+                </p>
+                <p className="text-sm text-stone-500">Pay Date: {formatDate(paystubPreview.payPeriod.pay_date)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-stone-700">Stub #{paystubPreview.paystub.stub_number}</p>
+                <button
+                  type="button"
+                  onClick={handleDownloadPaystubPdf}
+                  disabled={isDownloadingPaystubPdf}
+                  className="mt-3 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                >
+                  <Download size={16} /> {isDownloadingPaystubPdf ? 'Downloading...' : 'Download PDF'}
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl" style={cardStyles[0]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[0].color }}>Hours</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>{formatHours(paystubPreview.payout.total_hours)}</p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[1]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[1].color }}>Rate</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
+                  {parseFloat(paystubPreview.payout.hourly_rate || 0) > 0 ? `${formatCurrency(paystubPreview.payout.hourly_rate)}/hr` : 'Salary'}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[2]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[2].color }}>Gross Pay</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>{formatCurrency(paystubPreview.payout.gross_amount)}</p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[3]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[3].color }}>Net Pay</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>{formatCurrency(paystubPreview.payout.net_amount)}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+                <h4 className="font-bold text-stone-800 mb-3">Employee</h4>
+                <div className="space-y-1 text-sm text-stone-600">
+                  <p>{paystubPreview.user.first_name} {paystubPreview.user.last_name}</p>
+                  <p>{paystubPreview.user.email}</p>
+                  <p>{paystubPreview.user.employment_type || 'Employment type not set'}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+                <h4 className="font-bold text-stone-800 mb-3">Year To Date</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm text-stone-600">
+                  <p>Gross: {formatCurrency(paystubPreview.user.ytd_gross)}</p>
+                  <p>Hours: {formatHours(paystubPreview.user.ytd_hours)}</p>
+                  <p>CPP: {formatCurrency(paystubPreview.user.ytd_cpp)}</p>
+                  <p>EI: {formatCurrency(paystubPreview.user.ytd_ei)}</p>
+                  <p>Tax: {formatCurrency(paystubPreview.user.ytd_tax)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+              <h4 className="font-bold text-stone-800 mb-3">Balances</h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm text-stone-600">
+                <p>Vacation Annual: {formatHours(paystubPreview.user.annual_vacation_days)}</p>
+                <p>Vacation Remaining: {formatHours(paystubPreview.user.vacation_days_remaining)}</p>
+                <p>Sick Annual: {formatHours(paystubPreview.user.annual_sick_days)}</p>
+                <p>Sick Remaining: {formatHours(paystubPreview.user.sick_days_remaining)}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+            Loading paystub preview...
+          </div>
+        )}
       </BaseModal>
 
       <BaseModal

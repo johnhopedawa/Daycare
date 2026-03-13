@@ -4,6 +4,22 @@ const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
+const EMPLOYMENT_TYPES = new Set(['FULL_TIME', 'PART_TIME']);
+const PAYMENT_TYPES = new Set(['HOURLY', 'SALARY']);
+const PAY_FREQUENCIES = new Set(['BI_WEEKLY', 'MONTHLY', 'SEMI_MONTHLY']);
+
+const normalizeEmploymentType = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  const normalized = String(value).trim().toUpperCase();
+  return EMPLOYMENT_TYPES.has(normalized) ? normalized : null;
+};
 
 // All admin routes require authentication and admin role
 router.use(requireAuth, requireAdmin);
@@ -144,9 +160,10 @@ router.get('/users', async (req, res) => {
     const { role } = req.query;
 
     let query = `SELECT id, email, first_name, last_name, role, hourly_rate, is_active,
+                 payment_type, pay_frequency, salary_amount, date_of_birth,
                  address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                 carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
+                 carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
                  created_at FROM users WHERE created_by = $1`;
     const params = [req.user.id];
 
@@ -170,9 +187,10 @@ router.post('/users', async (req, res) => {
   try {
     const {
       email, password, firstName, lastName, hourlyRate,
+      paymentType, payFrequency, salaryAmount, dateOfBirth,
       addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, carryoverEnabled,
-      dateEmployed, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
+      dateEmployed, employmentType, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
@@ -192,22 +210,37 @@ router.post('/users', async (req, res) => {
     // Parse numeric values
     const sickDays = parseFloat(annualSickDays) || 0;
     const vacationDays = parseFloat(annualVacationDays) || 0;
+    const normalizedEmploymentType = normalizeEmploymentType(employmentType);
+    const normalizedPaymentType = PAYMENT_TYPES.has(paymentType) ? paymentType : 'HOURLY';
+    const normalizedPayFrequency = PAY_FREQUENCIES.has(payFrequency) ? payFrequency : 'BI_WEEKLY';
+    const parsedHourlyRate = normalizedPaymentType === 'HOURLY'
+      ? (parseFloat(hourlyRate) || 0)
+      : null;
+    const parsedSalaryAmount = normalizedPaymentType === 'SALARY'
+      ? (parseFloat(salaryAmount) || 0)
+      : null;
+
+    if (employmentType !== undefined && normalizedEmploymentType === null) {
+      return res.status(400).json({ error: 'Employment type must be FULL_TIME or PART_TIME' });
+    }
 
     // Create educator
     const result = await pool.query(
       `INSERT INTO users (
-        email, password_hash, first_name, last_name, role, hourly_rate, created_by,
+        email, password_hash, first_name, last_name, role, hourly_rate, payment_type, pay_frequency, salary_amount, date_of_birth, created_by,
         address_line1, address_line2, city, province, postal_code,
         annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-        carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
+        carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
        )
-       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
        RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
+                 payment_type, pay_frequency, salary_amount, date_of_birth,
                  address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                 carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
+                 carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
       [
-        email, passwordHash, firstName, lastName, hourlyRate || null, req.user.id,
+        email, passwordHash, firstName, lastName, parsedHourlyRate,
+        normalizedPaymentType, normalizedPayFrequency, parsedSalaryAmount, dateOfBirth || null, req.user.id,
         addressLine1 || null,
         addressLine2 || null,
         city || null,
@@ -216,6 +249,7 @@ router.post('/users', async (req, res) => {
         sickDays, vacationDays, sickDays, vacationDays, // Set remaining equal to annual initially
         carryoverEnabled || false,
         dateEmployed || null,
+        normalizedEmploymentType,
         sin || null,
         parseFloat(ytdGross) || 0,
         parseFloat(ytdCpp) || 0,
@@ -238,9 +272,10 @@ router.patch('/users/:id', async (req, res) => {
     const { id } = req.params;
     const {
       firstName, lastName, hourlyRate, isActive,
+      paymentType, payFrequency, salaryAmount, dateOfBirth,
       addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, sickDaysRemaining, vacationDaysRemaining,
-      carryoverEnabled, dateEmployed, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
+      carryoverEnabled, dateEmployed, employmentType, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
     const updates = [];
@@ -257,8 +292,34 @@ router.patch('/users/:id', async (req, res) => {
     }
 
     if (hourlyRate !== undefined) {
-      params.push(hourlyRate);
+      params.push(hourlyRate === '' ? null : hourlyRate);
       updates.push(`hourly_rate = $${params.length}`);
+    }
+
+    if (paymentType !== undefined) {
+      if (!PAYMENT_TYPES.has(paymentType)) {
+        return res.status(400).json({ error: 'Invalid payment type' });
+      }
+      params.push(paymentType);
+      updates.push(`payment_type = $${params.length}`);
+    }
+
+    if (payFrequency !== undefined) {
+      if (!PAY_FREQUENCIES.has(payFrequency)) {
+        return res.status(400).json({ error: 'Invalid pay frequency' });
+      }
+      params.push(payFrequency);
+      updates.push(`pay_frequency = $${params.length}`);
+    }
+
+    if (salaryAmount !== undefined) {
+      params.push(salaryAmount === '' ? null : (parseFloat(salaryAmount) || 0));
+      updates.push(`salary_amount = $${params.length}`);
+    }
+
+    if (dateOfBirth !== undefined) {
+      params.push(dateOfBirth || null);
+      updates.push(`date_of_birth = $${params.length}`);
     }
 
     if (isActive !== undefined) {
@@ -321,6 +382,15 @@ router.patch('/users/:id', async (req, res) => {
       updates.push(`date_employed = $${params.length}`);
     }
 
+    if (employmentType !== undefined) {
+      const normalizedEmploymentType = normalizeEmploymentType(employmentType);
+      if (normalizedEmploymentType === null) {
+        return res.status(400).json({ error: 'Employment type must be FULL_TIME or PART_TIME' });
+      }
+      params.push(normalizedEmploymentType);
+      updates.push(`employment_type = $${params.length}`);
+    }
+
     if (sin !== undefined) {
       params.push(sin || null);
       updates.push(`sin = $${params.length}`);
@@ -361,9 +431,10 @@ router.patch('/users/:id', async (req, res) => {
       SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${params.length}
       RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
+                payment_type, pay_frequency, salary_amount, date_of_birth,
                 address_line1, address_line2, city, province, postal_code,
                 annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                carryover_enabled, date_employed, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
+                carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
     `;
 
     const result = await pool.query(query, params);

@@ -1,8 +1,177 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
-import { FileText, Phone, UserPlus, Calendar, DollarSign, Briefcase, Trash2, X } from 'lucide-react';
+import { Briefcase, Calendar, Cake, Check, ChevronDown, DollarSign, FileText, Phone, Trash2, UserPlus } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
+import { DatePickerModal } from '../components/modals/DatePickerModal';
 import api from '../utils/api';
+
+const PAYMENT_TYPE_OPTIONS = [
+  { value: 'HOURLY', label: 'Hourly' },
+  { value: 'SALARY', label: 'Salary' },
+];
+
+const PAY_FREQUENCY_OPTIONS = [
+  { value: 'BI_WEEKLY', label: 'Bi-Weekly (Every 2 weeks)' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (1st-15th, 16th-end)' },
+];
+
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: 'FULL_TIME', label: 'Full Time' },
+  { value: 'PART_TIME', label: 'Part Time' },
+];
+
+const createEmptyEducatorForm = () => ({
+  email: '',
+  password: '',
+  firstName: '',
+  lastName: '',
+  dateOfBirth: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  province: '',
+  postalCode: '',
+  paymentType: 'HOURLY',
+  payFrequency: 'BI_WEEKLY',
+  employmentType: 'FULL_TIME',
+  hourlyRate: '',
+  salaryAmount: '',
+  annualSickDays: '80',
+  annualVacationDays: '80',
+  carryoverEnabled: false,
+  dateEmployed: '',
+  sin: '',
+  ytdGross: '0',
+  ytdCpp: '0',
+  ytdEi: '0',
+  ytdTax: '0',
+  ytdHours: '0',
+});
+
+const normalizeDateValue = (value) => {
+  if (!value) return '';
+  const raw = String(value);
+  return raw.includes('T') ? raw.split('T')[0] : raw;
+};
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDateLabel = (value, placeholder = 'Select date') => {
+  const parsed = parseDateValue(value);
+  if (!parsed) return placeholder;
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+function MenuSelectField({ label, value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border themed-border themed-ring bg-white text-sm text-left text-stone-700"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{selectedOption?.label || 'Select option'}</span>
+        <ChevronDown
+          size={16}
+          className={`text-stone-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-2 w-full rounded-2xl border border-[#FFE5D9] bg-white shadow-lg shadow-[#FF9B85]/10">
+          <div className="max-h-56 overflow-y-auto p-2 space-y-1" role="listbox">
+            {options.map((option) => {
+              const isSelected = option.value === value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center justify-between gap-2 ${
+                    isSelected ? 'bg-[#FF9B85] text-white' : 'text-stone-700 hover:bg-[#FFF8F3]'
+                  }`}
+                  role="option"
+                  aria-selected={isSelected}
+                >
+                  <span>{option.label}</span>
+                  {isSelected ? <Check size={16} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DateFieldButton({ label, value, onClick, placeholder = 'Select date', icon: Icon = Calendar }) {
+  return (
+    <div>
+      <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border themed-border themed-ring bg-white hover:border-[#FF9B85]"
+      >
+        <span className="flex items-center gap-3">
+          <Icon size={18} className="text-stone-400" />
+          <span className={value ? 'text-stone-800' : 'text-stone-400'}>
+            {formatDateLabel(value, placeholder)}
+          </span>
+        </span>
+        <ChevronDown size={16} className="text-stone-400" />
+      </button>
+    </div>
+  );
+}
 
 export function EducatorsPage() {
   const [educators, setEducators] = useState([]);
@@ -11,32 +180,9 @@ export function EducatorsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEducator, setSelectedEducator] = useState(null);
   const [paystubLoadingId, setPaystubLoadingId] = useState(null);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    province: '',
-    postalCode: '',
-    paymentType: 'HOURLY',
-    payFrequency: 'BI_WEEKLY',
-    hourlyRate: '',
-    salaryAmount: '',
-    annualSickDays: '80',
-    annualVacationDays: '80',
-    carryoverEnabled: false,
-    dateEmployed: '',
-    sin: '',
-    ytdGross: '0',
-    ytdCpp: '0',
-    ytdEi: '0',
-    ytdTax: '0',
-    ytdHours: '0',
-  });
+  const [formData, setFormData] = useState(createEmptyEducatorForm);
   const [editForm, setEditForm] = useState({});
+  const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const avatarStyles = [
     { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
@@ -52,9 +198,10 @@ export function EducatorsPage() {
   const loadEducators = async () => {
     try {
       const response = await api.get('/admin/users?role=EDUCATOR');
-      setEducators(response.data.users);
+      setEducators(response.data.users || []);
     } catch (error) {
       console.error('Load educators error:', error);
+      setEducators([]);
     }
   };
 
@@ -77,31 +224,7 @@ export function EducatorsPage() {
         vacationDaysRemaining: formData.annualVacationDays,
       });
       setShowAddModal(false);
-      setFormData({
-        email: '',
-        password: '',
-        firstName: '',
-        lastName: '',
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        province: '',
-        postalCode: '',
-        paymentType: 'HOURLY',
-        payFrequency: 'BI_WEEKLY',
-        hourlyRate: '',
-        salaryAmount: '',
-        annualSickDays: '80',
-        annualVacationDays: '80',
-        carryoverEnabled: false,
-        dateEmployed: '',
-        sin: '',
-        ytdGross: '0',
-        ytdCpp: '0',
-        ytdEi: '0',
-        ytdTax: '0',
-        ytdHours: '0',
-      });
+      setFormData(createEmptyEducatorForm());
       loadEducators();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to create educator');
@@ -115,8 +238,10 @@ export function EducatorsPage() {
     setEditForm({
       paymentType: educator.payment_type || 'HOURLY',
       payFrequency: educator.pay_frequency || 'BI_WEEKLY',
+      employmentType: educator.employment_type || 'PART_TIME',
       hourlyRate: educator.hourly_rate || '',
       salaryAmount: educator.salary_amount || '',
+      dateOfBirth: normalizeDateValue(educator.date_of_birth),
       addressLine1: educator.address_line1 || '',
       addressLine2: educator.address_line2 || '',
       city: educator.city || '',
@@ -127,7 +252,7 @@ export function EducatorsPage() {
       sickDaysRemaining: educator.sick_days_remaining || 0,
       vacationDaysRemaining: educator.vacation_days_remaining || 0,
       carryoverEnabled: educator.carryover_enabled || false,
-      dateEmployed: educator.date_employed || '',
+      dateEmployed: normalizeDateValue(educator.date_employed),
       sin: educator.sin || '',
       ytdGross: educator.ytd_gross || 0,
       ytdCpp: educator.ytd_cpp || 0,
@@ -138,6 +263,39 @@ export function EducatorsPage() {
     setShowEditModal(true);
   };
 
+  const openDatePicker = (formType, field) => {
+    setDatePickerTarget({ formType, field });
+  };
+
+  const getDatePickerInitialDate = () => {
+    if (!datePickerTarget) {
+      return new Date();
+    }
+    const source = datePickerTarget.formType === 'add' ? formData : editForm;
+    return parseDateValue(source?.[datePickerTarget.field]) || new Date();
+  };
+
+  const applyDateToForm = (selectedDate) => {
+    if (!datePickerTarget) return;
+    const normalized = normalizeDateValue(selectedDate.toISOString());
+    if (datePickerTarget.formType === 'add') {
+      setFormData((prev) => ({ ...prev, [datePickerTarget.field]: normalized }));
+    } else {
+      setEditForm((prev) => ({ ...prev, [datePickerTarget.field]: normalized }));
+    }
+    setDatePickerTarget(null);
+  };
+
+  const clearDateFromForm = () => {
+    if (!datePickerTarget) return;
+    if (datePickerTarget.formType === 'add') {
+      setFormData((prev) => ({ ...prev, [datePickerTarget.field]: '' }));
+    } else {
+      setEditForm((prev) => ({ ...prev, [datePickerTarget.field]: '' }));
+    }
+    setDatePickerTarget(null);
+  };
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -146,6 +304,7 @@ export function EducatorsPage() {
       await api.patch(`/admin/users/${selectedEducator.id}`, editForm);
       setShowEditModal(false);
       setSelectedEducator(null);
+      setEditForm({});
       loadEducators();
     } catch (error) {
       alert('Failed to update educator');
@@ -163,6 +322,7 @@ export function EducatorsPage() {
       await api.delete(`/admin/users/${selectedEducator.id}`);
       setShowEditModal(false);
       setSelectedEducator(null);
+      setEditForm({});
       loadEducators();
     } catch (error) {
       alert('Failed to delete educator');
@@ -276,6 +436,13 @@ export function EducatorsPage() {
                 </span>
               </div>
 
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
+                <span className="text-stone-500 text-sm">Employment</span>
+                <span className="font-bold text-stone-700 text-sm">
+                  {educator.employment_type === 'FULL_TIME' ? 'Full Time' : 'Part Time'}
+                </span>
+              </div>
+
               {/* Sick Hours */}
               <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
                 <div className="flex items-center gap-2 text-stone-500 text-sm">
@@ -297,6 +464,18 @@ export function EducatorsPage() {
                   {parseFloat(educator.vacation_days_remaining || 0).toFixed(1)} / {educator.annual_vacation_days || 0}
                 </span>
               </div>
+
+              {educator.date_of_birth && (
+                <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
+                  <div className="flex items-center gap-2 text-stone-500 text-sm">
+                    <Cake size={16} />
+                    <span>Birthday</span>
+                  </div>
+                  <span className="font-bold text-stone-700 text-sm">
+                    {formatDateLabel(educator.date_of_birth, '')}
+                  </span>
+                </div>
+              )}
 
               {/* Active Status */}
               <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
@@ -359,13 +538,16 @@ export function EducatorsPage() {
       {/* Add Educator Modal */}
       <BaseModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false);
+          setFormData(createEmptyEducatorForm());
+        }}
         title="Add New Educator"
         maxWidth="max-w-3xl"
       >
         <form onSubmit={handleAddEducator} className="space-y-6">
           {/* Personal Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
                 First Name *
@@ -480,36 +662,25 @@ export function EducatorsPage() {
           </div>
 
           {/* Payment Type & Frequency */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                Payment Type *
-              </label>
-              <select
-                value={formData.paymentType}
-                onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                required
-              >
-                <option value="HOURLY">Hourly</option>
-                <option value="SALARY">Salary</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                Pay Frequency *
-              </label>
-              <select
-                value={formData.payFrequency}
-                onChange={(e) => setFormData({ ...formData, payFrequency: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                required
-              >
-                <option value="BI_WEEKLY">Bi-Weekly (Every 2 weeks)</option>
-                <option value="MONTHLY">Monthly</option>
-                <option value="SEMI_MONTHLY">Semi-Monthly (1st-15th, 16th-end)</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <MenuSelectField
+              label="Payment Type *"
+              value={formData.paymentType}
+              options={PAYMENT_TYPE_OPTIONS}
+              onChange={(nextValue) => setFormData({ ...formData, paymentType: nextValue })}
+            />
+            <MenuSelectField
+              label="Pay Frequency *"
+              value={formData.payFrequency}
+              options={PAY_FREQUENCY_OPTIONS}
+              onChange={(nextValue) => setFormData({ ...formData, payFrequency: nextValue })}
+            />
+            <MenuSelectField
+              label="Employment Type *"
+              value={formData.employmentType}
+              options={EMPLOYMENT_TYPE_OPTIONS}
+              onChange={(nextValue) => setFormData({ ...formData, employmentType: nextValue })}
+            />
           </div>
 
           {/* Rate or Salary */}
@@ -570,7 +741,7 @@ export function EducatorsPage() {
           </div>
 
           {/* Carryover & Date Employed */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center">
               <label className="flex items-center cursor-pointer">
                 <input
@@ -584,17 +755,19 @@ export function EducatorsPage() {
                 </span>
               </label>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                Date Employed
-              </label>
-              <input
-                type="date"
-                value={formData.dateEmployed}
-                onChange={(e) => setFormData({ ...formData, dateEmployed: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              />
-            </div>
+            <DateFieldButton
+              label="Date Employed"
+              value={formData.dateEmployed}
+              placeholder="Select employment date"
+              onClick={() => openDatePicker('add', 'dateEmployed')}
+            />
+            <DateFieldButton
+              label="Birthday"
+              value={formData.dateOfBirth}
+              placeholder="Select birthday"
+              icon={Cake}
+              onClick={() => openDatePicker('add', 'dateOfBirth')}
+            />
           </div>
 
           {/* SIN */}
@@ -685,7 +858,10 @@ export function EducatorsPage() {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setShowAddModal(false)}
+              onClick={() => {
+                setShowAddModal(false);
+                setFormData(createEmptyEducatorForm());
+              }}
               disabled={loading}
               className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors disabled:opacity-50"
             >
@@ -708,6 +884,7 @@ export function EducatorsPage() {
         onClose={() => {
           setShowEditModal(false);
           setSelectedEducator(null);
+          setEditForm({});
         }}
         title={`Edit ${selectedEducator?.first_name} ${selectedEducator?.last_name}`}
         maxWidth="max-w-3xl"
@@ -716,34 +893,25 @@ export function EducatorsPage() {
           {/* Payment Information */}
           <div className="space-y-4">
             <h3 className="font-quicksand font-bold text-lg text-stone-800">Payment Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Payment Type
-                </label>
-                <select
-                  value={editForm.paymentType}
-                  onChange={(e) => setEditForm({ ...editForm, paymentType: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                >
-                  <option value="HOURLY">Hourly</option>
-                  <option value="SALARY">Salary</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Pay Frequency
-                </label>
-                <select
-                  value={editForm.payFrequency}
-                  onChange={(e) => setEditForm({ ...editForm, payFrequency: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                >
-                  <option value="BI_WEEKLY">Bi-Weekly</option>
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="SEMI_MONTHLY">Semi-Monthly</option>
-                </select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <MenuSelectField
+                label="Payment Type"
+                value={editForm.paymentType}
+                options={PAYMENT_TYPE_OPTIONS}
+                onChange={(nextValue) => setEditForm({ ...editForm, paymentType: nextValue })}
+              />
+              <MenuSelectField
+                label="Pay Frequency"
+                value={editForm.payFrequency}
+                options={PAY_FREQUENCY_OPTIONS}
+                onChange={(nextValue) => setEditForm({ ...editForm, payFrequency: nextValue })}
+              />
+              <MenuSelectField
+                label="Employment Type"
+                value={editForm.employmentType}
+                options={EMPLOYMENT_TYPE_OPTIONS}
+                onChange={(nextValue) => setEditForm({ ...editForm, employmentType: nextValue })}
+              />
               {editForm.paymentType === 'HOURLY' ? (
                 <div>
                   <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
@@ -899,17 +1067,19 @@ export function EducatorsPage() {
                   className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Date Employed
-                </label>
-                <input
-                  type="date"
-                  value={editForm.dateEmployed}
-                  onChange={(e) => setEditForm({ ...editForm, dateEmployed: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                />
-              </div>
+              <DateFieldButton
+                label="Date Employed"
+                value={editForm.dateEmployed}
+                placeholder="Select employment date"
+                onClick={() => openDatePicker('edit', 'dateEmployed')}
+              />
+              <DateFieldButton
+                label="Birthday"
+                value={editForm.dateOfBirth}
+                placeholder="Select birthday"
+                icon={Cake}
+                onClick={() => openDatePicker('edit', 'dateOfBirth')}
+              />
               <div>
                 <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
                   SIN
@@ -1008,6 +1178,7 @@ export function EducatorsPage() {
               onClick={() => {
                 setShowEditModal(false);
                 setSelectedEducator(null);
+                setEditForm({});
               }}
               disabled={loading}
               className="px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold hover:bg-[var(--background)] transition-colors disabled:opacity-50"
@@ -1024,6 +1195,20 @@ export function EducatorsPage() {
           </div>
         </form>
       </BaseModal>
+
+      <DatePickerModal
+        isOpen={Boolean(datePickerTarget)}
+        onClose={() => setDatePickerTarget(null)}
+        initialDate={getDatePickerInitialDate()}
+        onConfirm={applyDateToForm}
+        onClear={clearDateFromForm}
+        title={datePickerTarget?.field === 'dateOfBirth' ? 'Select birthday' : 'Select employment date'}
+        subtitle={datePickerTarget?.field === 'dateOfBirth'
+          ? 'Choose the educator birthday'
+          : 'Choose the educator employment start date'}
+        confirmLabel="Apply date"
+        clearLabel="Clear date"
+      />
     </Layout>
   );
 }

@@ -1,3 +1,19 @@
+## Educator Birthdays And Custom Profile Dropdowns (2026-03-13)
+- [x] Inspect the educator create/edit flow and identify where birthday data and native dropdowns need changes
+- [x] Add educator birthday support through database, admin API, and admin profile UI
+- [x] Replace native dropdowns in the educator profile flow with the existing custom menu pattern
+- [x] Verify the updated educator page build path and document the resulting behavior
+
+## Review
+- Added [`backend/migrations/045_add_user_date_of_birth.sql`](/C:/src/Daycare/backend/migrations/045_add_user_date_of_birth.sql) so educator birthdays are stored on the `users` table.
+- Updated [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js) so admin educator CRUD now returns and persists `date_of_birth`, `payment_type`, `pay_frequency`, `salary_amount`, and the existing `employment_type` field together instead of leaving the profile dropdowns partially disconnected.
+- Updated [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js) to add birthday pickers to educator add/edit flows, show birthdays on educator cards, replace native profile `<select>` controls with menu-based dropdowns for payment type, pay frequency, and employment type, and use the shared date picker instead of native date inputs for profile date fields.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new user-field support, migration range, and current Educators page behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+- `rg -n '<select|type="date"' frontend/src/pages/EducatorsPage.js` returned no matches, confirming the educator profile page no longer uses native select/date form controls.
+
 ## Staff Scheduling Backdated Shift Fix (2026-03-13)
 - [x] Confirm the required scheduling and payroll context from `SYSTEM_DOCUMENTATION.xml`, `STRUCTURE.md`, and the relevant routes/pages
 - [x] Remove the UI restriction that prevents admins from creating staff shifts on previous dates
@@ -20,11 +36,46 @@
 
 ## Pay Dates And Paystub Preview Flow (2026-03-13)
 - [x] Confirm the existing pay period, payout, and paystub backend/frontend flows
-- [ ] Add data support for `pay_date` on pay periods and carry it through paystub/PDF generation
-- [ ] Add admin access to create/view employee-specific paystubs from a pay period
-- [ ] Replace the closed-period payroll summary download button with an in-app PDF preview modal that also supports download
-- [ ] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
-- [ ] Run focused verification for migration syntax, backend route syntax, and frontend build/render path
+- [x] Add data support for `pay_date` on pay periods and carry it through paystub/PDF generation
+- [x] Add admin access to create/view employee-specific paystubs from a pay period
+- [x] Replace the closed-period payroll summary download button with a frontend-rendered HTML preview modal that also supports PDF download
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
+- [x] Run focused verification for migration syntax, backend route syntax, and frontend build/render path
+
+## Review
+- Added migration [`backend/migrations/043_add_pay_date_to_pay_periods.sql`](/C:/src/Daycare/backend/migrations/043_add_pay_date_to_pay_periods.sql) to introduce `pay_date`, backfill existing rows from `end_date`, and make the new column required for future periods.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so manual period creation requires `pay_date`, auto-generated periods default `pay_date` to the period end date, and period payout lookups now include existing paystub ids/stub numbers for admin paystub actions.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so admin paystub generation always returns the concrete `paystubId`/`stubNumber`, and paystub PDF generation now carries `pay_date` through the period data.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so paystubs prefer the configured pay date, and payroll summary PDFs now render the pay date in the header details.
+- Added a structured paystub-details response in [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so the frontend can render paystub previews as HTML instead of embedding the PDF itself.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to collect `payDate` on create, show `Pay date` on each period card, open payroll summaries as frontend-rendered HTML modals with a `Download PDF` action, and open employee paystubs as frontend-rendered HTML modals after creating/finding the concrete paystub record.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new migration count, pay-period schema, pay-date-aware creation flow, paystub actions, and HTML-preview-plus-PDF-download behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+- Did not apply the new migration against a live database in this session, so [`backend/migrations/043_add_pay_date_to_pay_periods.sql`](/C:/src/Daycare/backend/migrations/043_add_pay_date_to_pay_periods.sql) still needs to be run in the target environment before the new create flow can persist `pay_date`.
+
+## Educator Employment Type And Paystub Labels (2026-03-13)
+- [x] Confirm the existing educator profile admin CRUD path and paystub PDF generation path
+- [x] Add a stored educator employment-type option (`FULL_TIME` / `PART_TIME`) to the admin educator profile flow
+- [x] Update paystub PDF labels and conditional rows:
+- [x] Remove the stray `-Amour` suffix from Retro Payment
+- [x] Rename Bonus to Stat Pay and show Stat Pay only for full-time educators
+- [x] Stop placeholder dashes from rendering on pay rows that already have numeric values
+- [x] Fix the Second Canada Pension Plan tax row so the label stays on one line
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with review notes and verification
+
+## Review
+- Added [`backend/migrations/044_add_user_employment_type.sql`](/C:/src/Daycare/backend/migrations/044_add_user_employment_type.sql) so educators can store an `employment_type` classification without guessing from payroll output.
+- Updated [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/middleware/auth.js`](/C:/src/Daycare/backend/src/middleware/auth.js) to read/write `employment_type` through the admin educator profile flow and pass it into paystub generation.
+- Updated [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js) so add/edit educator profiles expose a Full Time / Part Time selector and educator cards display the stored employment type.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so paystubs now label `Retro Payment` correctly, rename `Bonus` to `Stat Pay`, hide `Stat Pay` for part-time educators, drop placeholder dashes when numeric pay values are present, and keep `Second Canada Pension Plan` on a single line by widening/reducing that taxes table row.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new educator employment-type field, current migration count, and paystub PDF behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), [`backend/src/middleware/auth.js`](/C:/src/Daycare/backend/src/middleware/auth.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/EducatorsPage.js` completed with warnings only and no errors in the changed educator page.
+- A direct backend invocation of `generatePaystub` confirmed `Stat Pay` renders only for `FULL_TIME`, `Retro Payment- Amour` no longer appears, `Second Canada Pension Plan` is emitted as a single label, and zero-valued Sick Pay fields render numeric output instead of placeholder dashes when numeric payout values are present.
+- `npm run build` in `frontend/` is currently blocked by pre-existing undefined-state errors in [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js); this task did not modify that file.
 
 ## Review
 - Added an admin-only delete endpoint in [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) that only allows deleting `OPEN` periods and blocks removal when payouts already exist, so closed payroll windows do not quietly reopen historical time-entry edits.

@@ -181,6 +181,80 @@ const ensurePaystubForPayout = async (payoutId) => {
   };
 };
 
+const getPaystubRow = async (id) => {
+  const result = await pool.query(
+    `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date, pp.pay_date,
+            u.first_name, u.last_name, u.email,
+            u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
+            u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
+            u.annual_sick_days, u.annual_vacation_days, u.employment_type,
+            u.sick_days_remaining, u.vacation_days_remaining,
+            po.created_at AS payout_created_at
+     FROM paystubs ps
+     JOIN payouts po ON ps.payout_id = po.id
+     JOIN pay_periods pp ON ps.pay_period_id = pp.id
+     JOIN users u ON ps.user_id = u.id
+     WHERE ps.id = $1`,
+    [id]
+  );
+
+  return result.rows[0] || null;
+};
+
+const buildPaystubContext = async (id) => {
+  const data = await getPaystubRow(id);
+
+  if (!data) {
+    return null;
+  }
+
+  const payout = {
+    total_hours: data.total_hours,
+    hourly_rate: data.hourly_rate,
+    gross_amount: data.gross_amount,
+    deductions: data.deductions,
+    net_amount: data.net_amount,
+    payout_created_at: data.payout_created_at
+  };
+
+  const user = {
+    first_name: data.first_name,
+    last_name: data.last_name,
+    email: data.email,
+    address_line1: data.address_line1,
+    address_line2: data.address_line2,
+    city: data.city,
+    province: data.province,
+    postal_code: data.postal_code,
+    ytd_gross: data.ytd_gross,
+    ytd_cpp: data.ytd_cpp,
+    ytd_ei: data.ytd_ei,
+    ytd_tax: data.ytd_tax,
+    ytd_hours: data.ytd_hours,
+    annual_sick_days: data.annual_sick_days,
+    annual_vacation_days: data.annual_vacation_days,
+    employment_type: data.employment_type,
+    sick_days_remaining: data.sick_days_remaining,
+    vacation_days_remaining: data.vacation_days_remaining
+  };
+
+  const payPeriod = {
+    name: data.name,
+    start_date: data.start_date,
+    end_date: data.end_date,
+    pay_date: data.pay_date
+  };
+
+  const paystub = {
+    id: data.id,
+    payout_id: data.payout_id,
+    stub_number: data.stub_number,
+    generated_at: data.generated_at
+  };
+
+  return { data, payout, user, payPeriod, paystub };
+};
+
 // === PAYSTUBS ===
 
 // Generate paystub for a payout (admin)
@@ -209,70 +283,18 @@ router.post('/payouts/:id/generate-paystub', requireAuth, requireAdmin, async (r
 router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const context = await buildPaystubContext(id);
 
-    // Get paystub with related data
-    const result = await pool.query(
-      `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date, pp.pay_date,
-              u.first_name, u.last_name, u.email,
-              u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
-              u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
-              u.annual_sick_days, u.annual_vacation_days,
-              u.sick_days_remaining, u.vacation_days_remaining,
-              po.created_at AS payout_created_at
-       FROM paystubs ps
-       JOIN payouts po ON ps.payout_id = po.id
-       JOIN pay_periods pp ON ps.pay_period_id = pp.id
-       JOIN users u ON ps.user_id = u.id
-       WHERE ps.id = $1`,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
+    if (!context) {
       return res.status(404).json({ error: 'Paystub not found' });
     }
 
-    const data = result.rows[0];
+    const { data, payout, user, payPeriod } = context;
 
     // Check authorization (admin or own paystub)
     if (req.user.role !== 'ADMIN' && req.user.id !== data.user_id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-
-    const payout = {
-      total_hours: data.total_hours,
-      hourly_rate: data.hourly_rate,
-      gross_amount: data.gross_amount,
-      deductions: data.deductions,
-      net_amount: data.net_amount,
-      payout_created_at: data.payout_created_at
-    };
-
-    const user = {
-      first_name: data.first_name,
-      last_name: data.last_name,
-      email: data.email,
-      address_line1: data.address_line1,
-      address_line2: data.address_line2,
-      city: data.city,
-      province: data.province,
-      postal_code: data.postal_code,
-      ytd_gross: data.ytd_gross,
-      ytd_cpp: data.ytd_cpp,
-      ytd_ei: data.ytd_ei,
-      ytd_tax: data.ytd_tax,
-      ytd_hours: data.ytd_hours,
-      annual_sick_days: data.annual_sick_days,
-      annual_vacation_days: data.annual_vacation_days,
-      sick_days_remaining: data.sick_days_remaining,
-      vacation_days_remaining: data.vacation_days_remaining
-    };
-
-    const payPeriod = {
-      name: data.name,
-      start_date: data.start_date,
-      end_date: data.end_date,
-      pay_date: data.pay_date
-    };
 
     const daycare = await buildDaycareContext();
 
@@ -284,6 +306,32 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Get paystub PDF error:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+// Get paystub details for frontend preview
+router.get('/paystubs/:id/details', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const context = await buildPaystubContext(id);
+
+    if (!context) {
+      return res.status(404).json({ error: 'Paystub not found' });
+    }
+
+    if (req.user.role !== 'ADMIN' && req.user.id !== context.data.user_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json({
+      paystub: context.paystub,
+      payout: context.payout,
+      user: context.user,
+      payPeriod: context.payPeriod
+    });
+  } catch (error) {
+    console.error('Get paystub details error:', error);
+    res.status(500).json({ error: 'Failed to fetch paystub details' });
   }
 });
 
@@ -301,7 +349,7 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
       `SELECT id, first_name, last_name, email,
               address_line1, address_line2, city, province, postal_code,
               ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
-              annual_sick_days, annual_vacation_days,
+              annual_sick_days, annual_vacation_days, employment_type,
               sick_days_remaining, vacation_days_remaining
        FROM users
        WHERE id = $1`,
