@@ -88,6 +88,7 @@
 - [x] Update the pay periods stat card labeling if the open-period source changes from approved entries to scheduled shifts
 - [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
 - [x] Run focused verification for the pay periods route and frontend build
+- [x] Verify the running local backend container is rebuilt so the live API actually serves the updated open-period aggregation code
 
 - Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so `GET /pay-periods` now computes open-period card totals from current in-range, non-declined schedules for the current admin's educators, while closed periods continue to report finalized payout totals.
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so the fourth stat card reads `Scheduled Shifts` for open periods and still reads `Approved Entries` for closed periods.
@@ -95,6 +96,11 @@
 - Verification:
 - `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js).
 - `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+- Follow-up verification for the reported February case:
+- The database contains accepted schedule rows on `2026-02-16` and `2026-02-23` for the admin's educators inside pay period `id=18` (`2026-02-16` through `2026-02-27`).
+- The running Docker container was initially stale and still serving the pre-aggregation version of [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), so `/api/pay-periods` returned only raw pay-period fields.
+- Rebuilt the local backend with `docker compose up -d --build backend`.
+- After rebuild, live `GET /api/pay-periods` for pay period `id=18` returned `total_hours: 24`, `employee_count: 2`, and `scheduled_shifts: 3`, matching the in-range schedule rows.
 
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to replace all native date inputs in the create-period and auto-generate flows with the shared [`DatePickerModal`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) pattern already used elsewhere in the portal.
 - Verification:

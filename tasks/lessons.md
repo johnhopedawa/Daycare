@@ -16,6 +16,7 @@
 
 ## 2026-03-13
 - When a user reports the wrong people appearing in payroll or employee lists, verify the live DB rows and the exact period dates before assuming a frontend bug; distinguish between a bad query scope and a legitimate historical snapshot.
+- After backend route changes in local Docker Compose, verify the running container is using the updated file; this repo does not bind-mount backend source, so `docker compose up -d --build backend` is required before trusting live API results.
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.
