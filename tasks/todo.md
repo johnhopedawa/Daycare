@@ -1,8 +1,19 @@
 ## Pay Period Educator Query Scope Fix (2026-03-13)
 - [x] Confirm whether the employee list was using real DB records or hardcoded values
-- [ ] Restrict pay-period preview, close, payout list, and payroll summary queries to educators owned by the current admin
-- [ ] Verify the local data explanation for why Lory Cao is missing from the existing closed period
-- [ ] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the fix and findings
+- [x] Restrict pay-period preview, close, payout list, and payroll summary queries to educators owned by the current admin
+- [x] Verify the local data explanation for why Lory Cao is missing from the existing closed period
+- [x] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the fix and findings
+
+## Review
+- Confirmed there are no hardcoded employee names in the payroll UI. The bad `Admin User` row was coming from live DB data because the pay-period queries were filtering only by `payment_type`, not by user role/admin ownership.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so pay-period close preview, close processing, and payout list queries now require `u.role = 'EDUCATOR'` and `u.created_by = req.user.id`.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so payroll summary PDF exports use the same educator-only scope and no longer include admin/parent accounts.
+- Verified local data: `Admin User` is user `42` with role `ADMIN` and `payment_type='HOURLY'`, which is why the old query pulled that account into payroll. `Lory Cao` is user `95` with role `EDUCATOR`, created on `November 24, 2025`.
+- Verified historical behavior: the existing closed pay period is [`November 1-14, 2025`] and its stored payouts were created before Lory existed, so her absence there is historically correct. After the fix and backend rebuild, `GET /api/pay-periods/3/payouts` returns only the educator payout row, and a temporary preview for `2025-11-24` through `2025-11-30` returned `test educator` and `Lory Cao` only.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
+- Rebuilt the local backend container with `docker compose up -d --build backend`.
+- Live API verification after rebuild confirmed the scoped results described above.
 
 ## Educator Birthdays And Custom Profile Dropdowns (2026-03-13)
 - [x] Inspect the educator create/edit flow and identify where birthday data and native dropdowns need changes
@@ -12,9 +23,20 @@
 
 ## Paystub Payout Editing From Pay Periods (2026-03-13)
 - [x] Inspect the current pay-period paystub preview and payout calculation flow
-- [ ] Add an admin payout-edit API for closed pay periods that recalculates payroll amounts from the educator profile
-- [ ] Add paystub edit actions in the pay-period UI with hours-focused editing and computed monetary previews
-- [ ] Verify the updated backend/frontend paths and record results
+- [x] Add an admin payout-edit API for closed pay periods that recalculates payroll amounts from the educator profile
+- [x] Add paystub edit actions in the pay-period UI with hours-focused editing and computed monetary previews
+- [x] Verify the updated backend/frontend paths and record results
+
+## Review
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) to expose `PATCH /pay-periods/payouts/:id`, recalculate payout `hourly_rate`, `gross_amount`, and `net_amount` from the educator profile (`payment_type`, `hourly_rate`, `salary_amount`) when hours are edited, and return the refreshed payout row with current paystub metadata.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) payout list queries to include profile compensation fields (`payment_type`, `profile_hourly_rate`, `profile_salary_amount`, `employment_type`) so the frontend can show where pay is being derived from.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) paystub detail payloads so the paystub preview modal also knows the educator's live compensation settings.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to add `Edit` actions in the paystubs flow, an hours-focused payout edit modal, computed gross/net previews sourced from educator profile data, and preview-header edit access for already-open paystubs.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new payout edit API and pay-period paystub editing behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` completed with no errors.
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
 
 ## Review
 - Added [`backend/migrations/045_add_user_date_of_birth.sql`](/C:/src/Daycare/backend/migrations/045_add_user_date_of_birth.sql) so educator birthdays are stored on the `users` table.
@@ -59,6 +81,20 @@
 - [x] Replace create-period and auto-generate date inputs with the shared custom date picker modal
 - [x] Verify the pay periods page build after the date-picker swap
 - [x] Add review notes for the design-system consistency fix
+
+## Open Pay Period Live Totals (2026-03-13)
+- [x] Confirm the pay periods list is not currently recalculating open-period totals from live schedule/time data
+- [x] Add backend live aggregation so open periods reflect current in-range schedules while closed periods keep finalized payout totals
+- [x] Update the pay periods stat card labeling if the open-period source changes from approved entries to scheduled shifts
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
+- [x] Run focused verification for the pay periods route and frontend build
+
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so `GET /pay-periods` now computes open-period card totals from current in-range, non-declined schedules for the current admin's educators, while closed periods continue to report finalized payout totals.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so the fourth stat card reads `Scheduled Shifts` for open periods and still reads `Approved Entries` for closed periods.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new live-open-period behavior while keeping the documented rule that closing/final payroll still uses approved time entries rather than schedule records.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
 
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to replace all native date inputs in the create-period and auto-generate flows with the shared [`DatePickerModal`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) pattern already used elsewhere in the portal.
 - Verification:

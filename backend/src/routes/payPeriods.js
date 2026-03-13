@@ -43,6 +43,14 @@ const calculatePayoutFromProfile = ({ paymentType, hourlyRate, salaryAmount, tot
   };
 };
 
+const matchesPeriodFrequency = (period, educator) => {
+  if (!period.frequency) {
+    return true;
+  }
+
+  return educator.pay_frequency === period.frequency;
+};
+
 // Get all pay periods
 router.get('/', async (req, res) => {
   try {
@@ -55,7 +63,138 @@ router.get('/', async (req, res) => {
       ORDER BY pp.start_date ASC, pp.end_date ASC
     `);
 
-    res.json({ payPeriods: result.rows });
+    if (result.rows.length === 0) {
+      return res.json({ payPeriods: [] });
+    }
+
+    const periods = result.rows;
+    const periodIds = periods.map((period) => period.id);
+    const overallStart = periods[0].start_date;
+    const overallEnd = periods[periods.length - 1].end_date;
+
+    const [educatorsResult, schedulesResult, timeEntriesResult, payoutsResult] = await Promise.all([
+      pool.query(
+        `SELECT id, payment_type, pay_frequency, hourly_rate, salary_amount
+         FROM users
+         WHERE is_active = true
+           AND role = 'EDUCATOR'
+           AND created_by = $1`,
+        [req.user.id]
+      ),
+      pool.query(
+        `SELECT s.user_id, s.shift_date, s.hours, s.status
+         FROM schedules s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.created_by = $1
+           AND u.role = 'EDUCATOR'
+           AND s.shift_date >= $2
+           AND s.shift_date <= $3
+           AND s.status <> 'DECLINED'`,
+        [req.user.id, overallStart, overallEnd]
+      ),
+      pool.query(
+        `SELECT te.user_id, te.entry_date, te.total_hours
+         FROM time_entries te
+         JOIN users u ON u.id = te.user_id
+         WHERE u.role = 'EDUCATOR'
+           AND u.created_by = $1
+           AND te.entry_date >= $2
+           AND te.entry_date <= $3
+           AND te.status = 'APPROVED'`,
+        [req.user.id, overallStart, overallEnd]
+      ),
+      pool.query(
+        `SELECT p.pay_period_id, p.user_id, p.total_hours, p.gross_amount, p.deductions, p.net_amount
+         FROM payouts p
+         JOIN users u ON u.id = p.user_id
+         WHERE p.pay_period_id = ANY($1)
+           AND u.role = 'EDUCATOR'
+           AND u.created_by = $2`,
+        [periodIds, req.user.id]
+      ),
+    ]);
+
+    const educators = educatorsResult.rows.map((educator) => ({
+      id: educator.id,
+      payment_type: educator.payment_type,
+      pay_frequency: educator.pay_frequency,
+      hourly_rate: safeNumber(educator.hourly_rate),
+      salary_amount: safeNumber(educator.salary_amount),
+    }));
+
+    const payPeriods = periods.map((period) => {
+      const periodSchedules = schedulesResult.rows.filter((schedule) =>
+        schedule.shift_date >= period.start_date && schedule.shift_date <= period.end_date
+      );
+      const periodEntries = timeEntriesResult.rows.filter((entry) =>
+        entry.entry_date >= period.start_date && entry.entry_date <= period.end_date
+      );
+      const periodPayouts = payoutsResult.rows.filter((payout) => payout.pay_period_id === period.id);
+      const eligibleEducators = educators.filter((educator) => matchesPeriodFrequency(period, educator));
+
+      if (period.status === 'OPEN') {
+        const scheduleTotalsByUser = new Map();
+        let scheduledShifts = 0;
+
+        periodSchedules.forEach((schedule) => {
+          const educator = eligibleEducators.find((candidate) => candidate.id === schedule.user_id);
+          if (!educator) {
+            return;
+          }
+
+          scheduleTotalsByUser.set(
+            schedule.user_id,
+            safeNumber(scheduleTotalsByUser.get(schedule.user_id)) + safeNumber(schedule.hours)
+          );
+          scheduledShifts += 1;
+        });
+
+        let totalHours = 0;
+        let totalAmount = 0;
+        let employeeCount = 0;
+
+        eligibleEducators.forEach((educator) => {
+          if (educator.payment_type === 'SALARY') {
+            employeeCount += 1;
+            totalAmount += safeNumber(educator.salary_amount);
+            return;
+          }
+
+          const scheduledHours = safeNumber(scheduleTotalsByUser.get(educator.id));
+          if (scheduledHours <= 0) {
+            return;
+          }
+
+          employeeCount += 1;
+          totalHours += scheduledHours;
+          totalAmount += scheduledHours * safeNumber(educator.hourly_rate);
+        });
+
+        return {
+          ...period,
+          total_amount: roundCurrency(totalAmount),
+          employee_count: employeeCount,
+          total_hours: roundCurrency(totalHours),
+          approved_entries: periodEntries.length,
+          scheduled_shifts: scheduledShifts,
+        };
+      }
+
+      const closedEmployeeIds = new Set(periodPayouts.map((payout) => payout.user_id));
+      const totalHours = periodPayouts.reduce((sum, payout) => sum + safeNumber(payout.total_hours), 0);
+      const totalAmount = periodPayouts.reduce((sum, payout) => sum + safeNumber(payout.gross_amount), 0);
+
+      return {
+        ...period,
+        total_amount: roundCurrency(totalAmount),
+        employee_count: closedEmployeeIds.size,
+        total_hours: roundCurrency(totalHours),
+        approved_entries: periodEntries.length,
+        scheduled_shifts: 0,
+      };
+    });
+
+    res.json({ payPeriods });
   } catch (error) {
     console.error('Get pay periods error:', error);
     res.status(500).json({ error: 'Failed to fetch pay periods' });

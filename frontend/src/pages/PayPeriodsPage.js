@@ -671,10 +671,10 @@ export function PayPeriodsPage() {
                 <div className="p-4 rounded-xl" style={cardStyles[3]}>
                   <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[3].color }}>
                     <CheckCircle size={16} />
-                    <span>Approved Entries</span>
+                    <span>{period.status === 'OPEN' ? 'Scheduled Shifts' : 'Approved Entries'}</span>
                   </div>
                   <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>
-                    {period.approved_entries || 0}
+                    {period.status === 'OPEN' ? (period.scheduled_shifts || 0) : (period.approved_entries || 0)}
                   </p>
                 </div>
               </div>
