@@ -197,7 +197,15 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const ytdTax = safeNumber(user.ytd_tax) ?? 0;
       const ytdCpp = safeNumber(user.ytd_cpp) ?? 0;
       const ytdEi = safeNumber(user.ytd_ei) ?? 0;
-      const ytdTaxTotal = ytdTax + ytdCpp + ytdEi;
+      const ytdCpp2 = getNumericValue(user, ['ytd_cpp2', 'ytd_second_cpp', 'ytd_second_canada_pension_plan']) ?? 0;
+      const currentIncomeTax = getNumericValue(payout, ['income_tax_current', 'tax_current', 'current_tax']);
+      const currentEi = getNumericValue(payout, ['ei_current', 'employment_insurance_current', 'current_ei']);
+      const currentCpp = getNumericValue(payout, ['cpp_current', 'canada_pension_plan_current', 'current_cpp']);
+      const currentCpp2 = getNumericValue(
+        payout,
+        ['cpp2_current', 'second_cpp_current', 'second_canada_pension_plan_current', 'current_cpp2']
+      );
+      const ytdTaxTotal = ytdTax + ytdCpp + ytdEi + ytdCpp2;
       const isFullTime = String(user.employment_type || '').toUpperCase() === 'FULL_TIME';
       const isPartTime = String(user.employment_type || '').toUpperCase() === 'PART_TIME';
       const baseHourlyRate = safeNumber(payout.regular_rate) ?? safeNumber(payout.hourly_rate) ?? 0;
@@ -447,10 +455,10 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         headerFontSize: 9,
       });
 
-      const deductionsHeaders = ['DEDUCTIONS', 'Current', 'YTD'];
+      const deductionsHeaders = ["BC/Canada Required", '', ''];
       const deductionsRows = [
-        [' ', ' ', ' '],
-        [' ', ' ', ' '],
+        ['Income Tax, EI, CPP', '', ''],
+        [currentCpp2 !== null || ytdCpp2 > 0 ? 'CPP2 also applies when required' : 'CPP2 if earnings are high enough', '', ''],
       ];
 
       drawTable({
@@ -468,12 +476,14 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
 
       // Bottom tables (row 2)
       const row2Top = bottomTop + payHeight + 18;
-      const taxesHeaders = ['TAXES', 'Current', 'YTD'];
+      const taxesHeaders = ["GOV'T DEDUCTIONS", 'Current', 'YTD'];
       const taxesRows = [
-        ['Income Tax', formatCurrency(deductions), formatCurrency(ytdTax)],
-        ['Employment Insurance', formatCurrency(0), formatCurrency(ytdEi)],
-        ['Canada Pension Plan', formatCurrency(0), formatCurrency(ytdCpp)],
-        ['Second Canada Pension Plan', formatCurrency(0), formatCurrency(0)],
+        ['Income Tax', currentIncomeTax !== null ? formatCurrency(currentIncomeTax) : '', formatCurrency(ytdTax)],
+        ['Employment Insurance (EI)', currentEi !== null ? formatCurrency(currentEi) : '', formatCurrency(ytdEi)],
+        ['Canada Pension Plan (CPP)', currentCpp !== null ? formatCurrency(currentCpp) : '', formatCurrency(ytdCpp)],
+        ...(currentCpp2 !== null || ytdCpp2 > 0
+          ? [['Second Canada Pension Plan (CPP2)', currentCpp2 !== null ? formatCurrency(currentCpp2) : '', formatCurrency(ytdCpp2)]]
+          : []),
       ];
 
       drawTable({

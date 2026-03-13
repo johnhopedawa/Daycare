@@ -97,8 +97,8 @@ const getEditableInputClassName = (isEditable) => (
 
 function LockedFieldShell({ label, unlocked, onUnlock, disableUnlock = false, helperText, children }) {
   return (
-    <div className="group">
-      <div className="mb-2 flex items-center justify-between gap-3">
+    <div className="group flex h-full flex-col">
+      <div className="mb-2 flex min-h-[1.5rem] items-start justify-between gap-3">
         <label className="block text-sm font-bold text-stone-700 font-quicksand">
           {label}
         </label>
@@ -113,9 +113,11 @@ function LockedFieldShell({ label, unlocked, onUnlock, disableUnlock = false, he
           </button>
         ) : null}
       </div>
-      {children}
+      <div className="flex-1">
+        {children}
+      </div>
       {helperText ? (
-        <p className="mt-2 text-xs text-stone-500">{helperText}</p>
+        <p className="mt-2 min-h-[2.5rem] text-xs leading-5 text-stone-500">{helperText}</p>
       ) : null}
     </div>
   );
@@ -1203,7 +1205,10 @@ export function EducatorsPage() {
                   ? 'Vacation accrual is stored as a percent and calculated from scheduled hours to date.'
                   : 'Locked by default. Hover and click Edit to change the accrual rule.'}
               >
-                <div className="space-y-3 rounded-2xl border themed-border px-4 py-3" style={{ backgroundColor: editFieldUnlocks.vacationAccrualSettings ? 'white' : '#f5f5f4' }}>
+                <div
+                  className="grid gap-3 rounded-2xl border themed-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_7rem] md:items-center"
+                  style={{ backgroundColor: editFieldUnlocks.vacationAccrualSettings ? 'white' : '#f5f5f4' }}
+                >
                   <label className={`flex items-center ${editFieldUnlocks.vacationAccrualSettings ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
                     <input
                       type="checkbox"
@@ -1216,7 +1221,7 @@ export function EducatorsPage() {
                       Enable Vacation Accrual
                     </span>
                   </label>
-                  <div className="relative">
+                  <div className="relative md:justify-self-end md:w-28">
                     <input
                       type="number"
                       min="0"

@@ -1,9 +1,48 @@
+## BC Mandated Payroll Deductions On Paystubs (2026-03-13)
+- [x] Verify the official BC/CRA list of mandatory employee payroll deductions
+- [x] Inspect the current paystub deduction rendering and identify any misleading labels/amount mapping
+- [x] Update the paystub output to show the mandated deduction categories without inventing unsupported current-period values
+- [x] Verify the changed paystub/frontend paths and record the result
+
+## Review
+- Confirmed from official BC and CRA guidance that the mandatory employee payroll deductions in British Columbia are `Income Tax`, `Employment Insurance (EI)`, and `Canada Pension Plan (CPP)`, with `CPP2` / second additional CPP contributions required only when the employee's pensionable earnings are high enough for CPP2 to apply.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so the paystub PDF now labels the section as government-required deductions, lists `Income Tax`, `Employment Insurance (EI)`, `Canada Pension Plan (CPP)`, and conditionally `Second Canada Pension Plan (CPP2)`, and stops incorrectly placing the entire current `deductions` total on the `Income Tax` line when separate current-period component values are not stored.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so the HTML paystub preview also states the required BC employee deductions for consistency with the PDF.
+- Limitation: the current data model still stores only aggregate current-period `deductions` plus YTD `tax/cpp/ei`, so the paystub can now show the mandated categories honestly but cannot break out current-period `EI` / `CPP` / `CPP2` amounts until those component values are stored separately.
+- Verification:
+- `node --check` passed for [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` passed.
+- `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
+
 ## Vacation Accrual And Locked Leave Balances (2026-03-13)
-- [ ] Confirm the current educator leave-balance fields, schedule-based payroll source, and paystub/pay-period touchpoints
-- [ ] Add educator vacation accrual settings plus locked-by-default leave balance editing in the profile UI/backend
-- [ ] Compute accrual-enabled vacation balances from schedule history and use them consistently in admin/paystub/auth responses
-- [ ] Update pay-period payout defaults so part-time accrual auto-pays vacation while full-time payouts expose an explicit payout toggle
-- [ ] Verify the changed backend/frontend paths and update `SYSTEM_DOCUMENTATION.xml` with review notes
+- [x] Confirm the current educator leave-balance fields, schedule-based payroll source, and paystub/pay-period touchpoints
+- [x] Add educator vacation accrual settings plus locked-by-default leave balance editing in the profile UI/backend
+- [x] Compute accrual-enabled vacation balances from schedule history and use them consistently in admin/paystub/auth responses
+- [x] Update pay-period payout defaults so part-time accrual auto-pays vacation while full-time payouts expose an explicit payout toggle
+- [x] Verify the changed backend/frontend paths and update `SYSTEM_DOCUMENTATION.xml` with review notes
+
+## Review
+- Added [`backend/migrations/047_add_user_vacation_accrual_fields.sql`](/C:/src/Daycare/backend/migrations/047_add_user_vacation_accrual_fields.sql) plus the new shared helper [`backend/src/utils/leaveAccrual.js`](/C:/src/Daycare/backend/src/utils/leaveAccrual.js) so educator records can store `vacation_accrual_enabled` / `vacation_accrual_rate` and derive vacation balances from scheduled hours to date instead of another hardcoded profile field.
+- Updated [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js), [`backend/src/middleware/auth.js`](/C:/src/Daycare/backend/src/middleware/auth.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), [`backend/src/routes/schedules.js`](/C:/src/Daycare/backend/src/routes/schedules.js), and [`backend/src/routes/timeOffRequests.js`](/C:/src/Daycare/backend/src/routes/timeOffRequests.js) so accrual-enabled vacation balances are returned consistently in educator admin lists, `/auth/me`, paystub details/sample paystubs, and vacation usage flows; manual vacation balance decrements are skipped when accrual is enabled because the remaining hours are derived instead.
+- Updated [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js) so educator edit forms lock Sick Hours Remaining, Vacation Hours Remaining, and Vacation Accrual settings by default, reveal hover `Edit` affordances for manual overrides, disable vacation-balance editing while accrual is enabled, and allow admins to configure a 4% default accrual rate in the profile UI.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so pay-period previews/closures include accrual-driven vacation behavior: part-time accrual auto-pays vacation by default, full-time payouts expose a pay-out toggle in the paystub editor, and paystub previews/PDF defaults now treat vacation rows as normal-rate hours rather than a `0.04x` rate multiplier.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new migration count, educator schema fields, and pay-period vacation accrual behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js), [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), [`backend/src/middleware/auth.js`](/C:/src/Daycare/backend/src/middleware/auth.js), [`backend/src/routes/schedules.js`](/C:/src/Daycare/backend/src/routes/schedules.js), [`backend/src/routes/timeOffRequests.js`](/C:/src/Daycare/backend/src/routes/timeOffRequests.js), [`backend/src/utils/leaveAccrual.js`](/C:/src/Daycare/backend/src/utils/leaveAccrual.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/EducatorsPage.js src/pages/PayPeriodsPage.js` passed.
+- `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
+- A direct helper probe confirmed a `4%` input normalizes to stored decimal `0.04` and accrues `3.2` hours from `80` worked hours.
+
+## Educator Leave Settings Alignment (2026-03-13)
+- [x] Inspect the educator edit modal section where locked leave balances and accrual settings drift out of horizontal alignment
+- [x] Stabilize the locked-field shell and accrual-settings layout so value/helper-state changes do not shift the row
+- [x] Verify the educator modal still builds cleanly
+
+## Review
+- Updated [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js) so `LockedFieldShell` now uses a full-height column layout with stable helper-text space, which keeps the locked balance cards aligned even when helper copy changes between locked/unlocked/auto-calculated states.
+- Updated the Vacation Accrual Settings control in [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js) to use a responsive two-column layout so the checkbox label and `%` rate input stay horizontally aligned instead of drifting when settings change.
+- Verification:
+- `npm run build` in `frontend/` succeeded with only the repo's existing warnings.
 
 ## Shared Date Picker Year Selection (2026-03-13)
 - [x] Record the educator birthday year-selection correction in `tasks/lessons.md`
