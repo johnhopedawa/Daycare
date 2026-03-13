@@ -1,9 +1,17 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const normalizeApiUrl = (value) => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  return trimmed.replace(/\/+$/, '');
+};
+
+const getApiBaseUrl = () => normalizeApiUrl(process.env.REACT_APP_API_URL) || '/api';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: getApiBaseUrl(),
 });
 
 // Add token to requests
@@ -20,13 +28,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const storedUser = localStorage.getItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       let redirectPath = '/staff';
       try {
-        const stored = localStorage.getItem('user');
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
           if (parsed?.role === 'PARENT') {
             redirectPath = '/parents';
           }

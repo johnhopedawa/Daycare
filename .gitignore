@@ -15,6 +15,9 @@ npm-debug.log*
 dist/
 build/
 frontend/build/
+frontend/build-mobile/
+native-mobile/android/
+native-mobile/ios/
 
 # IDE
 .vscode/

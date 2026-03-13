@@ -12,8 +12,17 @@
         try {
           var params = new URLSearchParams(window.location.search || '');
           var override = params.get('mode');
+          var defaultMode = '%REACT_APP_DEFAULT_MODE%';
           var host = window.location.hostname || '';
-          var isPortal = override === 'portal' ? true : override === 'public' ? false : host.indexOf('portal.') === 0;
+          var isPortal = override === 'portal'
+            ? true
+            : override === 'public'
+              ? false
+              : defaultMode === 'portal'
+                ? true
+                : defaultMode === 'public'
+                  ? false
+                  : host.indexOf('portal.') === 0;
           if (isPortal) {
             return;
           }

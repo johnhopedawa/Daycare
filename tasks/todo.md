@@ -1,4 +1,139 @@
+## Short-Path Mobile Workspace (2026-03-13)
+- [x] Confirm the standalone `native-mobile/` workspace can be copied independently of the rest of the repo
+- [ ] Create a short-path Windows copy at `C:\src\daycare` for native Android builds
+- [ ] Preserve local Docker Compose backend connectivity expectations in the copied mobile workspace
+- [ ] Update `SYSTEM_DOCUMENTATION.xml`, `STRUCTURE.md`, and this task log with the short-path workflow
+- [ ] Validate Android build behavior from `C:\src\daycare`
+
+## Native Mobile Windows Android Path-Length Mitigation (2026-03-12)
+- [x] Reproduce and inspect the current React Native Android path-length failure conditions from the existing workspace
+- [ ] Replace the weaker temp-junction runner workaround with a shorter Windows-native execution path
+- [ ] Document the required Windows long-path prerequisite and the new local Android runner behavior
+- [ ] Validate the updated runner logic and record review/results in this file
+
+## Native Mobile Architecture Replacement (2026-03-11)
+- [x] Audit the current repo state to identify all Capacitor/mobile-web artifacts and the backend endpoints that actually support the required mobile product scope
+- [x] Create a separate real native mobile workspace using React Native + TypeScript, with explicit config for emulator and physical-device API targets
+- [x] Remove runtime coupling that treats `frontend/src/mobile/` and `mobile-app/` as the long-term mobile implementation path
+- [x] Implement native shared app infrastructure:
+  - role-aware auth/session state
+  - typed API client
+  - native navigation
+  - design tokens aligned with the existing web product
+  - lucide-adjacent native icon set
+- [x] Implement the first authenticated native role shells and routing:
+  - Admin: Today, Attendance, Messages, Events, More
+  - Educator: Home, Attendance, Care, Messages, Schedule
+  - Parent: Home, Child, Messages, Billing, Events
+- [x] Restrict feature scope to verified backend support only:
+  - unified auth by account role
+  - attendance
+  - educator care logs limited to `NAP`, `PEE`, `POO`
+  - messaging
+  - parent child view
+  - parent invoices / receipts / billing history
+  - events / RSVP where supported
+  - password change
+  - basic settings
+- [x] Add native development instructions that clearly separate:
+  - local Docker Compose backend/postgres
+  - emulator API connectivity
+  - physical-device API connectivity
+  - native run/build commands
+- [x] Mark the old Capacitor path as deprecated or remove it if safe, without breaking the existing web frontend or Docker Compose backend/postgres flow
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and `STRUCTURE.md` so future engineers do not confuse the deprecated Capacitor shell with the real mobile architecture
+- [x] Verify the native app against the running local backend and record exact commands used:
+  - authenticate successfully with Admin, Educator, and Parent accounts
+  - prove role-based routing destinations work
+  - prove the implementation is React Native rather than a webview wrapper
+  - capture review/results in this file
+
+## Review
+- Added `native-mobile/` as the canonical mobile workspace using Expo, React Native, and TypeScript, with secure session storage, typed API services, native navigation, role-based shells, and design tokens aligned to the web product.
+- Implemented a unified native login flow plus role-directed tab navigation for Admin, Educator, and Parent accounts using only verified backend capabilities. Educator care actions are limited to `NAP`, `PEE`, and `POO`, and settings/password-change flows stay within supported auth endpoints.
+- Removed web runtime coupling to the abandoned mobile-web path by deleting the `frontend/src/mobile/` boot branch from `frontend/src/App.js` and removing the mobile-specific API override logic from `frontend/src/utils/api.js`.
+- Marked `mobile-app/` as a deprecated Capacitor wrapper and `frontend/src/mobile/` as a deprecated reference-only UX source so future work continues in `native-mobile/`.
+- Added native local-development instructions in `native-mobile/README.md` covering Docker Compose backend/postgres, emulator API access (`10.0.2.2`), physical-device LAN-IP access, and native run/prebuild commands.
+- Validation:
+- `npm run typecheck` in `native-mobile/` succeeded.
+- `npm run build` in `frontend/` succeeded with pre-existing warnings only.
+- `npm run verify:local -- --api http://localhost:5000/api --admin-email admin@test.com --admin-password password123 --educator-email educator@test.com --educator-password password123 --parent-email parent@test.com --parent-password password123` in `native-mobile/` succeeded and verified live backend auth plus role routing targets:
+- `ADMIN -> AdminToday`
+- `EDUCATOR -> EducatorHome`
+- `PARENT -> ParentHome`
+- `npm run prebuild:android` in `native-mobile/` succeeded and generated `native-mobile/android/`, proving the app is backed by a real Android-native project path rather than a webview packaging folder.
+- `rg -n "WebView|webview|capacitor|cordova|ionic" src App.tsx app.json package.json android` in `native-mobile/` returned no matches, confirming the native workspace does not rely on a webview runtime.
+- Reviewed nearby quality issues outside this migration that remain unchanged:
+- `frontend/src/components/modals/DatePickerModal.js:136` and `frontend/src/components/modals/DateTimePickerModal.js:431` use `aria-selected` on button elements.
+- `frontend/src/pages/BankAccountsPage.js` still carries pre-existing lint noise from unused variables/dependencies.
+
+## Historical Capacitor Work (Superseded 2026-03-11)
+- [x] Add a separate `mobile-app/` project for Android packaging without changing the existing website/public/portal deployment flow
+- [x] Add a mobile frontend build mode with dedicated environment inputs for API, public-site base URL, and portal base URL
+- [x] Generate Capacitor Android scaffolding in the separate mobile workspace
+- [x] Verify frontend mobile build, Capacitor sync, and Android debug assembly
+- [x] Update `STRUCTURE.md`, `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the new mobile-target behavior and repo-targeting lesson
+
+## Historical Mobile Login Connectivity Fix (Superseded 2026-03-11)
+- [x] Verify the native Android mobile app can reach the local Docker Compose backend in emulator and physical-device scenarios
+- [x] Add a mobile runtime API override and connection diagnostics so local Android testing does not require a rebuild for every host change
+- [x] Allow Android debug builds to talk to the local HTTP backend during development without blocking production assumptions
+- [x] Validate parent/admin login against the running Docker Compose backend and record the exact findings
+
+## Historical Review
+- Confirmed live Docker Compose services were healthy: backend on `http://localhost:5000` and Postgres healthy.
+- Confirmed the running database contains `admin@test.com`, `educator@test.com`, and `parent@test.com`, and verified both `admin@test.com/password123` and `parent@test.com/password123` succeed against `POST /api/auth/login`.
+- Added a runtime API URL override in `frontend/src/utils/api.js` plus mobile connection diagnostics in `frontend/src/mobile/MobileApp.js`, so the app now shows the active API endpoint, tests `/health`, and lets local Android testing switch between emulator and physical-device backend hosts without a rebuild.
+- Added Android debug-only cleartext HTTP support in `mobile-app/android/app/src/debug/AndroidManifest.xml`, which is required for local Docker Compose backend access over `http://` from Android.
+- Updated `mobile-app/README.md`, `STRUCTURE.md`, and `SYSTEM_DOCUMENTATION.xml` with the emulator-vs-device API guidance and the new mobile connection behavior.
+- Validation:
+- `npm run build:web` in `mobile-app/` succeeded.
+- `npm run sync:android` in `mobile-app/` succeeded.
+- `.\gradlew.bat assembleDebug` in `mobile-app/android/` succeeded after setting `JAVA_HOME` to `C:\Program Files\Android\Android Studio\jbr` for this shell session.
+
+## Historical Review
+- Added a separate `mobile-app/` Capacitor workspace for Android packaging with its own env handling, scripts, and native project generation.
+- Kept the existing website/public/portal deployment flow intact. The standard website build remains `frontend/build`, while the mobile packaging path now builds to `frontend/build-mobile`.
+- Added `REACT_APP_DEFAULT_MODE` support in frontend bootstrap so native app builds can force portal mode on localhost-based launches without changing normal website routing.
+- Added `mobile-app/scripts/build-web.mjs` to inject `MOBILE_API_URL`, `MOBILE_DEFAULT_MODE`, and optional public/portal base URLs into the frontend build before Capacitor sync.
+- Updated `STRUCTURE.md` and `SYSTEM_DOCUMENTATION.xml` to record the separate mobile workspace, mobile build output, and portal-default native startup behavior.
+- Updated `tasks/lessons.md` with the repo-targeting correction pattern from this session.
+- Validation:
+- `npm run build` in `frontend/` succeeded with pre-existing warnings only.
+- `npm run sync:android` in `mobile-app/` succeeded using a temporary local-dev config (`MOBILE_API_URL=http://10.0.2.2:5000/api`).
+- `.\gradlew.bat assembleDebug` in `mobile-app/android/` succeeded after setting local `JAVA_HOME` to the Android Studio JBR and writing local `android/local.properties`.
+- Debug APK output: `mobile-app/android/app/build/outputs/apk/debug/app-debug.apk`
+- Proactive quality findings in reviewed scope:
+- `frontend/src/components/modals/DatePickerModal.js:136` and `frontend/src/components/modals/DateTimePickerModal.js:431` use `aria-selected` on button elements; switch to a supported selection pattern for accessibility correctness.
+- `frontend/src/pages/BankAccountsPage.js:44` retains several unused variables and unnecessary memo deps; clean those to reduce lint noise before broader mobile work.
+
+---
+
 # Public Site Mobile Fixes (2026-03-02)
+
+## Compliance Policy Docs And MFA Audit (2026-03-10)
+- [x] Create root-level `DATA_RETENTION_AND_DISPOSAL_POLICY.md`
+- [x] Create root-level `ACCESS_CONTROLS_POLICY.md`
+- [x] Create root-level `INFORMATION_SECURITY_POLICY.md`
+- [x] Verify whether Resend is implemented and whether MFA is operational for critical systems handling financial data
+- [x] Add review/results summary with file list and compliance findings
+- Files updated:
+  - `DATA_RETENTION_AND_DISPOSAL_POLICY.md`
+  - `ACCESS_CONTROLS_POLICY.md`
+  - `INFORMATION_SECURITY_POLICY.md`
+  - `tasks/todo.md`
+- Outcome:
+  - Added three root-level compliance policy documents grounded in the current repo architecture and written to avoid claiming unimplemented controls as already operational
+  - Confirmed Resend is wired only as an SMTP credential path for Nodemailer, not as a dedicated MFA or identity control implementation
+  - Confirmed the app currently does not implement operational MFA for admin authentication or finance-critical application access
+- Compliance findings:
+  - `backend/src/services/emailService.js` supports SMTP email via `RESEND_API_KEY` by defaulting to `smtp.resend.com`
+  - `k8s/deployments/backend.yaml` injects `RESEND_API_KEY` into the backend deployment
+  - `frontend/src/pages/SettingsPage.js` contains a Two-Factor Authentication section, but repo search found no backend 2FA/MFA/TOTP/OTP implementation behind it
+  - The current repo therefore does not satisfy an MFA control requirement for critical systems handling consumer financial data at the application-auth layer
+- Validation:
+  - Verified the policy files exist in the repository root
+  - Verified Resend/MFA status by inspecting backend email service, backend deployment env injection, auth routes, auth middleware, package dependencies, and frontend settings UI
 
 ## Frontend Cache Bust Fix (2026-03-03)
 - [x] Add explicit no-cache handling for `public-overrides.css` in frontend nginx config
@@ -73,3 +208,50 @@
   - Prevented small-phone logo/title top clipping by increasing mobile title line-height and adding slight top padding
 - Verification:
   - `npm run build` in `frontend/` completed successfully (warnings only; no build errors)
+
+## Mobile App UI Handoff Brief (2026-03-11)
+- [x] Review current portal routing, role structure, and mobile packaging assumptions
+- [x] Review current visual system including fonts, colors, icons, layout patterns, and theme behavior
+- [x] Review role-specific workflows for admin, educator, and parent that are relevant to a native mobile app
+- [x] Review current settings surface and separate mobile-suitable settings from web-only administration settings
+- [x] Produce a detailed handoff prompt for a UI designer/frontend engineer describing what the mobile app should include and how it should look
+
+## Review
+- Confirmed the product concept is a dual-surface system: public marketing website plus portal application, with native mobile builds intended to launch directly into portal mode rather than the marketing site.
+- Confirmed the existing portal visual language uses Tailwind CSS, `lucide-react` icons, `Quicksand` headings, `Inter` body text, and a warm daycare palette for staff/admin (`#FF9B85`, `#E07A5F`, `#FFE5D9`, `#FFF8F3`) with a calmer teal parent palette.
+- Confirmed admin information architecture is already split around `Today` versus broader management workflows, which should drive the mobile app structure.
+- Confirmed current mobile-relevant workflows from code review:
+- Admin: Today workspace, attendance, daily readiness/compliance, care logs, calendar/events, notifications, messaging follow-up, family/staff quick access.
+- Educator: dashboard, attendance, care logs, messages, schedule acceptance/decline, time-off requests, hours view, paystub access.
+- Parent: dashboard, child details, invoices/receipts, messages, events calendar with RSVP, newsletters, read-only care logs.
+- Confirmed current settings surface includes profile, password change, notification toggles, display preferences/density, daycare business identity/contact/signature/tax settings, theme selection, and developer diagnostics.
+- Accuracy note: the security tab shows a Two-Factor Authentication UI control, but prior repo audit found no backend MFA implementation behind it; any mobile handoff should treat 2FA as unimplemented unless separately scoped.
+
+## Native Mobile UI Rewrite (2026-03-11)
+- [x] Add a dedicated mobile-app frontend mode flag so the Android build can render a native-style mobile UI without changing the website/public portal
+- [x] Implement a unified mobile auth flow with one login experience for Admin, Educator, and Parent
+- [x] Implement a shared mobile shell with role-based bottom navigation, role-aware header treatment, and mobile settings access
+- [x] Implement Admin mobile screens for Today, Attendance, Messages, Events, and More using existing backend data/features only
+- [x] Implement Educator mobile screens for Home, Attendance, Care, Messages, and Schedule using existing backend data/features only
+- [x] Implement Parent mobile screens for Home, Child, Messages, Billing, and Events using existing backend data/features only
+- [x] Add mobile-native styling, motion, and shared components aligned with the Little Sparrows design system
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and `STRUCTURE.md` if the mobile runtime behavior or repo navigation assumptions change
+- [x] Run a frontend build targeted at the mobile path to validate the implementation
+
+## Review
+- Added a dedicated mobile frontend mode controlled by `REACT_APP_MOBILE_APP=true`, injected by `mobile-app/scripts/build-web.mjs`, so the Android build now renders a separate mobile-native UI shell instead of the standard portal/public router.
+- Added a unified mobile login flow for all roles in `frontend/src/mobile/MobileApp.js`, with role-based redirects after authentication and legacy route redirects to preserve old portal links/action targets inside the mobile build.
+- Added a shared mobile shell with brand header, role-based bottom navigation, safe-area-aware layout, and mobile settings access.
+- Added new mobile role screens:
+  - Admin: Today, Attendance, Messages, Events, More
+  - Educator: Home, Attendance, Care, Messages, Schedule
+  - Parent: Home, Child, Messages, Billing, Events
+- Kept mobile feature scope aligned to current backend/frontend support only:
+  - Educator care logging remains nap/pee/poo only
+  - Parent daily updates remain based on read-only care logs and newsletters/messages
+  - Mobile settings include password change, notification toggles stored locally, display density, account summary, and sign-out
+  - 2FA remains explicitly unimplemented
+- Updated `SYSTEM_DOCUMENTATION.xml` and `STRUCTURE.md` to record the new native mobile startup behavior and build flag.
+- Validation:
+  - `npm run build` in `frontend/` succeeded with `REACT_APP_MOBILE_APP=true`, `REACT_APP_DEFAULT_MODE=portal`, and `REACT_APP_API_URL=/api`
+  - Build completed with pre-existing repo warnings plus no new blocking errors from the mobile implementation

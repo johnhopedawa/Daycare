@@ -46,6 +46,7 @@ import PublicNotFound from './pages/public/PublicNotFound';
 import { warmBrowserCache } from './utils/cacheWarmup';
 
 const normalizeBase = (value) => (value || '').replace(/\/$/, '');
+const defaultMode = (process.env.REACT_APP_DEFAULT_MODE || '').trim().toLowerCase();
 
 const resolvePortalBaseUrl = () => {
   const configured = normalizeBase(process.env.REACT_APP_PORTAL_BASE_URL);
@@ -498,6 +499,10 @@ export function App() {
     ? true
     : override === 'public'
       ? false
+      : defaultMode === 'portal'
+        ? true
+        : defaultMode === 'public'
+          ? false
       : hostname.startsWith('portal.');
 
   return (
