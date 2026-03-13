@@ -1,8 +1,20 @@
+## Pay Period Educator Query Scope Fix (2026-03-13)
+- [x] Confirm whether the employee list was using real DB records or hardcoded values
+- [ ] Restrict pay-period preview, close, payout list, and payroll summary queries to educators owned by the current admin
+- [ ] Verify the local data explanation for why Lory Cao is missing from the existing closed period
+- [ ] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the fix and findings
+
 ## Educator Birthdays And Custom Profile Dropdowns (2026-03-13)
 - [x] Inspect the educator create/edit flow and identify where birthday data and native dropdowns need changes
 - [x] Add educator birthday support through database, admin API, and admin profile UI
 - [x] Replace native dropdowns in the educator profile flow with the existing custom menu pattern
 - [x] Verify the updated educator page build path and document the resulting behavior
+
+## Paystub Payout Editing From Pay Periods (2026-03-13)
+- [x] Inspect the current pay-period paystub preview and payout calculation flow
+- [ ] Add an admin payout-edit API for closed pay periods that recalculates payroll amounts from the educator profile
+- [ ] Add paystub edit actions in the pay-period UI with hours-focused editing and computed monetary previews
+- [ ] Verify the updated backend/frontend paths and record results
 
 ## Review
 - Added [`backend/migrations/045_add_user_date_of_birth.sql`](/C:/src/Daycare/backend/migrations/045_add_user_date_of_birth.sql) so educator birthdays are stored on the `users` table.
@@ -41,6 +53,17 @@
 - [x] Replace the closed-period payroll summary download button with a frontend-rendered HTML preview modal that also supports PDF download
 - [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
 - [x] Run focused verification for migration syntax, backend route syntax, and frontend build/render path
+
+## Pay Period Custom Date Pickers (2026-03-13)
+- [x] Confirm the pay periods page still contains native date inputs
+- [x] Replace create-period and auto-generate date inputs with the shared custom date picker modal
+- [x] Verify the pay periods page build after the date-picker swap
+- [x] Add review notes for the design-system consistency fix
+
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to replace all native date inputs in the create-period and auto-generate flows with the shared [`DatePickerModal`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) pattern already used elsewhere in the portal.
+- Verification:
+- `Select-String` found no remaining `type="date"` inputs in [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
 
 ## Review
 - Added migration [`backend/migrations/043_add_pay_date_to_pay_periods.sql`](/C:/src/Daycare/backend/migrations/043_add_pay_date_to_pay_periods.sql) to introduce `pay_date`, backfill existing rows from `end_date`, and make the new column required for future periods.

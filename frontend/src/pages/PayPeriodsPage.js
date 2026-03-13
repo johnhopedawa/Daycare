@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '../components/Layout';
-import { Calendar, Check, CheckCircle, ChevronDown, Clock, DollarSign, Download, Eye, FileText, Plus, Trash2, Users } from 'lucide-react';
+import { Calendar, Check, CheckCircle, ChevronDown, Clock, DollarSign, Download, Eye, FileText, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
+import { DatePickerModal } from '../components/modals/DatePickerModal';
 import api from '../utils/api';
 
 const FREQUENCY_OPTIONS = [
@@ -20,6 +21,7 @@ export function PayPeriodsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFrequencyMenuOpen, setIsFrequencyMenuOpen] = useState(false);
+  const [datePickerState, setDatePickerState] = useState({ isOpen: false, scope: 'create', field: 'startDate' });
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [summaryPreviewPeriod, setSummaryPreviewPeriod] = useState(null);
   const [summaryPreviewPayouts, setSummaryPreviewPayouts] = useState([]);
@@ -34,6 +36,10 @@ export function PayPeriodsPage() {
   const [isPaystubPreviewLoading, setIsPaystubPreviewLoading] = useState(false);
   const [isDownloadingPaystubPdf, setIsDownloadingPaystubPdf] = useState(false);
   const [paystubPreview, setPaystubPreview] = useState(null);
+  const [isEditPayoutOpen, setIsEditPayoutOpen] = useState(false);
+  const [editingPayout, setEditingPayout] = useState(null);
+  const [editPayoutForm, setEditPayoutForm] = useState({ totalHours: '' });
+  const [isSavingPayout, setIsSavingPayout] = useState(false);
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({ name: '', startDate: '', endDate: '', payDate: '' });
   const [generateData, setGenerateData] = useState({ frequency: 'BI_WEEKLY', startDate: '' });
@@ -93,6 +99,26 @@ export function PayPeriodsPage() {
     });
   };
 
+  const parseDateInput = (value) => {
+    if (!value) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDateInput = (value) => {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return '';
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateLabel = (value, fallback) => {
+    if (!value) return fallback;
+    return formatDate(value);
+  };
+
   const cardStyles = [
     { backgroundColor: 'var(--card-1)', color: 'var(--card-text-1)' },
     { backgroundColor: 'var(--card-2)', color: 'var(--card-text-2)' },
@@ -111,6 +137,45 @@ export function PayPeriodsPage() {
   };
   const formatCurrency = (value) => `$${parseFloat(value || 0).toFixed(2)}`;
   const formatHours = (value) => parseFloat(value || 0).toFixed(2);
+  const safeNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
+  const getPaymentTypeLabel = (paymentType) => (paymentType === 'SALARY' ? 'Salary' : 'Hourly');
+  const getCompensationLabel = (payout) => (
+    payout?.payment_type === 'SALARY'
+      ? `${formatCurrency(payout.profile_salary_amount)} per pay period`
+      : `${formatCurrency(payout.profile_hourly_rate || payout.hourly_rate)}/hr`
+  );
+  const calculatePayoutPreview = (payout, totalHoursInput) => {
+    const paymentType = payout?.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY';
+    const totalHours = safeNumber(totalHoursInput, 0);
+    const deductions = roundCurrency(payout?.deductions);
+
+    if (paymentType === 'SALARY') {
+      const grossAmount = roundCurrency(payout?.profile_salary_amount ?? payout?.gross_amount);
+      return {
+        paymentType,
+        totalHours,
+        hourlyRate: 0,
+        grossAmount,
+        deductions,
+        netAmount: roundCurrency(grossAmount - deductions),
+      };
+    }
+
+    const hourlyRate = roundCurrency(payout?.profile_hourly_rate ?? payout?.hourly_rate);
+    const grossAmount = roundCurrency(totalHours * hourlyRate);
+    return {
+      paymentType,
+      totalHours,
+      hourlyRate,
+      grossAmount,
+      deductions,
+      netAmount: roundCurrency(grossAmount - deductions),
+    };
+  };
   const selectedFrequencyLabel = FREQUENCY_OPTIONS.find(
     (option) => option.value === generateData.frequency
   )?.label || 'Select frequency';
@@ -125,6 +190,9 @@ export function PayPeriodsPage() {
     deductions: 0,
     netAmount: 0,
   });
+  const editedPayoutPreview = editingPayout
+    ? calculatePayoutPreview(editingPayout, editPayoutForm.totalHours)
+    : null;
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -178,6 +246,75 @@ export function PayPeriodsPage() {
     setDeleteTarget(period);
     setIsDeleteOpen(true);
   };
+
+  const openDatePicker = (scope, field) => {
+    setDatePickerState({ isOpen: true, scope, field });
+  };
+
+  const closeDatePicker = () => {
+    setDatePickerState((current) => ({ ...current, isOpen: false }));
+  };
+
+  const handleDateConfirm = (date) => {
+    const nextValue = formatDateInput(date);
+
+    if (datePickerState.scope === 'create') {
+      setFormData((current) => ({ ...current, [datePickerState.field]: nextValue }));
+    } else {
+      setGenerateData((current) => ({ ...current, [datePickerState.field]: nextValue }));
+    }
+
+    closeDatePicker();
+  };
+
+  const handleDateClear = () => {
+    if (datePickerState.scope === 'create') {
+      setFormData((current) => ({ ...current, [datePickerState.field]: '' }));
+    } else {
+      setGenerateData((current) => ({ ...current, [datePickerState.field]: '' }));
+    }
+
+    closeDatePicker();
+  };
+
+  const getDateFieldConfig = () => {
+    if (datePickerState.scope === 'create') {
+      switch (datePickerState.field) {
+        case 'startDate':
+          return {
+            value: formData.startDate,
+            title: 'Select Start Date',
+            subtitle: 'Choose the first date included in this pay period.',
+            confirmLabel: 'Save start date',
+          };
+        case 'endDate':
+          return {
+            value: formData.endDate,
+            title: 'Select End Date',
+            subtitle: 'Choose the last working date included in this pay period.',
+            confirmLabel: 'Save end date',
+          };
+        case 'payDate':
+          return {
+            value: formData.payDate,
+            title: 'Select Pay Date',
+            subtitle: 'Choose when employees are paid for this period.',
+            confirmLabel: 'Save pay date',
+          };
+        default:
+          break;
+      }
+    }
+
+    return {
+      value: generateData.startDate,
+      title: 'Select Generation Start Date',
+      subtitle: 'Choose the first date used when generating upcoming pay periods.',
+      confirmLabel: 'Save start date',
+    };
+  };
+
+  const currentDateField = getDateFieldConfig();
 
   const closeDeleteModal = () => {
     if (isDeleting) return;
@@ -260,19 +397,24 @@ export function PayPeriodsPage() {
   };
 
   const closePaystubsModal = () => {
-    if (paystubActionId) return;
+    if (paystubActionId || isSavingPayout) return;
     setIsPaystubsOpen(false);
     setSelectedPayPeriod(null);
     setPaystubPayouts([]);
   };
+
+  const refreshSelectedPayPeriodPayouts = useCallback(async (periodId) => {
+    const response = await api.get(`/pay-periods/${periodId}/payouts`);
+    return response.data.payouts || [];
+  }, []);
 
   const handleOpenPaystubs = async (period) => {
     try {
       setSelectedPayPeriod(period);
       setIsPaystubsOpen(true);
       setIsPaystubsLoading(true);
-      const response = await api.get(`/pay-periods/${period.id}/payouts`);
-      setPaystubPayouts(response.data.payouts || []);
+      const payouts = await refreshSelectedPayPeriodPayouts(period.id);
+      setPaystubPayouts(payouts);
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to load paystubs for this pay period');
       setIsPaystubsOpen(false);
@@ -317,6 +459,7 @@ export function PayPeriodsPage() {
   };
 
   const closePaystubPreview = () => {
+    if (isSavingPayout) return;
     setIsPaystubPreviewOpen(false);
     setPaystubPreview(null);
   };
@@ -329,6 +472,54 @@ export function PayPeriodsPage() {
       'Failed to download paystub PDF',
       setIsDownloadingPaystubPdf
     );
+  };
+
+  const openEditPayout = (payout) => {
+    setEditingPayout(payout);
+    setEditPayoutForm({ totalHours: formatHours(payout.total_hours) });
+    setIsEditPayoutOpen(true);
+  };
+
+  const closeEditPayout = () => {
+    if (isSavingPayout) return;
+    setIsEditPayoutOpen(false);
+    setEditingPayout(null);
+    setEditPayoutForm({ totalHours: '' });
+  };
+
+  const handleSavePayout = async (e) => {
+    e.preventDefault();
+    if (!editingPayout?.id || !selectedPayPeriod?.id) return;
+
+    try {
+      setIsSavingPayout(true);
+      const response = await api.patch(`/pay-periods/payouts/${editingPayout.id}`, {
+        totalHours: editPayoutForm.totalHours,
+      });
+
+      const updatedPayout = response.data.payout;
+      setPaystubPayouts((current) => current.map((item) => (
+        item.id === updatedPayout.id ? { ...item, ...updatedPayout } : item
+      )));
+      setSummaryPreviewPayouts((current) => current.map((item) => (
+        item.id === updatedPayout.id ? { ...item, ...updatedPayout } : item
+      )));
+
+      if (paystubPreview?.paystub?.payout_id === updatedPayout.id && paystubPreview.paystubId) {
+        const detailResponse = await api.get(`/documents/paystubs/${paystubPreview.paystubId}/details`);
+        setPaystubPreview((current) => ({
+          ...detailResponse.data,
+          paystubId: current?.paystubId || detailResponse.data.paystub?.id,
+          stubNumber: current?.stubNumber || detailResponse.data.paystub?.stub_number,
+        }));
+      }
+
+      closeEditPayout();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to update payout');
+    } finally {
+      setIsSavingPayout(false);
+    }
   };
 
   if (loading) {
@@ -524,37 +715,55 @@ export function PayPeriodsPage() {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Start Date *
             </label>
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
+            <button
+              type="button"
+              onClick={() => openDatePicker('create', 'startDate')}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+            >
+              <span className="flex items-center gap-3">
+                <Calendar size={18} className="text-stone-400" />
+                <span className={formData.startDate ? 'text-stone-800' : 'text-stone-400'}>
+                  {formatDateLabel(formData.startDate, 'Select start date')}
+                </span>
+              </span>
+              <ChevronDown size={16} className="text-stone-400" />
+            </button>
           </div>
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               End Date *
             </label>
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
+            <button
+              type="button"
+              onClick={() => openDatePicker('create', 'endDate')}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+            >
+              <span className="flex items-center gap-3">
+                <Calendar size={18} className="text-stone-400" />
+                <span className={formData.endDate ? 'text-stone-800' : 'text-stone-400'}>
+                  {formatDateLabel(formData.endDate, 'Select end date')}
+                </span>
+              </span>
+              <ChevronDown size={16} className="text-stone-400" />
+            </button>
           </div>
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Pay Date *
             </label>
-            <input
-              type="date"
-              value={formData.payDate}
-              onChange={(e) => setFormData({ ...formData, payDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
+            <button
+              type="button"
+              onClick={() => openDatePicker('create', 'payDate')}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+            >
+              <span className="flex items-center gap-3">
+                <Calendar size={18} className="text-stone-400" />
+                <span className={formData.payDate ? 'text-stone-800' : 'text-stone-400'}>
+                  {formatDateLabel(formData.payDate, 'Select pay date')}
+                </span>
+              </span>
+              <ChevronDown size={16} className="text-stone-400" />
+            </button>
           </div>
           <div className="flex gap-3 pt-4 border-t themed-border">
             <button
@@ -639,13 +848,19 @@ export function PayPeriodsPage() {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Start Date *
             </label>
-            <input
-              type="date"
-              value={generateData.startDate}
-              onChange={(e) => setGenerateData({ ...generateData, startDate: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            />
+            <button
+              type="button"
+              onClick={() => openDatePicker('generate', 'startDate')}
+              className="w-full flex items-center justify-between gap-3 pl-4 pr-3 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white hover:border-[#FF9B85]"
+            >
+              <span className="flex items-center gap-3">
+                <Calendar size={18} className="text-stone-400" />
+                <span className={generateData.startDate ? 'text-stone-800' : 'text-stone-400'}>
+                  {formatDateLabel(generateData.startDate, 'Select generation start date')}
+                </span>
+              </span>
+              <ChevronDown size={16} className="text-stone-400" />
+            </button>
           </div>
           <div className="flex gap-3 pt-4 border-t themed-border">
             <button
@@ -794,6 +1009,7 @@ export function PayPeriodsPage() {
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Employee</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Compensation</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net Pay</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Paystub</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Action</th>
@@ -808,6 +1024,9 @@ export function PayPeriodsPage() {
                         <td className="px-4 py-3 text-sm text-stone-600">
                           {parseFloat(payout.total_hours || 0).toFixed(2)}
                         </td>
+                        <td className="px-4 py-3 text-sm text-stone-600">
+                          {getCompensationLabel(payout)}
+                        </td>
                         <td className="px-4 py-3 text-sm text-stone-700">
                           {formatCurrency(payout.net_amount)}
                         </td>
@@ -815,16 +1034,28 @@ export function PayPeriodsPage() {
                           {payout.stub_number || 'Not generated'}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPaystub(payout)}
-                            disabled={paystubActionId === payout.id || isPaystubPreviewLoading}
-                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md hover:opacity-90 disabled:opacity-60"
-                            style={{ backgroundColor: 'var(--primary)' }}
-                          >
-                            <Eye size={16} />
-                            {paystubActionId === payout.id ? 'Opening...' : (payout.paystub_id ? 'Open' : 'Create & Open')}
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditPayout(payout)}
+                              disabled={paystubActionId === payout.id || isPaystubPreviewLoading || isSavingPayout}
+                              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                              style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                            >
+                              <Pencil size={16} />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPaystub(payout)}
+                              disabled={paystubActionId === payout.id || isPaystubPreviewLoading || isSavingPayout}
+                              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md hover:opacity-90 disabled:opacity-60"
+                              style={{ backgroundColor: 'var(--primary)' }}
+                            >
+                              <Eye size={16} />
+                              {paystubActionId === payout.id ? 'Opening...' : (payout.paystub_id ? 'Open' : 'Create & Open')}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -943,7 +1174,7 @@ export function PayPeriodsPage() {
                             <td className="px-4 py-3 text-sm text-stone-700">{payout.first_name} {payout.last_name}</td>
                             <td className="px-4 py-3 text-sm text-stone-600">{formatHours(payout.total_hours)}</td>
                             <td className="px-4 py-3 text-sm text-stone-600">
-                              {parseFloat(payout.hourly_rate || 0) > 0 ? `${formatCurrency(payout.hourly_rate)}/hr` : 'Salary'}
+                              {getCompensationLabel(payout)}
                             </td>
                             <td className="px-4 py-3 text-sm text-stone-700">{formatCurrency(payout.gross_amount)}</td>
                             <td className="px-4 py-3 text-sm text-stone-600">{formatCurrency(payout.deductions)}</td>
@@ -982,15 +1213,37 @@ export function PayPeriodsPage() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-stone-700">Stub #{paystubPreview.paystub.stub_number}</p>
-                <button
-                  type="button"
-                  onClick={handleDownloadPaystubPdf}
-                  disabled={isDownloadingPaystubPdf}
-                  className="mt-3 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
-                  style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
-                >
-                  <Download size={16} /> {isDownloadingPaystubPdf ? 'Downloading...' : 'Download PDF'}
-                </button>
+                <div className="mt-3 inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditPayout({
+                      ...paystubPreview.payout,
+                      first_name: paystubPreview.user.first_name,
+                      last_name: paystubPreview.user.last_name,
+                      email: paystubPreview.user.email,
+                      payment_type: paystubPreview.user.payment_type,
+                      profile_hourly_rate: paystubPreview.user.profile_hourly_rate,
+                      profile_salary_amount: paystubPreview.user.salary_amount,
+                      employment_type: paystubPreview.user.employment_type,
+                      paystub_id: paystubPreview.paystubId,
+                      stub_number: paystubPreview.stubNumber,
+                    })}
+                    disabled={isSavingPayout}
+                    className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: '#FFF8F3', color: 'var(--primary-dark)' }}
+                  >
+                    <Pencil size={16} /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadPaystubPdf}
+                    disabled={isDownloadingPaystubPdf || isSavingPayout}
+                    className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                  >
+                    <Download size={16} /> {isDownloadingPaystubPdf ? 'Downloading...' : 'Download PDF'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1002,7 +1255,12 @@ export function PayPeriodsPage() {
               <div className="p-4 rounded-xl" style={cardStyles[1]}>
                 <div className="text-sm mb-1" style={{ color: cardStyles[1].color }}>Rate</div>
                 <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
-                  {parseFloat(paystubPreview.payout.hourly_rate || 0) > 0 ? `${formatCurrency(paystubPreview.payout.hourly_rate)}/hr` : 'Salary'}
+                  {getCompensationLabel({
+                    payment_type: paystubPreview.user.payment_type,
+                    profile_hourly_rate: paystubPreview.user.profile_hourly_rate,
+                    profile_salary_amount: paystubPreview.user.salary_amount,
+                    hourly_rate: paystubPreview.payout.hourly_rate,
+                  })}
                 </p>
               </div>
               <div className="p-4 rounded-xl" style={cardStyles[2]}>
@@ -1021,6 +1279,7 @@ export function PayPeriodsPage() {
                 <div className="space-y-1 text-sm text-stone-600">
                   <p>{paystubPreview.user.first_name} {paystubPreview.user.last_name}</p>
                   <p>{paystubPreview.user.email}</p>
+                  <p>{getPaymentTypeLabel(paystubPreview.user.payment_type)} compensation</p>
                   <p>{paystubPreview.user.employment_type || 'Employment type not set'}</p>
                 </div>
               </div>
@@ -1049,6 +1308,109 @@ export function PayPeriodsPage() {
         ) : (
           <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
             Loading paystub preview...
+          </div>
+        )}
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isEditPayoutOpen}
+        onClose={closeEditPayout}
+        title={editingPayout ? `Edit ${editingPayout.first_name} ${editingPayout.last_name} Payout` : 'Edit Payout'}
+        maxWidth="max-w-3xl"
+      >
+        {editingPayout && editedPayoutPreview ? (
+          <form onSubmit={handleSavePayout} className="space-y-6">
+            <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+              <p className="font-bold text-stone-800">{editingPayout.first_name} {editingPayout.last_name}</p>
+              <p className="text-sm text-stone-600">{editingPayout.email}</p>
+              <p className="mt-2 text-sm text-stone-500">
+                Monetary values are recalculated from the educator profile compensation settings.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                  Total Hours
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editPayoutForm.totalHours}
+                  onChange={(event) => setEditPayoutForm({ totalHours: event.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                  required
+                />
+              </div>
+              <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+                <p className="text-sm font-bold text-stone-700">Compensation Source</p>
+                <p className="mt-2 text-sm text-stone-600">{getPaymentTypeLabel(editingPayout.payment_type)}</p>
+                <p className="text-sm text-stone-600">{getCompensationLabel(editingPayout)}</p>
+                <p className="text-sm text-stone-500">
+                  {editingPayout.employment_type || 'Employment type not set'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl" style={cardStyles[0]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[0].color }}>Hours</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>
+                  {formatHours(editedPayoutPreview.totalHours)}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[1]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[1].color }}>Rate</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
+                  {editedPayoutPreview.paymentType === 'SALARY'
+                    ? getCompensationLabel(editingPayout)
+                    : `${formatCurrency(editedPayoutPreview.hourlyRate)}/hr`}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[2]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[2].color }}>Gross Pay</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>
+                  {formatCurrency(editedPayoutPreview.grossAmount)}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl" style={cardStyles[3]}>
+                <div className="text-sm mb-1" style={{ color: cardStyles[3].color }}>Net Pay</div>
+                <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>
+                  {formatCurrency(editedPayoutPreview.netAmount)}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border themed-border p-4 text-sm text-stone-600" style={{ backgroundColor: 'var(--background)' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <p>Deductions: {formatCurrency(editedPayoutPreview.deductions)}</p>
+                <p>Paystub: {editingPayout.stub_number || 'Not generated yet'}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2 border-t themed-border">
+              <button
+                type="button"
+                onClick={closeEditPayout}
+                disabled={isSavingPayout}
+                className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingPayout}
+                className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all disabled:opacity-60"
+                style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
+              >
+                {isSavingPayout ? 'Saving...' : 'Save Payout'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+            Loading payout editor...
           </div>
         )}
       </BaseModal>
@@ -1097,6 +1459,18 @@ export function PayPeriodsPage() {
           </div>
         </div>
       </BaseModal>
+
+      <DatePickerModal
+        isOpen={datePickerState.isOpen}
+        onClose={closeDatePicker}
+        initialDate={parseDateInput(currentDateField.value) || undefined}
+        onConfirm={handleDateConfirm}
+        onClear={handleDateClear}
+        title={currentDateField.title}
+        subtitle={currentDateField.subtitle}
+        confirmLabel={currentDateField.confirmLabel}
+        clearLabel="Clear date"
+      />
     </Layout>
   );
 }

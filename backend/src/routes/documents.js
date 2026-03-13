@@ -186,6 +186,7 @@ const getPaystubRow = async (id) => {
     `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date, pp.pay_date,
             u.first_name, u.last_name, u.email,
             u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
+            u.payment_type, u.hourly_rate AS profile_hourly_rate, u.salary_amount,
             u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
             u.annual_sick_days, u.annual_vacation_days, u.employment_type,
             u.sick_days_remaining, u.vacation_days_remaining,
@@ -226,6 +227,9 @@ const buildPaystubContext = async (id) => {
     city: data.city,
     province: data.province,
     postal_code: data.postal_code,
+    payment_type: data.payment_type,
+    profile_hourly_rate: data.profile_hourly_rate,
+    salary_amount: data.salary_amount,
     ytd_gross: data.ytd_gross,
     ytd_cpp: data.ytd_cpp,
     ytd_ei: data.ytd_ei,
@@ -476,8 +480,10 @@ router.get('/pay-periods/:id/export-pdf', requireAuth, requireAdmin, async (req,
        FROM payouts po
        JOIN users u ON po.user_id = u.id
        WHERE po.pay_period_id = $1
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $2
        ORDER BY u.last_name, u.first_name`,
-      [id]
+      [id, req.user.id]
     );
 
     const daycare = await buildDaycareContext();

@@ -1082,9 +1082,10 @@
             <item>Approved entries count</item>
           </displays>
           <features>
-            <feature>Create pay period with start date, end date, and pay date</feature>
+            <feature>Create pay period with start date, end date, and pay date using the shared custom date picker modal</feature>
             <feature>Auto-generate pay periods</feature>
             <feature>Auto-generate modal uses the portal's menu-style frequency selector instead of a native browser dropdown</feature>
+            <feature>Auto-generate modal uses the shared custom date picker modal instead of native browser date inputs</feature>
             <feature>Close period with preview</feature>
             <feature>Delete open pay periods that do not already have payouts</feature>
             <feature>Open payroll summaries in a frontend-rendered HTML modal with a separate Download PDF action</feature>

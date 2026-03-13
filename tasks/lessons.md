@@ -15,5 +15,9 @@
 - When replacing a wrong hybrid-mobile direction, remove the old runtime hooks from the web app and mark the abandoned path deprecated in-repo; do not leave stale architecture cues that make the deprecated path look current.
 
 ## 2026-03-13
+- When a user reports the wrong people appearing in payroll or employee lists, verify the live DB rows and the exact period dates before assuming a frontend bug; distinguish between a bad query scope and a legitimate historical snapshot.
+
+## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.
 - When a user asks for an "Open" preview of a document inside the app, confirm whether they want a real PDF embed or a frontend-rendered HTML preview before defaulting to an iframe/object PDF viewer.
+- When updating a portal form to match the existing design system, replace all remaining native date and select controls in that flow, not just the first obvious one.

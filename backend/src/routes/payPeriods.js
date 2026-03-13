@@ -7,6 +7,42 @@ const router = express.Router();
 // All routes require admin
 router.use(requireAuth, requireAdmin);
 
+const safeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
+
+const calculatePayoutFromProfile = ({ paymentType, hourlyRate, salaryAmount, totalHours, deductions }) => {
+  const normalizedPaymentType = paymentType === 'SALARY' ? 'SALARY' : 'HOURLY';
+  const normalizedHours = safeNumber(totalHours, 0);
+  const normalizedDeductions = roundCurrency(deductions);
+
+  if (normalizedPaymentType === 'SALARY') {
+    const grossAmount = roundCurrency(salaryAmount);
+    return {
+      paymentType: normalizedPaymentType,
+      totalHours: normalizedHours,
+      hourlyRate: 0,
+      grossAmount,
+      deductions: normalizedDeductions,
+      netAmount: roundCurrency(grossAmount - normalizedDeductions),
+    };
+  }
+
+  const normalizedHourlyRate = roundCurrency(hourlyRate);
+  const grossAmount = roundCurrency(normalizedHours * normalizedHourlyRate);
+  return {
+    paymentType: normalizedPaymentType,
+    totalHours: normalizedHours,
+    hourlyRate: normalizedHourlyRate,
+    grossAmount,
+    deductions: normalizedDeductions,
+    netAmount: roundCurrency(grossAmount - normalizedDeductions),
+  };
+};
+
 // Get all pay periods
 router.get('/', async (req, res) => {
   try {
@@ -230,13 +266,13 @@ router.get('/:id/close-preview', async (req, res) => {
 
     const period = periodResult.rows[0];
 
-    // Get matching employees based on frequency
+    // Get matching educators based on frequency
     let frequencyFilter = '';
     if (period.frequency) {
       frequencyFilter = `AND u.pay_frequency = '${period.frequency}'`;
     }
 
-    // Get hourly employees with time entries
+    // Get hourly educators with time entries
     const hourlyResult = await pool.query(
       `SELECT u.id, u.first_name, u.last_name, u.hourly_rate,
               COALESCE(SUM(te.total_hours), 0) as total_hours
@@ -245,20 +281,24 @@ router.get('/:id/close-preview', async (req, res) => {
          AND te.entry_date >= $1 AND te.entry_date <= $2
          AND te.status = 'APPROVED'
        WHERE u.is_active = true
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $3
          AND u.payment_type = 'HOURLY'
          ${frequencyFilter}
        GROUP BY u.id, u.first_name, u.last_name, u.hourly_rate`,
-      [period.start_date, period.end_date]
+      [period.start_date, period.end_date, req.user.id]
     );
 
-    // Get salaried employees
+    // Get salaried educators
     const salariedResult = await pool.query(
       `SELECT u.id, u.first_name, u.last_name, u.salary_amount
        FROM users u
        WHERE u.is_active = true
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $1
          AND u.payment_type = 'SALARY'
          ${frequencyFilter}`,
-      []
+      [req.user.id]
     );
 
     const preview = {
@@ -308,13 +348,13 @@ router.post('/:id/close', async (req, res) => {
       return res.status(400).json({ error: 'Pay period already closed' });
     }
 
-    // Get matching employees based on frequency
+    // Get matching educators based on frequency
     let frequencyFilter = '';
     if (period.frequency) {
-      frequencyFilter = `AND pay_frequency = '${period.frequency}'`;
+      frequencyFilter = `AND u.pay_frequency = '${period.frequency}'`;
     }
 
-    // Process hourly employees
+    // Process hourly educators
     const hourlyEntries = await client.query(
       `SELECT u.id as user_id, u.hourly_rate, COALESCE(SUM(te.total_hours), 0) as total_hours
        FROM users u
@@ -322,10 +362,12 @@ router.post('/:id/close', async (req, res) => {
          AND te.entry_date >= $1 AND te.entry_date <= $2
          AND te.status = 'APPROVED'
        WHERE u.is_active = true
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $3
          AND u.payment_type = 'HOURLY'
          ${frequencyFilter}
        GROUP BY u.id, u.hourly_rate`,
-      [period.start_date, period.end_date]
+      [period.start_date, period.end_date, req.user.id]
     );
 
     for (const entry of hourlyEntries.rows) {
@@ -343,14 +385,16 @@ router.post('/:id/close', async (req, res) => {
       );
     }
 
-    // Process salaried employees
+    // Process salaried educators
     const salariedEmployees = await client.query(
-      `SELECT id as user_id, salary_amount
-       FROM users
-       WHERE is_active = true
-         AND payment_type = 'SALARY'
+      `SELECT u.id as user_id, u.salary_amount
+       FROM users u
+       WHERE u.is_active = true
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $1
+         AND u.payment_type = 'SALARY'
          ${frequencyFilter}`,
-      []
+      [req.user.id]
     );
 
     for (const emp of salariedEmployees.rows) {
@@ -395,20 +439,132 @@ router.get('/:id/payouts', async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT p.*, u.first_name, u.last_name, u.email
+      `SELECT p.*, u.first_name, u.last_name, u.email,
+              u.payment_type, u.hourly_rate AS profile_hourly_rate,
+              u.salary_amount AS profile_salary_amount, u.employment_type
              , ps.id AS paystub_id, ps.stub_number, ps.generated_at AS paystub_generated_at
        FROM payouts p
        JOIN users u ON p.user_id = u.id
        LEFT JOIN paystubs ps ON ps.payout_id = p.id
        WHERE p.pay_period_id = $1
+         AND u.role = 'EDUCATOR'
+         AND u.created_by = $2
        ORDER BY u.last_name, u.first_name`,
-      [id]
+      [id, req.user.id]
     );
 
     res.json({ payouts: result.rows });
   } catch (error) {
     console.error('Get payouts error:', error);
     res.status(500).json({ error: 'Failed to fetch payouts' });
+  }
+});
+
+// Update payout values for a closed pay period
+router.patch('/payouts/:id', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+    const { totalHours } = req.body;
+
+    if (totalHours === undefined) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Total hours is required' });
+    }
+
+    const parsedHours = Number(totalHours);
+    if (!Number.isFinite(parsedHours) || parsedHours < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Total hours must be a non-negative number' });
+    }
+
+    const payoutResult = await client.query(
+      `SELECT p.*, pp.status AS pay_period_status,
+              u.first_name, u.last_name, u.email, u.payment_type,
+              u.hourly_rate AS profile_hourly_rate,
+              u.salary_amount AS profile_salary_amount,
+              u.employment_type
+       FROM payouts p
+       JOIN pay_periods pp ON pp.id = p.pay_period_id
+       JOIN users u ON u.id = p.user_id
+       WHERE p.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (payoutResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Payout not found' });
+    }
+
+    const payout = payoutResult.rows[0];
+
+    if (payout.pay_period_status !== 'CLOSED') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Only payouts from closed pay periods can be edited' });
+    }
+
+    const recalculated = calculatePayoutFromProfile({
+      paymentType: payout.payment_type,
+      hourlyRate: payout.profile_hourly_rate,
+      salaryAmount: payout.profile_salary_amount,
+      totalHours: parsedHours,
+      deductions: payout.deductions,
+    });
+
+    const updateResult = await client.query(
+      `UPDATE payouts
+       SET total_hours = $1,
+           hourly_rate = $2,
+           gross_amount = $3,
+           deductions = $4,
+           net_amount = $5
+       WHERE id = $6
+       RETURNING *`,
+      [
+        recalculated.totalHours,
+        recalculated.hourlyRate,
+        recalculated.grossAmount,
+        recalculated.deductions,
+        recalculated.netAmount,
+        id,
+      ]
+    );
+
+    const paystubResult = await client.query(
+      `SELECT id AS paystub_id, stub_number, generated_at AS paystub_generated_at
+       FROM paystubs
+       WHERE payout_id = $1
+       LIMIT 1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      payout: {
+        ...updateResult.rows[0],
+        first_name: payout.first_name,
+        last_name: payout.last_name,
+        email: payout.email,
+        payment_type: payout.payment_type,
+        profile_hourly_rate: payout.profile_hourly_rate,
+        profile_salary_amount: payout.profile_salary_amount,
+        employment_type: payout.employment_type,
+        paystub_id: paystubResult.rows[0]?.paystub_id || null,
+        stub_number: paystubResult.rows[0]?.stub_number || null,
+        paystub_generated_at: paystubResult.rows[0]?.paystub_generated_at || null,
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update payout error:', error);
+    res.status(500).json({ error: 'Failed to update payout' });
+  } finally {
+    client.release();
   }
 });
 
