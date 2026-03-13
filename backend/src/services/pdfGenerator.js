@@ -397,46 +397,60 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const rightTableX = left + colWidth + bottomGap;
 
       const payHeaders = ['PAY', 'Hours', 'Rate', 'Current', 'YTD'];
-      const payRows = [
-        buildPayRow('Regular Pay', {
-          hours: getNumericValue(payout, ['regular_hours', 'total_hours']),
-          rate: getNumericValue(payout, ['regular_rate', 'hourly_rate']),
-          current: getNumericValue(payout, ['regular_pay_current', 'gross_amount']),
-          ytd: ytdGross,
-        }),
-        buildPayRow('Sick Pay', {
-          hours: getNumericValue(payout, ['sick_hours', 'sick_pay_hours']),
-          rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']) || getDefaultPayRate('sick'),
-          current: getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount']),
-          ytd: getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
-        }),
-        buildPayRow('Vacation Pay', {
-          hours: getNumericValue(payout, ['vacation_hours', 'vacation_pay_hours']),
-          rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']) || getDefaultPayRate('vacation'),
-          current: getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount']),
-          ytd: getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
-        }),
-      ];
+      const shouldIncludeCurrentPayRow = (values = {}) => {
+        const hours = safeNumber(values.hours);
+        const rate = safeNumber(values.rate);
+        const current = safeNumber(values.current);
+        return [hours, rate, current].some((value) => value !== null && value > 0);
+      };
+      const addPayRow = (rows, label, values) => {
+        rows.push(buildPayRow(label, values));
+      };
+      const payRows = [];
+      addPayRow(payRows, 'Regular Pay', {
+        hours: getNumericValue(payout, ['regular_hours', 'total_hours']),
+        rate: getNumericValue(payout, ['regular_rate', 'hourly_rate']),
+        current: getNumericValue(payout, ['regular_pay_current', 'gross_amount']),
+        ytd: ytdGross,
+      });
+      addPayRow(payRows, 'Sick Pay', {
+        hours: getNumericValue(payout, ['sick_hours', 'sick_pay_hours']),
+        rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']) || getDefaultPayRate('sick'),
+        current: getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount']),
+        ytd: getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
+      });
+      addPayRow(payRows, 'Vacation Pay', {
+        hours: getNumericValue(payout, ['vacation_hours', 'vacation_pay_hours']),
+        rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']) || getDefaultPayRate('vacation'),
+        current: getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount']),
+        ytd: getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
+      });
 
       if (isFullTime) {
-        payRows.push(
-          buildPayRow('Stat Pay', {
-            hours: getNumericValue(payout, ['stat_hours', 'stat_pay_hours', 'holiday_hours']),
-            rate: getNumericValue(payout, ['stat_rate', 'stat_pay_rate', 'holiday_rate']),
-            current: getNumericValue(payout, ['stat_pay_current', 'stat_pay', 'holiday_pay']),
-            ytd: getNumericValue(payout, ['stat_pay_ytd', 'ytd_stat_pay', 'holiday_pay_ytd']),
-          })
-        );
+        addPayRow(payRows, 'Stat Pay', {
+          hours: getNumericValue(payout, ['stat_hours', 'stat_pay_hours', 'holiday_hours']),
+          rate: getNumericValue(payout, ['stat_rate', 'stat_pay_rate', 'holiday_rate']),
+          current: getNumericValue(payout, ['stat_pay_current', 'stat_pay', 'holiday_pay']),
+          ytd: getNumericValue(payout, ['stat_pay_ytd', 'ytd_stat_pay', 'holiday_pay_ytd']),
+        });
       }
 
-      payRows.push(
-        buildPayRow('Retro Payment', {
-          hours: getNumericValue(payout, ['retro_hours', 'retro_payment_hours']),
-          rate: getNumericValue(payout, ['retro_rate', 'retro_payment_rate']),
-          current: getNumericValue(payout, ['retro_payment_current', 'retro_payment', 'retro_pay']),
-          ytd: getNumericValue(payout, ['retro_payment_ytd', 'ytd_retro_payment', 'retro_pay_ytd']),
-        })
-      );
+      const bonusRowValues = {
+        hours: getNumericValue(payout, ['bonus_hours', 'bonus_pay_hours']),
+        rate: getNumericValue(payout, ['bonus_rate', 'bonus_pay_rate']),
+        current: getNumericValue(payout, ['bonus_pay_current', 'bonus_pay', 'bonus_amount']),
+        ytd: getNumericValue(payout, ['bonus_pay_ytd', 'ytd_bonus_pay']),
+      };
+      if (shouldIncludeCurrentPayRow(bonusRowValues)) {
+        addPayRow(payRows, 'Bonus', bonusRowValues);
+      }
+
+      addPayRow(payRows, 'Retro Payment', {
+        hours: getNumericValue(payout, ['retro_hours', 'retro_payment_hours']),
+        rate: getNumericValue(payout, ['retro_rate', 'retro_payment_rate']),
+        current: getNumericValue(payout, ['retro_payment_current', 'retro_payment', 'retro_pay']),
+        ytd: getNumericValue(payout, ['retro_payment_ytd', 'ytd_retro_payment', 'retro_pay_ytd']),
+      });
 
       const payHeight = drawTable({
         x: leftTableX,

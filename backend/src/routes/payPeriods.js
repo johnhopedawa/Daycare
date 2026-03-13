@@ -25,6 +25,7 @@ const PAYSTUB_COMPONENTS = [
   { name: 'sick', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
   { name: 'vacation', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
   { name: 'stat', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
+  { name: 'bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current' },
   { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
 ];
 
@@ -129,6 +130,9 @@ const getDefaultBreakdown = ({
     stat_hours: 0,
     stat_rate: 0,
     stat_pay_current: 0,
+    bonus_hours: 0,
+    bonus_rate: 0,
+    bonus_pay_current: 0,
     retro_hours: 0,
     retro_rate: 0,
     retro_payment_current: 0,
@@ -874,17 +878,19 @@ router.post('/:id/close', async (req, res) => {
       await client.query(
         `INSERT INTO payouts
          (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount,
-          regular_hours, regular_rate, regular_pay_current,
-          sick_hours, sick_rate, sick_pay_current,
-          vacation_hours, vacation_rate, vacation_pay_current,
-          stat_hours, stat_rate, stat_pay_current,
-          retro_hours, retro_rate, retro_payment_current)
+         regular_hours, regular_rate, regular_pay_current,
+         sick_hours, sick_rate, sick_pay_current,
+         vacation_hours, vacation_rate, vacation_pay_current,
+         stat_hours, stat_rate, stat_pay_current,
+         bonus_hours, bonus_rate, bonus_pay_current,
+         retro_hours, retro_rate, retro_payment_current)
          VALUES ($1, $2, $3, $4, $5, $6, $7,
                  $8, $9, $10,
                  $11, $12, $13,
                  $14, $15, $16,
                  $17, $18, $19,
-                 $20, $21, $22)`,
+                 $20, $21, $22,
+                 $23, $24, $25)`,
         [
           id,
           entry.id,
@@ -905,6 +911,9 @@ router.post('/:id/close', async (req, res) => {
           entry.stat_hours,
           entry.stat_rate,
           entry.stat_pay_current,
+          entry.bonus_hours,
+          entry.bonus_rate,
+          entry.bonus_pay_current,
           entry.retro_hours,
           entry.retro_rate,
           entry.retro_payment_current,
@@ -916,17 +925,19 @@ router.post('/:id/close', async (req, res) => {
       await client.query(
         `INSERT INTO payouts
          (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount,
-          regular_hours, regular_rate, regular_pay_current,
-          sick_hours, sick_rate, sick_pay_current,
-          vacation_hours, vacation_rate, vacation_pay_current,
-          stat_hours, stat_rate, stat_pay_current,
-          retro_hours, retro_rate, retro_payment_current)
+         regular_hours, regular_rate, regular_pay_current,
+         sick_hours, sick_rate, sick_pay_current,
+         vacation_hours, vacation_rate, vacation_pay_current,
+         stat_hours, stat_rate, stat_pay_current,
+         bonus_hours, bonus_rate, bonus_pay_current,
+         retro_hours, retro_rate, retro_payment_current)
          VALUES ($1, $2, $3, $4, $5, $6, $7,
                  $8, $9, $10,
                  $11, $12, $13,
                  $14, $15, $16,
                  $17, $18, $19,
-                 $20, $21, $22)`,
+                 $20, $21, $22,
+                 $23, $24, $25)`,
         [
           id,
           emp.id,
@@ -947,6 +958,9 @@ router.post('/:id/close', async (req, res) => {
           emp.stat_hours,
           emp.stat_rate,
           emp.stat_pay_current,
+          emp.bonus_hours,
+          emp.bonus_rate,
+          emp.bonus_pay_current,
           emp.retro_hours,
           emp.retro_rate,
           emp.retro_payment_current,
@@ -1150,10 +1164,13 @@ router.patch('/payouts/:id', async (req, res) => {
            stat_hours = $15,
            stat_rate = $16,
            stat_pay_current = $17,
-           retro_hours = $18,
-           retro_rate = $19,
-           retro_payment_current = $20
-       WHERE id = $21
+           bonus_hours = $18,
+           bonus_rate = $19,
+           bonus_pay_current = $20,
+           retro_hours = $21,
+           retro_rate = $22,
+           retro_payment_current = $23
+       WHERE id = $24
        RETURNING *`,
       [
         recalculated.totalHours,
@@ -1173,6 +1190,9 @@ router.patch('/payouts/:id', async (req, res) => {
         recalculated.breakdown.stat_hours,
         recalculated.breakdown.stat_rate,
         recalculated.breakdown.stat_pay_current,
+        recalculated.breakdown.bonus_hours,
+        recalculated.breakdown.bonus_rate,
+        recalculated.breakdown.bonus_pay_current,
         recalculated.breakdown.retro_hours,
         recalculated.breakdown.retro_rate,
         recalculated.breakdown.retro_payment_current,

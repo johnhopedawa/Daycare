@@ -1,3 +1,27 @@
+## Bonus Pay Line On Paystubs (2026-03-13)
+- [x] Inspect the current persisted paystub breakdown fields and paystub rendering flow
+- [x] Add stored bonus payout fields and backend recalculation support
+- [x] Expose Bonus in the paystub editor and hide zero-value Bonus rows from paystub output
+- [x] Verify the changed paths and update `SYSTEM_DOCUMENTATION.xml` with review notes
+
+## Review
+- Added [`backend/migrations/048_add_payout_bonus_fields.sql`](/C:/src/Daycare/backend/migrations/048_add_payout_bonus_fields.sql) so payouts can persist `bonus_hours`, `bonus_rate`, and `bonus_pay_current` alongside the other paystub breakdown fields.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so bonus is part of the stored breakdown schema, included in close-time payout inserts and payout edits, and flows through the same gross/net recalculation path as the other line items.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) and [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so the paystub editor now includes a `Bonus` line item, while read-only paystub previews hide the Bonus row when the current-period bonus is zero.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so PDF paystubs render `Bonus` as a separate pay row and omit it when the current bonus hours/rate/current values are all zero.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new migration count and the added Bonus line item behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` passed.
+- `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
+
+## Pre-Close Paystub Editing (2026-03-13)
+- [ ] Confirm the current open-period close preview and paystub editor flows
+- [ ] Reuse the paystub editor in the pre-close preview so draft paystub changes are visible before closing
+- [ ] Send the edited preview paystub breakdowns into the close endpoint so the stored payouts match the reviewed draft
+- [ ] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the resulting behavior and review notes
+- [ ] Run focused verification for the updated frontend/backend files without rebuilding the backend
+
 ## BC Mandated Payroll Deductions On Paystubs (2026-03-13)
 - [x] Verify the official BC/CRA list of mandatory employee payroll deductions
 - [x] Inspect the current paystub deduction rendering and identify any misleading labels/amount mapping

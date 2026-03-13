@@ -16,6 +16,7 @@ const PAYSTUB_LINE_ITEMS = [
   { key: 'sick', label: 'Sick Pay', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
   { key: 'vacation', label: 'Vacation Pay', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
   { key: 'stat', label: 'Stat Pay', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
+  { key: 'bonus', label: 'Bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current' },
   { key: 'retro', label: 'Retro Payment', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
 ];
 
@@ -49,6 +50,7 @@ export function PayPeriodsPage() {
   const [paystubPreview, setPaystubPreview] = useState(null);
   const [isEditPayoutOpen, setIsEditPayoutOpen] = useState(false);
   const [editingPayout, setEditingPayout] = useState(null);
+  const [editingPayoutContext, setEditingPayoutContext] = useState('closed');
   const [editPayoutForm, setEditPayoutForm] = useState({});
   const [isSavingPayout, setIsSavingPayout] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -241,6 +243,8 @@ export function PayPeriodsPage() {
       vacation_rate: vacationAccrualEnabled ? accrualVacationRate : safeNumber(payout?.vacation_rate, accrualVacationRate),
       stat_hours: safeNumber(payout?.stat_hours),
       stat_rate: safeNumber(payout?.stat_rate),
+      bonus_hours: safeNumber(payout?.bonus_hours),
+      bonus_rate: safeNumber(payout?.bonus_rate),
       retro_hours: safeNumber(payout?.retro_hours),
       retro_rate: safeNumber(payout?.retro_rate),
       payoutVacationAccrual,
@@ -251,9 +255,10 @@ export function PayPeriodsPage() {
       [key]: key === 'payoutVacationAccrual' ? value : formatEditorNumber(value),
     }), {});
   };
-  const buildPaystubPreview = (payout, user, formOverrides = null) => {
+  const buildPaystubPreview = (payout, user, formOverrides = null, options = {}) => {
     const paymentType = payout?.payment_type === 'SALARY' || user?.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY';
     const deductions = roundCurrency(payout?.deductions);
+    const includeZeroBonus = Boolean(options.includeZeroBonus);
     const regularHours = formOverrides
       ? roundCurrency(safeNumber(formOverrides.regular_hours))
       : roundCurrency(safeNumber(payout?.regular_hours, payout?.total_hours));
@@ -296,7 +301,13 @@ export function PayPeriodsPage() {
         rate,
         current,
       };
-    });
+    }).filter((row) => (
+      row.key !== 'bonus'
+        || includeZeroBonus
+        || row.hours > 0
+        || row.current > 0
+        || row.rate > 0
+    ));
 
     const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
     const grossAmount = rows.reduce((sum, row) => sum + row.current, 0);
@@ -330,8 +341,47 @@ export function PayPeriodsPage() {
     netAmount: 0,
   });
   const editedPayoutPreview = editingPayout
-    ? buildPaystubPreview(editingPayout, editingPayout, editPayoutForm)
+    ? buildPaystubPreview(editingPayout, editingPayout, editPayoutForm, { includeZeroBonus: true })
     : null;
+  const getBreakdownFromPreviewState = (payoutPreview, formState = editPayoutForm) => {
+    const rowsByKey = new Map((payoutPreview?.rows || []).map((row) => [row.key, row]));
+
+    return PAYSTUB_LINE_ITEMS.reduce((accumulator, item) => {
+      const row = rowsByKey.get(item.key);
+      const hours = row ? row.hours : roundCurrency(safeNumber(formState[item.hoursKey]));
+      const rate = row ? row.rate : roundCurrency(safeNumber(formState[item.rateKey]));
+      const current = row ? row.current : roundCurrency(hours * rate);
+
+      accumulator[item.hoursKey] = hours;
+      accumulator[item.rateKey] = rate;
+      accumulator[item.currentKey] = current;
+      return accumulator;
+    }, {});
+  };
+  const applyEditedPreviewPayout = (payout, payoutPreview, formState = editPayoutForm) => ({
+    ...payout,
+    ...getBreakdownFromPreviewState(payoutPreview, formState),
+    total_hours: payoutPreview.totalHours,
+    hourly_rate: payoutPreview.hourlyRate,
+    gross_amount: payoutPreview.grossAmount,
+    deductions: payoutPreview.deductions,
+    net_amount: payoutPreview.netAmount,
+    payoutVacationAccrual: Boolean(formState.payoutVacationAccrual),
+  });
+  const buildClosePayoutOverrides = () => (
+    preview
+      ? [...(preview.hourly_employees || []), ...(preview.salaried_employees || [])].map((employee) => ({
+        userId: employee.id,
+        payoutVacationAccrual: Boolean(employee.payoutVacationAccrual),
+        breakdown: PAYSTUB_LINE_ITEMS.reduce((accumulator, item) => {
+          accumulator[item.hoursKey] = roundCurrency(safeNumber(employee[item.hoursKey]));
+          accumulator[item.rateKey] = roundCurrency(safeNumber(employee[item.rateKey]));
+          accumulator[item.currentKey] = roundCurrency(safeNumber(employee[item.currentKey]));
+          return accumulator;
+        }, {}),
+      }))
+      : []
+  );
   const editingPayoutHasVacationAccrual = editingPayout
     ? hasVacationAccrual(editingPayout, editingPayout)
     : false;
@@ -396,7 +446,9 @@ export function PayPeriodsPage() {
   const handleConfirmClose = async () => {
     if (!preview?.period?.id) return;
     try {
-      await api.post(`/pay-periods/${preview.period.id}/close`);
+      await api.post(`/pay-periods/${preview.period.id}/close`, {
+        payoutOverrides: buildClosePayoutOverrides(),
+      });
       setIsPreviewOpen(false);
       setPreviewMode('review');
       setPreview(null);
@@ -644,8 +696,9 @@ export function PayPeriodsPage() {
     );
   };
 
-  const openEditPayout = (payout) => {
+  const openEditPayout = (payout, context = 'closed') => {
     setEditingPayout(payout);
+    setEditingPayoutContext(context);
     setEditPayoutForm(createPayoutEditForm(payout));
     setIsEditPayoutOpen(true);
   };
@@ -654,15 +707,40 @@ export function PayPeriodsPage() {
     if (isSavingPayout) return;
     setIsEditPayoutOpen(false);
     setEditingPayout(null);
+    setEditingPayoutContext('closed');
     setEditPayoutForm({});
   };
 
   const handleSavePayout = async (e) => {
     e.preventDefault();
-    if (!editingPayout?.id || !selectedPayPeriod?.id) return;
+    if (!editingPayout?.id) return;
 
     try {
       setIsSavingPayout(true);
+
+      if (editingPayoutContext === 'preview') {
+        const updatedPreviewPayout = applyEditedPreviewPayout(editingPayout, editedPayoutPreview);
+        setPreview((current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            hourly_employees: (current.hourly_employees || []).map((item) => (
+              item.id === updatedPreviewPayout.id ? updatedPreviewPayout : item
+            )),
+            salaried_employees: (current.salaried_employees || []).map((item) => (
+              item.id === updatedPreviewPayout.id ? updatedPreviewPayout : item
+            )),
+          };
+        });
+        closeEditPayout();
+        return;
+      }
+
+      if (!selectedPayPeriod?.id) {
+        return;
+      }
+
       const response = await api.patch(`/pay-periods/payouts/${editingPayout.id}`, {
         breakdown: editPayoutForm,
         payoutVacationAccrual: Boolean(editPayoutForm.payoutVacationAccrual),
@@ -1073,6 +1151,11 @@ export function PayPeriodsPage() {
               </p>
               <p className="text-sm text-stone-500">Pay Date: {formatDate(preview.period.pay_date)}</p>
               <p className="text-sm text-stone-500">Total Employees: {preview.total_count}</p>
+              {previewMode === 'close' ? (
+                <p className="mt-2 text-sm text-stone-500">
+                  Use <span className="font-semibold text-stone-700">Edit Paystub</span> to review and adjust each employee's draft paystub before you confirm close.
+                </p>
+              ) : null}
             </div>
 
             {previewTotals && (
@@ -1129,6 +1212,9 @@ export function PayPeriodsPage() {
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Deductions</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net</th>
+                        {previewMode === 'close' ? (
+                          <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Action</th>
+                        ) : null}
                       </tr>
                     </thead>
                     <tbody className="divide-y themed-border">
@@ -1140,6 +1226,20 @@ export function PayPeriodsPage() {
                           <td className="px-4 py-2 text-sm text-stone-700">${parseFloat(emp.gross_amount || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.deductions || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm font-semibold text-stone-700">${parseFloat(emp.net_amount || 0).toFixed(2)}</td>
+                          {previewMode === 'close' ? (
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => openEditPayout(emp, 'preview')}
+                                disabled={isSavingPayout}
+                                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                                style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                              >
+                                <Pencil size={16} />
+                                Edit Paystub
+                              </button>
+                            </td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>
@@ -1160,6 +1260,9 @@ export function PayPeriodsPage() {
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Deductions</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net</th>
+                        {previewMode === 'close' ? (
+                          <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Action</th>
+                        ) : null}
                       </tr>
                     </thead>
                     <tbody className="divide-y themed-border">
@@ -1170,6 +1273,20 @@ export function PayPeriodsPage() {
                           <td className="px-4 py-2 text-sm text-stone-700">${parseFloat(emp.gross_amount || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.deductions || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm font-semibold text-stone-700">${parseFloat(emp.net_amount || 0).toFixed(2)}</td>
+                          {previewMode === 'close' ? (
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => openEditPayout(emp, 'preview')}
+                                disabled={isSavingPayout}
+                                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                                style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                              >
+                                <Pencil size={16} />
+                                Edit Paystub
+                              </button>
+                            </td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>
@@ -1585,7 +1702,7 @@ export function PayPeriodsPage() {
       <BaseModal
         isOpen={isEditPayoutOpen}
         onClose={closeEditPayout}
-        title={editingPayout ? `Edit ${editingPayout.first_name} ${editingPayout.last_name} Payout` : 'Edit Payout'}
+        title={editingPayout ? `${editingPayoutContext === 'preview' ? 'Review Draft Paystub' : 'Edit'} ${editingPayout.first_name} ${editingPayout.last_name} Payout` : 'Edit Payout'}
         maxWidth="max-w-3xl"
       >
         {editingPayout && editedPayoutPreview ? (
@@ -1594,7 +1711,9 @@ export function PayPeriodsPage() {
               <p className="font-bold text-stone-800">{editingPayout.first_name} {editingPayout.last_name}</p>
               <p className="text-sm text-stone-600">{editingPayout.email}</p>
               <p className="mt-2 text-sm text-stone-500">
-                Edit the paystub rows below. Current values update live in HTML and the saved data is what the PDF download uses.
+                {editingPayoutContext === 'preview'
+                  ? 'Edit the draft paystub before closing. Current values update live in HTML and these draft values are what closing the pay period will store.'
+                  : 'Edit the paystub rows below. Current values update live in HTML and the saved data is what the PDF download uses.'}
               </p>
             </div>
 
@@ -1762,7 +1881,7 @@ export function PayPeriodsPage() {
                 className="flex-1 px-6 py-3 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition-all disabled:opacity-60"
                 style={{ backgroundColor: 'var(--primary)', boxShadow: '0 12px 20px -12px var(--menu-shadow)' }}
               >
-                {isSavingPayout ? 'Saving...' : 'Save Payout'}
+                {isSavingPayout ? 'Saving...' : (editingPayoutContext === 'preview' ? 'Save Draft' : 'Save Payout')}
               </button>
             </div>
           </form>
