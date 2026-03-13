@@ -1,0 +1,3 @@
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS vacation_accrual_enabled BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS vacation_accrual_rate DECIMAL(6,4) NOT NULL DEFAULT 0.04;

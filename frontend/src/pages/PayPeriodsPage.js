@@ -11,6 +11,16 @@ const FREQUENCY_OPTIONS = [
   { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (1st-15th, 16th-end)' },
 ];
 
+const PAYSTUB_LINE_ITEMS = [
+  { key: 'regular', label: 'Regular Pay', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current' },
+  { key: 'sick', label: 'Sick Pay', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
+  { key: 'vacation', label: 'Vacation Pay', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
+  { key: 'stat', label: 'Stat Pay', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
+  { key: 'retro', label: 'Retro Payment', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
+];
+
+const DEFAULT_VACATION_ACCRUAL_RATE = 0.04;
+
 export function PayPeriodsPage() {
   const [payPeriods, setPayPeriods] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +49,7 @@ export function PayPeriodsPage() {
   const [paystubPreview, setPaystubPreview] = useState(null);
   const [isEditPayoutOpen, setIsEditPayoutOpen] = useState(false);
   const [editingPayout, setEditingPayout] = useState(null);
-  const [editPayoutForm, setEditPayoutForm] = useState({ totalHours: '' });
+  const [editPayoutForm, setEditPayoutForm] = useState({});
   const [isSavingPayout, setIsSavingPayout] = useState(false);
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({ name: '', startDate: '', endDate: '', payDate: '' });
@@ -143,38 +153,166 @@ export function PayPeriodsPage() {
     return Number.isFinite(parsed) ? parsed : fallback;
   };
   const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
+  const formatEditorNumber = (value) => roundCurrency(value).toFixed(2);
   const getPaymentTypeLabel = (paymentType) => (paymentType === 'SALARY' ? 'Salary' : 'Hourly');
   const getCompensationLabel = (payout) => (
     payout?.payment_type === 'SALARY'
       ? `${formatCurrency(payout.profile_salary_amount)} per pay period`
-      : `${formatCurrency(payout.profile_hourly_rate || payout.hourly_rate)}/hr`
+      : `${formatCurrency(payout.hourly_rate || payout.profile_hourly_rate)}/hr`
   );
-  const calculatePayoutPreview = (payout, totalHoursInput) => {
-    const paymentType = payout?.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY';
-    const totalHours = safeNumber(totalHoursInput, 0);
-    const deductions = roundCurrency(payout?.deductions);
-
-    if (paymentType === 'SALARY') {
-      const grossAmount = roundCurrency(payout?.profile_salary_amount ?? payout?.gross_amount);
-      return {
-        paymentType,
-        totalHours,
-        hourlyRate: 0,
-        grossAmount,
-        deductions,
-        netAmount: roundCurrency(grossAmount - deductions),
-      };
+  const isFullTimePayout = (payout, user) => (
+    String(user?.employment_type || payout?.employment_type || '').toUpperCase() === 'FULL_TIME'
+  );
+  const isPartTimePayout = (payout, user) => (
+    String(user?.employment_type || payout?.employment_type || '').toUpperCase() === 'PART_TIME'
+  );
+  const hasVacationAccrual = (payout, user) => (
+    Boolean(user?.vacation_accrual_enabled || payout?.vacation_accrual_enabled)
+  );
+  const getVacationAccrualRate = (payout, user) => {
+    const rawRate = safeNumber(
+      user?.vacation_accrual_rate,
+      safeNumber(payout?.vacation_accrual_rate, DEFAULT_VACATION_ACCRUAL_RATE)
+    );
+    if (rawRate > 1) {
+      return rawRate / 100;
     }
+    return rawRate >= 0 ? rawRate : DEFAULT_VACATION_ACCRUAL_RATE;
+  };
+  const getBaseHourlyRate = (payout, user) => roundCurrency(safeNumber(
+    payout?.regular_rate,
+    safeNumber(
+      payout?.hourly_rate,
+      safeNumber(
+        payout?.profile_hourly_rate,
+        user?.profile_hourly_rate
+      )
+    )
+  ));
+  const getDefaultLineRate = (lineKey, payout, user) => {
+    const baseHourlyRate = getBaseHourlyRate(payout, user);
 
-    const hourlyRate = roundCurrency(payout?.profile_hourly_rate ?? payout?.hourly_rate);
-    const grossAmount = roundCurrency(totalHours * hourlyRate);
+    switch (lineKey) {
+      case 'regular':
+      case 'sick':
+      case 'vacation':
+        return baseHourlyRate;
+      default:
+        return 0;
+    }
+  };
+  const getVacationAccrualHours = (regularHours, payout, user) => roundCurrency(
+    safeNumber(regularHours) * getVacationAccrualRate(payout, user)
+  );
+  const shouldPayoutVacationAccrual = (payout, user, formOverrides = null) => {
+    if (!hasVacationAccrual(payout, user)) {
+      return false;
+    }
+    if (isPartTimePayout(payout, user)) {
+      return true;
+    }
+    if (!isFullTimePayout(payout, user)) {
+      return false;
+    }
+    if (formOverrides) {
+      return Boolean(formOverrides.payoutVacationAccrual);
+    }
+    return safeNumber(payout?.vacation_hours) > 0;
+  };
+  const getVisiblePaystubLineItems = (payout, user) => (
+    PAYSTUB_LINE_ITEMS.filter((item) => item.key !== 'stat' || isFullTimePayout(payout, user))
+  );
+  const createPayoutEditForm = (payout) => {
+    const regularHours = safeNumber(payout?.regular_hours, payout?.total_hours);
+    const vacationAccrualEnabled = hasVacationAccrual(payout, payout);
+    const payoutVacationAccrual = vacationAccrualEnabled
+      ? shouldPayoutVacationAccrual(payout, payout)
+      : false;
+    const accrualVacationHours = vacationAccrualEnabled
+      ? getVacationAccrualHours(regularHours, payout, payout)
+      : safeNumber(payout?.vacation_hours);
+    const accrualVacationRate = getDefaultLineRate('vacation', payout, payout);
+    const defaultValues = {
+      regular_hours: regularHours,
+      regular_rate: safeNumber(payout?.regular_rate, getDefaultLineRate('regular', payout, payout)),
+      sick_hours: safeNumber(payout?.sick_hours),
+      sick_rate: safeNumber(payout?.sick_rate, getDefaultLineRate('sick', payout, payout)),
+      vacation_hours: vacationAccrualEnabled ? (payoutVacationAccrual ? accrualVacationHours : 0) : safeNumber(payout?.vacation_hours),
+      vacation_rate: vacationAccrualEnabled ? accrualVacationRate : safeNumber(payout?.vacation_rate, accrualVacationRate),
+      stat_hours: safeNumber(payout?.stat_hours),
+      stat_rate: safeNumber(payout?.stat_rate),
+      retro_hours: safeNumber(payout?.retro_hours),
+      retro_rate: safeNumber(payout?.retro_rate),
+      payoutVacationAccrual,
+    };
+
+    return Object.entries(defaultValues).reduce((accumulator, [key, value]) => ({
+      ...accumulator,
+      [key]: key === 'payoutVacationAccrual' ? value : formatEditorNumber(value),
+    }), {});
+  };
+  const buildPaystubPreview = (payout, user, formOverrides = null) => {
+    const paymentType = payout?.payment_type === 'SALARY' || user?.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY';
+    const deductions = roundCurrency(payout?.deductions);
+    const regularHours = formOverrides
+      ? roundCurrency(safeNumber(formOverrides.regular_hours))
+      : roundCurrency(safeNumber(payout?.regular_hours, payout?.total_hours));
+    const vacationAccrualEnabled = hasVacationAccrual(payout, user);
+    const vacationAccrualHours = vacationAccrualEnabled
+      ? getVacationAccrualHours(regularHours, payout, user)
+      : 0;
+    const vacationPayoutEnabled = shouldPayoutVacationAccrual(payout, user, formOverrides);
+    const rows = getVisiblePaystubLineItems(payout, user).map((item) => {
+      const fallbackHours = item.key === 'regular' ? safeNumber(payout?.total_hours) : 0;
+      const fallbackRate = getDefaultLineRate(item.key, payout, user);
+      let hours = formOverrides
+        ? roundCurrency(safeNumber(formOverrides[item.hoursKey]))
+        : roundCurrency(safeNumber(payout?.[item.hoursKey], fallbackHours));
+      let rate = formOverrides
+        ? roundCurrency(safeNumber(formOverrides[item.rateKey]))
+        : roundCurrency(safeNumber(payout?.[item.rateKey], fallbackRate));
+      let current = formOverrides
+        ? roundCurrency(hours * rate)
+        : roundCurrency(safeNumber(
+          payout?.[item.currentKey],
+          item.key === 'regular' ? safeNumber(payout?.gross_amount) : hours * rate
+        ));
+
+      if (item.key === 'vacation' && vacationAccrualEnabled) {
+        hours = vacationPayoutEnabled ? vacationAccrualHours : 0;
+        rate = getDefaultLineRate('vacation', payout, user);
+        current = roundCurrency(hours * rate);
+      }
+
+      if (paymentType === 'SALARY' && item.key === 'regular' && current === 0) {
+        current = roundCurrency(
+          safeNumber(payout?.regular_pay_current, safeNumber(user?.salary_amount, payout?.gross_amount))
+        );
+      }
+
+      return {
+        ...item,
+        hours,
+        rate,
+        current,
+      };
+    });
+
+    const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
+    const grossAmount = rows.reduce((sum, row) => sum + row.current, 0);
+    const hourlyRate = rows.find((row) => row.key === 'regular')?.rate || 0;
+
     return {
       paymentType,
-      totalHours,
-      hourlyRate,
-      grossAmount,
+      rows,
+      totalHours: roundCurrency(totalHours),
+      hourlyRate: roundCurrency(hourlyRate),
+      grossAmount: roundCurrency(grossAmount),
       deductions,
       netAmount: roundCurrency(grossAmount - deductions),
+      vacationAccrualEnabled,
+      vacationAccrualHours,
+      vacationPayoutEnabled,
     };
   };
   const selectedFrequencyLabel = FREQUENCY_OPTIONS.find(
@@ -192,7 +330,19 @@ export function PayPeriodsPage() {
     netAmount: 0,
   });
   const editedPayoutPreview = editingPayout
-    ? calculatePayoutPreview(editingPayout, editPayoutForm.totalHours)
+    ? buildPaystubPreview(editingPayout, editingPayout, editPayoutForm)
+    : null;
+  const editingPayoutHasVacationAccrual = editingPayout
+    ? hasVacationAccrual(editingPayout, editingPayout)
+    : false;
+  const editingPayoutVacationAccrualIsAuto = editingPayout
+    ? editingPayoutHasVacationAccrual && isPartTimePayout(editingPayout, editingPayout)
+    : false;
+  const editingPayoutVacationAccrualCanToggle = editingPayout
+    ? editingPayoutHasVacationAccrual && isFullTimePayout(editingPayout, editingPayout)
+    : false;
+  const paystubHtmlPreview = paystubPreview
+    ? buildPaystubPreview(paystubPreview.payout, paystubPreview.user)
     : null;
   const previewTotals = preview ? [...(preview.hourly_employees || []), ...(preview.salaried_employees || [])].reduce((totals, employee) => ({
     totalHours: totals.totalHours + safeNumber(employee.total_hours),
@@ -496,7 +646,7 @@ export function PayPeriodsPage() {
 
   const openEditPayout = (payout) => {
     setEditingPayout(payout);
-    setEditPayoutForm({ totalHours: formatHours(payout.total_hours) });
+    setEditPayoutForm(createPayoutEditForm(payout));
     setIsEditPayoutOpen(true);
   };
 
@@ -504,7 +654,7 @@ export function PayPeriodsPage() {
     if (isSavingPayout) return;
     setIsEditPayoutOpen(false);
     setEditingPayout(null);
-    setEditPayoutForm({ totalHours: '' });
+    setEditPayoutForm({});
   };
 
   const handleSavePayout = async (e) => {
@@ -514,7 +664,8 @@ export function PayPeriodsPage() {
     try {
       setIsSavingPayout(true);
       const response = await api.patch(`/pay-periods/payouts/${editingPayout.id}`, {
-        totalHours: editPayoutForm.totalHours,
+        breakdown: editPayoutForm,
+        payoutVacationAccrual: Boolean(editPayoutForm.payoutVacationAccrual),
       });
 
       const updatedPayout = response.data.payout;
@@ -1275,7 +1426,7 @@ export function PayPeriodsPage() {
         title={paystubPreview ? `${paystubPreview.user.first_name} ${paystubPreview.user.last_name} Paystub` : 'Paystub Preview'}
         maxWidth="max-w-5xl"
       >
-        {paystubPreview ? (
+        {paystubPreview && paystubHtmlPreview ? (
           <div className="space-y-6">
             <div className="flex flex-wrap justify-between gap-4">
               <div>
@@ -1324,26 +1475,65 @@ export function PayPeriodsPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-xl" style={cardStyles[0]}>
                 <div className="text-sm mb-1" style={{ color: cardStyles[0].color }}>Hours</div>
-                <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>{formatHours(paystubPreview.payout.total_hours)}</p>
+                <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>{formatHours(paystubHtmlPreview.totalHours)}</p>
               </div>
               <div className="p-4 rounded-xl" style={cardStyles[1]}>
                 <div className="text-sm mb-1" style={{ color: cardStyles[1].color }}>Rate</div>
                 <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
-                  {getCompensationLabel({
-                    payment_type: paystubPreview.user.payment_type,
-                    profile_hourly_rate: paystubPreview.user.profile_hourly_rate,
-                    profile_salary_amount: paystubPreview.user.salary_amount,
-                    hourly_rate: paystubPreview.payout.hourly_rate,
-                  })}
+                  {paystubHtmlPreview.paymentType === 'SALARY'
+                    ? getCompensationLabel({
+                      payment_type: paystubPreview.user.payment_type,
+                      profile_hourly_rate: paystubPreview.user.profile_hourly_rate,
+                      profile_salary_amount: paystubPreview.user.salary_amount,
+                      hourly_rate: paystubPreview.payout.hourly_rate,
+                    })
+                    : `${formatCurrency(paystubHtmlPreview.hourlyRate)}/hr`}
                 </p>
               </div>
               <div className="p-4 rounded-xl" style={cardStyles[2]}>
                 <div className="text-sm mb-1" style={{ color: cardStyles[2].color }}>Gross Pay</div>
-                <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>{formatCurrency(paystubPreview.payout.gross_amount)}</p>
+                <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>{formatCurrency(paystubHtmlPreview.grossAmount)}</p>
               </div>
               <div className="p-4 rounded-xl" style={cardStyles[3]}>
                 <div className="text-sm mb-1" style={{ color: cardStyles[3].color }}>Net Pay</div>
-                <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>{formatCurrency(paystubPreview.payout.net_amount)}</p>
+                <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>{formatCurrency(paystubHtmlPreview.netAmount)}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <h4 className="font-bold text-stone-800">Paystub Preview</h4>
+                <p className="text-sm text-stone-500">HTML preview of the pay table used for the PDF.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Pay</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Current</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y themed-border">
+                    {paystubHtmlPreview.rows.map((row) => (
+                      <tr key={row.key} className="themed-row">
+                        <td className="px-4 py-3 text-sm text-stone-700">{row.label}</td>
+                        <td className="px-4 py-3 text-sm text-right text-stone-600">{formatHours(row.hours)}</td>
+                        <td className="px-4 py-3 text-sm text-right text-stone-600">{formatCurrency(row.rate)}</td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-stone-700">{formatCurrency(row.current)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t themed-border">
+                      <td className="px-4 py-3 text-sm font-bold text-stone-700">Totals</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatHours(paystubHtmlPreview.totalHours)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-stone-500">Deductions {formatCurrency(paystubHtmlPreview.deductions)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(paystubHtmlPreview.grossAmount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
 
@@ -1355,6 +1545,9 @@ export function PayPeriodsPage() {
                   <p>{paystubPreview.user.email}</p>
                   <p>{getPaymentTypeLabel(paystubPreview.user.payment_type)} compensation</p>
                   <p>{paystubPreview.user.employment_type || 'Employment type not set'}</p>
+                  {paystubPreview.user.vacation_accrual_enabled ? (
+                    <p>Vacation accrual: {(safeNumber(paystubPreview.user.vacation_accrual_rate, DEFAULT_VACATION_ACCRUAL_RATE) * 100).toFixed(2)}%</p>
+                  ) : null}
                 </div>
               </div>
               <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
@@ -1398,33 +1591,8 @@ export function PayPeriodsPage() {
               <p className="font-bold text-stone-800">{editingPayout.first_name} {editingPayout.last_name}</p>
               <p className="text-sm text-stone-600">{editingPayout.email}</p>
               <p className="mt-2 text-sm text-stone-500">
-                Monetary values are recalculated from the educator profile compensation settings.
+                Edit the paystub rows below. Current values update live in HTML and the saved data is what the PDF download uses.
               </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Total Hours
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editPayoutForm.totalHours}
-                  onChange={(event) => setEditPayoutForm({ totalHours: event.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-                  required
-                />
-              </div>
-              <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
-                <p className="text-sm font-bold text-stone-700">Compensation Source</p>
-                <p className="mt-2 text-sm text-stone-600">{getPaymentTypeLabel(editingPayout.payment_type)}</p>
-                <p className="text-sm text-stone-600">{getCompensationLabel(editingPayout)}</p>
-                <p className="text-sm text-stone-500">
-                  {editingPayout.employment_type || 'Employment type not set'}
-                </p>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1456,10 +1624,123 @@ export function PayPeriodsPage() {
               </div>
             </div>
 
+            <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h4 className="font-bold text-stone-800">Paystub HTML Preview</h4>
+                  <p className="text-sm text-stone-500">Edit hours and rate for each line. Current pay updates automatically.</p>
+                </div>
+                <div className="text-sm text-stone-500">
+                  Paystub: {editingPayout.stub_number || 'Not generated yet'}
+                </div>
+              </div>
+              {editingPayoutVacationAccrualCanToggle ? (
+                <div className="mb-4 rounded-2xl border border-[#FFE5D9] bg-white px-4 py-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editPayoutForm.payoutVacationAccrual)}
+                      onChange={(event) => setEditPayoutForm((current) => ({
+                        ...current,
+                        payoutVacationAccrual: event.target.checked,
+                      }))}
+                      className="mt-1 h-4 w-4 rounded themed-border text-[var(--primary)] themed-ring"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold text-stone-700">
+                        Pay out accrued vacation on this pay period
+                      </span>
+                      <span className="block text-sm text-stone-500">
+                        Available this period: {formatHours(editedPayoutPreview?.vacationAccrualHours)} hours at {formatCurrency(getBaseHourlyRate(editingPayout, editingPayout))}/hr
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+              {editingPayoutVacationAccrualIsAuto ? (
+                <div className="mb-4 rounded-2xl border border-[#FFE5D9] bg-white px-4 py-3 text-sm text-stone-600">
+                  Part-time vacation accrual is paid out automatically for this pay period.
+                </div>
+              ) : null}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Pay</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Current</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y themed-border">
+                    {editedPayoutPreview.rows.map((row) => (
+                      <tr key={row.key} className="themed-row">
+                        <td className="px-4 py-3 text-sm font-medium text-stone-700">{row.label}</td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={editPayoutForm[row.hoursKey] || '0.00'}
+                            onChange={(event) => setEditPayoutForm((current) => ({
+                              ...current,
+                              [row.hoursKey]: event.target.value,
+                            }))}
+                            className={`ml-auto block w-28 rounded-xl border themed-border px-3 py-2 text-right text-sm themed-ring ${
+                              row.key === 'vacation' && editingPayoutHasVacationAccrual
+                                ? 'bg-stone-100 text-stone-500 cursor-not-allowed'
+                                : 'bg-white'
+                            }`}
+                            disabled={row.key === 'vacation' && editingPayoutHasVacationAccrual}
+                            required
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={editPayoutForm[row.rateKey] || '0.00'}
+                            onChange={(event) => setEditPayoutForm((current) => ({
+                              ...current,
+                              [row.rateKey]: event.target.value,
+                            }))}
+                            className={`ml-auto block w-28 rounded-xl border themed-border px-3 py-2 text-right text-sm themed-ring ${
+                              row.key === 'vacation' && editingPayoutHasVacationAccrual
+                                ? 'bg-stone-100 text-stone-500 cursor-not-allowed'
+                                : 'bg-white'
+                            }`}
+                            disabled={row.key === 'vacation' && editingPayoutHasVacationAccrual}
+                            required
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-stone-700">
+                          {formatCurrency(row.current)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t themed-border">
+                      <td className="px-4 py-3 text-sm font-bold text-stone-700">Totals</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatHours(editedPayoutPreview.totalHours)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-stone-500">Deductions {formatCurrency(editedPayoutPreview.deductions)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(editedPayoutPreview.grossAmount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
             <div className="rounded-2xl border themed-border p-4 text-sm text-stone-600" style={{ backgroundColor: 'var(--background)' }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <p>Compensation Type: {getPaymentTypeLabel(editingPayout.payment_type)}</p>
+                <p>Employment: {editingPayout.employment_type || 'Employment type not set'}</p>
+                <p>Profile Rate: {formatCurrency(editingPayout.profile_hourly_rate || 0)}/hr</p>
                 <p>Deductions: {formatCurrency(editedPayoutPreview.deductions)}</p>
-                <p>Paystub: {editingPayout.stub_number || 'Not generated yet'}</p>
+                {editingPayoutHasVacationAccrual ? (
+                  <p>Vacation Accrual: {(getVacationAccrualRate(editingPayout, editingPayout) * 100).toFixed(2)}%</p>
+                ) : null}
               </div>
             </div>
 

@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { createAppNotification } = require('../utils/appNotifications');
+const { applyVacationAccrualSnapshots } = require('../utils/leaveAccrual');
 
 const router = express.Router();
 
@@ -355,7 +356,7 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
         'UPDATE users SET sick_days_remaining = sick_days_remaining - $1 WHERE id = $2',
         [hoursToDeduct, req.user.id]
       );
-    } else if (declineType === 'VACATION_DAY') {
+    } else if (declineType === 'VACATION_DAY' && !req.user.vacation_accrual_enabled) {
       await client.query(
         'UPDATE users SET vacation_days_remaining = vacation_days_remaining - $1 WHERE id = $2',
         [hoursToDeduct, req.user.id]
@@ -364,9 +365,13 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
 
     // Get updated balances
     const userResult = await client.query(
-      'SELECT sick_days_remaining, vacation_days_remaining FROM users WHERE id = $1',
+      `SELECT id, sick_days_remaining, vacation_days_remaining,
+              vacation_accrual_enabled, vacation_accrual_rate
+       FROM users
+       WHERE id = $1`,
       [req.user.id]
     );
+    const balanceUser = await applyVacationAccrualSnapshots(client, userResult.rows[0]);
 
     await client.query('COMMIT');
 
@@ -381,7 +386,10 @@ router.post('/my-schedules/:id/decline', requireAuth, async (req, res) => {
 
     res.json({
       schedule: result.rows[0],
-      balances: userResult.rows[0]
+      balances: {
+        sick_days_remaining: balanceUser.sick_days_remaining,
+        vacation_days_remaining: balanceUser.vacation_days_remaining,
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK');

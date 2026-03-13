@@ -5,6 +5,7 @@ const { generatePaystub, generateReceipt, generatePayrollSummaryPdf } = require(
 const { generatePdfToken, verifyToken } = require('../utils/jwt');
 const { getReceiptData, ensureReceipt } = require('../services/receiptService');
 const { getDaycareSettings } = require('../services/settingsService');
+const { applyVacationAccrualSnapshots } = require('../utils/leaveAccrual');
 
 const router = express.Router();
 
@@ -197,6 +198,7 @@ const getPaystubRow = async (id) => {
             u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
             u.annual_sick_days, u.annual_vacation_days, u.employment_type,
             u.sick_days_remaining, u.vacation_days_remaining,
+            u.vacation_accrual_enabled, u.vacation_accrual_rate,
             po.created_at AS payout_created_at
      FROM paystubs ps
      JOIN payouts po ON ps.payout_id = po.id
@@ -222,10 +224,26 @@ const buildPaystubContext = async (id) => {
     gross_amount: data.gross_amount,
     deductions: data.deductions,
     net_amount: data.net_amount,
+    regular_hours: data.regular_hours,
+    regular_rate: data.regular_rate,
+    regular_pay_current: data.regular_pay_current,
+    sick_hours: data.sick_hours,
+    sick_rate: data.sick_rate,
+    sick_pay_current: data.sick_pay_current,
+    vacation_hours: data.vacation_hours,
+    vacation_rate: data.vacation_rate,
+    vacation_pay_current: data.vacation_pay_current,
+    stat_hours: data.stat_hours,
+    stat_rate: data.stat_rate,
+    stat_pay_current: data.stat_pay_current,
+    retro_hours: data.retro_hours,
+    retro_rate: data.retro_rate,
+    retro_payment_current: data.retro_payment_current,
     payout_created_at: data.payout_created_at
   };
 
-  const user = {
+  const rawUser = {
+    id: data.paystub_user_id,
     first_name: data.first_name,
     last_name: data.last_name,
     email: data.email,
@@ -246,7 +264,9 @@ const buildPaystubContext = async (id) => {
     annual_vacation_days: data.annual_vacation_days,
     employment_type: data.employment_type,
     sick_days_remaining: data.sick_days_remaining,
-    vacation_days_remaining: data.vacation_days_remaining
+    vacation_days_remaining: data.vacation_days_remaining,
+    vacation_accrual_enabled: data.vacation_accrual_enabled,
+    vacation_accrual_rate: data.vacation_accrual_rate,
   };
 
   const payPeriod = {
@@ -262,6 +282,10 @@ const buildPaystubContext = async (id) => {
     stub_number: data.stub_number,
     generated_at: data.generated_at
   };
+
+  const user = await applyVacationAccrualSnapshots(pool, rawUser, {
+    asOfDate: payPeriod.end_date,
+  });
 
   return { data, payout, user, payPeriod, paystub };
 };
@@ -361,7 +385,8 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
               address_line1, address_line2, city, province, postal_code,
               ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
               annual_sick_days, annual_vacation_days, employment_type,
-              sick_days_remaining, vacation_days_remaining
+              sick_days_remaining, vacation_days_remaining,
+              vacation_accrual_enabled, vacation_accrual_rate
        FROM users
        WHERE id = $1`,
       [targetUserId]
@@ -375,9 +400,11 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const user = userResult.rows[0];
     const today = new Date();
     const todayIso = today.toISOString().split('T')[0];
+    const user = await applyVacationAccrualSnapshots(pool, userResult.rows[0], {
+      asOfDate: todayIso,
+    });
 
     const payout = {
       total_hours: 0,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Layout } from '../components/Layout';
-import { Briefcase, Calendar, Cake, Check, ChevronDown, DollarSign, FileText, Phone, Trash2, UserPlus } from 'lucide-react';
+import { Briefcase, Calendar, Cake, Check, ChevronDown, DollarSign, FileText, Pencil, Phone, Trash2, UserPlus } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import { DatePickerModal } from '../components/modals/DatePickerModal';
 import api from '../utils/api';
@@ -39,6 +39,8 @@ const createEmptyEducatorForm = () => ({
   salaryAmount: '',
   annualSickDays: '80',
   annualVacationDays: '80',
+  vacationAccrualEnabled: false,
+  vacationAccrualRate: '4',
   carryoverEnabled: false,
   dateEmployed: '',
   sin: '',
@@ -70,6 +72,54 @@ const formatDateLabel = (value, placeholder = 'Select date') => {
     year: 'numeric',
   });
 };
+
+const formatAccrualPercent = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return '4';
+  return String(Math.round((parsed * 100 + Number.EPSILON) * 100) / 100);
+};
+
+const parseAccrualPercentInput = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0.04;
+  }
+  return parsed / 100;
+};
+
+const getEditableInputClassName = (isEditable) => (
+  `w-full px-4 py-3 rounded-2xl border themed-border themed-ring transition-colors ${
+    isEditable
+      ? 'bg-white text-stone-800'
+      : 'bg-stone-100 text-stone-500 cursor-not-allowed'
+  }`
+);
+
+function LockedFieldShell({ label, unlocked, onUnlock, disableUnlock = false, helperText, children }) {
+  return (
+    <div className="group">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="block text-sm font-bold text-stone-700 font-quicksand">
+          {label}
+        </label>
+        {!unlocked && !disableUnlock ? (
+          <button
+            type="button"
+            onClick={onUnlock}
+            className="inline-flex items-center gap-2 rounded-full border border-[#FFD7C8] bg-white px-3 py-1 text-xs font-bold text-[#C46B4E] opacity-0 transition-opacity group-hover:opacity-100"
+          >
+            <Pencil size={12} />
+            Edit
+          </button>
+        ) : null}
+      </div>
+      {children}
+      {helperText ? (
+        <p className="mt-2 text-xs text-stone-500">{helperText}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function MenuSelectField({ label, value, options, onChange }) {
   const [open, setOpen] = useState(false);
@@ -182,6 +232,11 @@ export function EducatorsPage() {
   const [paystubLoadingId, setPaystubLoadingId] = useState(null);
   const [formData, setFormData] = useState(createEmptyEducatorForm);
   const [editForm, setEditForm] = useState({});
+  const [editFieldUnlocks, setEditFieldUnlocks] = useState({
+    sickDaysRemaining: false,
+    vacationDaysRemaining: false,
+    vacationAccrualSettings: false,
+  });
   const [datePickerTarget, setDatePickerTarget] = useState(null);
 
   const avatarStyles = [
@@ -222,6 +277,7 @@ export function EducatorsPage() {
         ...formData,
         sickDaysRemaining: formData.annualSickDays,
         vacationDaysRemaining: formData.annualVacationDays,
+        vacationAccrualRate: parseAccrualPercentInput(formData.vacationAccrualRate),
       });
       setShowAddModal(false);
       setFormData(createEmptyEducatorForm());
@@ -251,6 +307,8 @@ export function EducatorsPage() {
       annualVacationDays: educator.annual_vacation_days || 80,
       sickDaysRemaining: educator.sick_days_remaining || 0,
       vacationDaysRemaining: educator.vacation_days_remaining || 0,
+      vacationAccrualEnabled: educator.vacation_accrual_enabled || false,
+      vacationAccrualRate: formatAccrualPercent(educator.vacation_accrual_rate),
       carryoverEnabled: educator.carryover_enabled || false,
       dateEmployed: normalizeDateValue(educator.date_employed),
       sin: educator.sin || '',
@@ -259,6 +317,11 @@ export function EducatorsPage() {
       ytdEi: educator.ytd_ei || 0,
       ytdTax: educator.ytd_tax || 0,
       ytdHours: educator.ytd_hours || 0,
+    });
+    setEditFieldUnlocks({
+      sickDaysRemaining: false,
+      vacationDaysRemaining: false,
+      vacationAccrualSettings: false,
     });
     setShowEditModal(true);
   };
@@ -301,10 +364,18 @@ export function EducatorsPage() {
     setLoading(true);
 
     try {
-      await api.patch(`/admin/users/${selectedEducator.id}`, editForm);
+      await api.patch(`/admin/users/${selectedEducator.id}`, {
+        ...editForm,
+        vacationAccrualRate: parseAccrualPercentInput(editForm.vacationAccrualRate),
+      });
       setShowEditModal(false);
       setSelectedEducator(null);
       setEditForm({});
+      setEditFieldUnlocks({
+        sickDaysRemaining: false,
+        vacationDaysRemaining: false,
+        vacationAccrualSettings: false,
+      });
       loadEducators();
     } catch (error) {
       alert('Failed to update educator');
@@ -460,9 +531,16 @@ export function EducatorsPage() {
                   <Calendar size={16} />
                   <span>Vacation Hours</span>
                 </div>
-                <span className="font-bold text-stone-700 text-sm">
-                  {parseFloat(educator.vacation_days_remaining || 0).toFixed(1)} / {educator.annual_vacation_days || 0}
-                </span>
+                <div className="text-right">
+                  <p className="font-bold text-stone-700 text-sm">
+                    {parseFloat(educator.vacation_days_remaining || 0).toFixed(1)} / {educator.annual_vacation_days || 0}
+                  </p>
+                  {educator.vacation_accrual_enabled ? (
+                    <p className="text-xs font-semibold text-[#C46B4E]">
+                      Accrues at {formatAccrualPercent(educator.vacation_accrual_rate)}%
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
               {educator.date_of_birth && (
@@ -740,6 +818,40 @@ export function EducatorsPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.vacationAccrualEnabled}
+                  onChange={(e) => setFormData({ ...formData, vacationAccrualEnabled: e.target.checked })}
+                  className="w-5 h-5 rounded themed-border text-[var(--primary)] themed-ring"
+                />
+                <span className="ml-2 text-sm font-bold text-stone-700 font-quicksand">
+                  Enable Vacation Accrual
+                </span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Vacation Accrual %
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.vacationAccrualRate}
+                  onChange={(e) => setFormData({ ...formData, vacationAccrualRate: e.target.value })}
+                  className="w-full px-4 py-3 pr-10 rounded-2xl border themed-border themed-ring bg-white"
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-stone-400">
+                  %
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Carryover & Date Employed */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center">
@@ -885,6 +997,11 @@ export function EducatorsPage() {
           setShowEditModal(false);
           setSelectedEducator(null);
           setEditForm({});
+          setEditFieldUnlocks({
+            sickDaysRemaining: false,
+            vacationDaysRemaining: false,
+            vacationAccrualSettings: false,
+          });
         }}
         title={`Edit ${selectedEducator?.first_name} ${selectedEducator?.last_name}`}
         maxWidth="max-w-3xl"
@@ -1043,30 +1160,78 @@ export function EducatorsPage() {
                   </span>
                 </label>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Sick Hours Remaining
-                </label>
+              <LockedFieldShell
+                label="Sick Hours Remaining"
+                unlocked={editFieldUnlocks.sickDaysRemaining}
+                onUnlock={() => setEditFieldUnlocks((current) => ({ ...current, sickDaysRemaining: true }))}
+                helperText={editFieldUnlocks.sickDaysRemaining ? 'Manual override enabled for this edit session.' : 'Locked by default. Hover and click Edit to override the current balance.'}
+              >
                 <input
                   type="number"
                   step="0.5"
                   value={editForm.sickDaysRemaining}
                   onChange={(e) => setEditForm({ ...editForm, sickDaysRemaining: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                  className={getEditableInputClassName(editFieldUnlocks.sickDaysRemaining)}
+                  disabled={!editFieldUnlocks.sickDaysRemaining}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
-                  Vacation Hours Remaining
-                </label>
+              </LockedFieldShell>
+              <LockedFieldShell
+                label="Vacation Hours Remaining"
+                unlocked={editFieldUnlocks.vacationDaysRemaining && !editForm.vacationAccrualEnabled}
+                onUnlock={() => setEditFieldUnlocks((current) => ({ ...current, vacationDaysRemaining: true }))}
+                disableUnlock={editForm.vacationAccrualEnabled}
+                helperText={editForm.vacationAccrualEnabled
+                  ? 'Auto-calculated from scheduled hours to date while vacation accrual is enabled.'
+                  : (editFieldUnlocks.vacationDaysRemaining
+                    ? 'Manual override enabled for this edit session.'
+                    : 'Locked by default. Hover and click Edit to override the current balance.')}
+              >
                 <input
                   type="number"
                   step="0.5"
                   value={editForm.vacationDaysRemaining}
                   onChange={(e) => setEditForm({ ...editForm, vacationDaysRemaining: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+                  className={getEditableInputClassName(editFieldUnlocks.vacationDaysRemaining && !editForm.vacationAccrualEnabled)}
+                  disabled={!editFieldUnlocks.vacationDaysRemaining || editForm.vacationAccrualEnabled}
                 />
-              </div>
+              </LockedFieldShell>
+              <LockedFieldShell
+                label="Vacation Accrual Settings"
+                unlocked={editFieldUnlocks.vacationAccrualSettings}
+                onUnlock={() => setEditFieldUnlocks((current) => ({ ...current, vacationAccrualSettings: true }))}
+                helperText={editFieldUnlocks.vacationAccrualSettings
+                  ? 'Vacation accrual is stored as a percent and calculated from scheduled hours to date.'
+                  : 'Locked by default. Hover and click Edit to change the accrual rule.'}
+              >
+                <div className="space-y-3 rounded-2xl border themed-border px-4 py-3" style={{ backgroundColor: editFieldUnlocks.vacationAccrualSettings ? 'white' : '#f5f5f4' }}>
+                  <label className={`flex items-center ${editFieldUnlocks.vacationAccrualSettings ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.vacationAccrualEnabled}
+                      onChange={(e) => setEditForm({ ...editForm, vacationAccrualEnabled: e.target.checked })}
+                      disabled={!editFieldUnlocks.vacationAccrualSettings}
+                      className="w-5 h-5 rounded themed-border text-[var(--primary)] themed-ring"
+                    />
+                    <span className="ml-2 text-sm font-bold text-stone-700 font-quicksand">
+                      Enable Vacation Accrual
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.vacationAccrualRate}
+                      onChange={(e) => setEditForm({ ...editForm, vacationAccrualRate: e.target.value })}
+                      disabled={!editFieldUnlocks.vacationAccrualSettings}
+                      className={`${getEditableInputClassName(editFieldUnlocks.vacationAccrualSettings)} pr-10`}
+                    />
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-stone-400">
+                      %
+                    </span>
+                  </div>
+                </div>
+              </LockedFieldShell>
               <DateFieldButton
                 label="Date Employed"
                 value={editForm.dateEmployed}

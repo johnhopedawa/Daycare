@@ -2,6 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const {
+  DEFAULT_VACATION_ACCRUAL_RATE,
+  applyVacationAccrualSnapshots,
+  normalizeAccrualRate,
+} = require('../utils/leaveAccrual');
 
 const router = express.Router();
 const EMPLOYMENT_TYPES = new Set(['FULL_TIME', 'PART_TIME']);
@@ -163,7 +168,9 @@ router.get('/users', async (req, res) => {
                  payment_type, pay_frequency, salary_amount, date_of_birth,
                  address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                 carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
+                 carryover_enabled, date_employed, employment_type,
+                 vacation_accrual_enabled, vacation_accrual_rate,
+                 sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
                  created_at FROM users WHERE created_by = $1`;
     const params = [req.user.id];
 
@@ -175,7 +182,8 @@ router.get('/users', async (req, res) => {
     query += ' ORDER BY last_name, first_name';
 
     const result = await pool.query(query, params);
-    res.json({ users: result.rows });
+    const users = await applyVacationAccrualSnapshots(pool, result.rows);
+    res.json({ users });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -190,7 +198,8 @@ router.post('/users', async (req, res) => {
       paymentType, payFrequency, salaryAmount, dateOfBirth,
       addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, carryoverEnabled,
-      dateEmployed, employmentType, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
+      dateEmployed, employmentType, vacationAccrualEnabled, vacationAccrualRate,
+      sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
@@ -213,6 +222,11 @@ router.post('/users', async (req, res) => {
     const normalizedEmploymentType = normalizeEmploymentType(employmentType);
     const normalizedPaymentType = PAYMENT_TYPES.has(paymentType) ? paymentType : 'HOURLY';
     const normalizedPayFrequency = PAY_FREQUENCIES.has(payFrequency) ? payFrequency : 'BI_WEEKLY';
+    const normalizedVacationAccrualEnabled = Boolean(vacationAccrualEnabled);
+    const normalizedVacationAccrualRate = normalizeAccrualRate(
+      vacationAccrualRate,
+      DEFAULT_VACATION_ACCRUAL_RATE
+    );
     const parsedHourlyRate = normalizedPaymentType === 'HOURLY'
       ? (parseFloat(hourlyRate) || 0)
       : null;
@@ -230,14 +244,18 @@ router.post('/users', async (req, res) => {
         email, password_hash, first_name, last_name, role, hourly_rate, payment_type, pay_frequency, salary_amount, date_of_birth, created_by,
         address_line1, address_line2, city, province, postal_code,
         annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-        carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
+        carryover_enabled, date_employed, employment_type,
+        vacation_accrual_enabled, vacation_accrual_rate,
+        sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
        )
-       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
        RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
                  payment_type, pay_frequency, salary_amount, date_of_birth,
                  address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                 carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
+                 carryover_enabled, date_employed, employment_type,
+                 vacation_accrual_enabled, vacation_accrual_rate,
+                 sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
       [
         email, passwordHash, firstName, lastName, parsedHourlyRate,
         normalizedPaymentType, normalizedPayFrequency, parsedSalaryAmount, dateOfBirth || null, req.user.id,
@@ -250,6 +268,8 @@ router.post('/users', async (req, res) => {
         carryoverEnabled || false,
         dateEmployed || null,
         normalizedEmploymentType,
+        normalizedVacationAccrualEnabled,
+        normalizedVacationAccrualRate,
         sin || null,
         parseFloat(ytdGross) || 0,
         parseFloat(ytdCpp) || 0,
@@ -259,7 +279,8 @@ router.post('/users', async (req, res) => {
       ]
     );
 
-    res.json({ user: result.rows[0] });
+    const user = await applyVacationAccrualSnapshots(pool, result.rows[0]);
+    res.json({ user });
   } catch (error) {
     console.error('Create user error:', error);
     res.status(500).json({ error: 'Failed to create user' });
@@ -275,9 +296,24 @@ router.patch('/users/:id', async (req, res) => {
       paymentType, payFrequency, salaryAmount, dateOfBirth,
       addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, sickDaysRemaining, vacationDaysRemaining,
-      carryoverEnabled, dateEmployed, employmentType, sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
+      carryoverEnabled, dateEmployed, employmentType,
+      vacationAccrualEnabled, vacationAccrualRate,
+      sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
+    const existingUserResult = await pool.query(
+      `SELECT id, vacation_accrual_enabled
+       FROM users
+       WHERE id = $1
+         AND created_by = $2`,
+      [id, req.user.id]
+    );
+
+    if (existingUserResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentVacationAccrualEnabled = Boolean(existingUserResult.rows[0].vacation_accrual_enabled);
     const updates = [];
     const params = [];
 
@@ -368,8 +404,14 @@ router.patch('/users/:id', async (req, res) => {
     }
 
     if (vacationDaysRemaining !== undefined) {
-      params.push(parseFloat(vacationDaysRemaining) || 0);
-      updates.push(`vacation_days_remaining = $${params.length}`);
+      const effectiveVacationAccrualEnabled = vacationAccrualEnabled !== undefined
+        ? Boolean(vacationAccrualEnabled)
+        : currentVacationAccrualEnabled;
+
+      if (!effectiveVacationAccrualEnabled) {
+        params.push(parseFloat(vacationDaysRemaining) || 0);
+        updates.push(`vacation_days_remaining = $${params.length}`);
+      }
     }
 
     if (carryoverEnabled !== undefined) {
@@ -389,6 +431,16 @@ router.patch('/users/:id', async (req, res) => {
       }
       params.push(normalizedEmploymentType);
       updates.push(`employment_type = $${params.length}`);
+    }
+
+    if (vacationAccrualEnabled !== undefined) {
+      params.push(Boolean(vacationAccrualEnabled));
+      updates.push(`vacation_accrual_enabled = $${params.length}`);
+    }
+
+    if (vacationAccrualRate !== undefined) {
+      params.push(normalizeAccrualRate(vacationAccrualRate, DEFAULT_VACATION_ACCRUAL_RATE));
+      updates.push(`vacation_accrual_rate = $${params.length}`);
     }
 
     if (sin !== undefined) {
@@ -426,15 +478,19 @@ router.patch('/users/:id', async (req, res) => {
     }
 
     params.push(id);
+    params.push(req.user.id);
     const query = `
       UPDATE users
       SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $${params.length}
+      WHERE id = $${params.length - 1}
+        AND created_by = $${params.length}
       RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
                 payment_type, pay_frequency, salary_amount, date_of_birth,
                 address_line1, address_line2, city, province, postal_code,
                 annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-                carryover_enabled, date_employed, employment_type, sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
+                carryover_enabled, date_employed, employment_type,
+                vacation_accrual_enabled, vacation_accrual_rate,
+                sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
     `;
 
     const result = await pool.query(query, params);
@@ -443,7 +499,8 @@ router.patch('/users/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user: result.rows[0] });
+    const user = await applyVacationAccrualSnapshots(pool, result.rows[0]);
+    res.json({ user });
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });

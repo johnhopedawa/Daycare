@@ -1,3 +1,24 @@
+## Vacation Accrual And Locked Leave Balances (2026-03-13)
+- [ ] Confirm the current educator leave-balance fields, schedule-based payroll source, and paystub/pay-period touchpoints
+- [ ] Add educator vacation accrual settings plus locked-by-default leave balance editing in the profile UI/backend
+- [ ] Compute accrual-enabled vacation balances from schedule history and use them consistently in admin/paystub/auth responses
+- [ ] Update pay-period payout defaults so part-time accrual auto-pays vacation while full-time payouts expose an explicit payout toggle
+- [ ] Verify the changed backend/frontend paths and update `SYSTEM_DOCUMENTATION.xml` with review notes
+
+## Shared Date Picker Year Selection (2026-03-13)
+- [x] Record the educator birthday year-selection correction in `tasks/lessons.md`
+- [x] Add a clickable custom year picker to the shared date modal without native select controls
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and verify the frontend build for the shared picker change
+
+## Review
+- Updated [`frontend/src/components/modals/DatePickerModal.js`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) so the shared picker now has a clickable year chip that opens a custom year-grid view with previous/next year-range controls instead of forcing month-by-month navigation.
+- Selecting a year now keeps the custom-styled modal flow intact, returns to the calendar view automatically, and updates the underlying selected date without introducing any native browser dropdown/select controls.
+- While updating the picker, replaced the day-cell `aria-selected` usage with `aria-pressed` in [`frontend/src/components/modals/DatePickerModal.js`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js), which removes that file's prior accessibility lint warning.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to document the shared date-picker year navigation now used by educator birthdays.
+- Verification:
+- `node --check` passed for [`frontend/src/components/modals/DatePickerModal.js`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js).
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+
 ## Closed Pay Period Deletion (2026-03-13)
 - [x] Confirm whether payroll-related rows cascade safely when a pay period is deleted
 - [x] Allow deleting closed pay periods in the backend without leaving orphaned payroll data
@@ -140,6 +161,30 @@
 - `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
 - Live `GET /api/pay-periods/18/payouts` now returns the corrected stored hours and amounts.
 - Live paystub generation plus `GET /api/documents/paystubs/:id/details` returned the corrected values for both payout `7` and payout `8`, and the paystub payload now reports the real paystub id (`3` / `4`) instead of the payout id.
+
+## Closed Paystub HTML Breakdown Editing (2026-03-13)
+- [x] Inspect the current closed-period payout edit flow, paystub detail payload, and PDF generator line-item behavior
+- [x] Add persisted payout breakdown fields for regular, sick, vacation, stat, and retro line items
+- [x] Update backend payout edit and paystub detail paths so HTML preview and PDF generation use the same stored line-item data
+- [x] Replace the closed-period single-hours editor with an HTML paystub preview/editor that exposes editable hours and rate fields per line item
+- [x] Update `SYSTEM_DOCUMENTATION.xml`, `tasks/todo.md`, and `tasks/lessons.md` with the new behavior and the no-rebuild instruction
+- [ ] Verify the live backend flow after a future backend restart/redeploy picks up the new migration and route code
+
+## Review
+- Added migration [`backend/migrations/046_add_payout_breakdown_fields.sql`](/C:/src/Daycare/backend/migrations/046_add_payout_breakdown_fields.sql) to persist paystub line-item breakdown fields on `payouts` for regular, sick, vacation, stat, and retro hours/rates/current amounts, with backfill from the existing aggregate payout values.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so closed-period payout editing now accepts a structured paystub breakdown, recalculates stored `total_hours`, `hourly_rate`, `gross_amount`, and `net_amount` from those line items, and creates new payouts with the regular-pay line prefilled instead of only storing raw aggregate hours.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so paystub detail payloads include the persisted line-item fields, and retained the earlier paystub-id alias fix.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so the paystub PDF now prefers `regular_*` line-item fields for the Regular Pay row, which keeps the downloaded PDF aligned with the HTML preview/editor.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so:
+- the read-only `Open` paystub modal now shows an HTML pay table preview
+- the closed-period `Edit` flow now renders an HTML paystub-style table with editable hours and rate inputs for regular, sick, vacation, stat, and retro rows
+- live gross/net/hour totals recalculate in the modal before save
+- the paystub list compensation label prefers the stored payout rate instead of always showing the educator profile rate
+- follow-up tuning now uses whole-number spinner steps for hours/rates, defaults sick pay to `1.0x` of the current hourly rate, and defaults vacation pay to `1.0x` for full-time educators or `0.04x` of the hourly rate for part-time educators
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm run build` in `frontend/` succeeded with only the repo's existing warnings.
+- Per user instruction, I did not rebuild or restart the backend after these code changes, so the new migration and route behavior are not yet live in the running local API until your normal backend restart/redeploy path picks them up.
 
 - Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to replace all native date inputs in the create-period and auto-generate flows with the shared [`DatePickerModal`](/C:/src/Daycare/frontend/src/components/modals/DatePickerModal.js) pattern already used elsewhere in the portal.
 - Verification:

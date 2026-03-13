@@ -1,6 +1,12 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const {
+  DEFAULT_VACATION_ACCRUAL_RATE,
+  getVacationAccrualHours,
+  isVacationAccrualEnabled,
+  normalizeAccrualRate,
+} = require('../utils/leaveAccrual');
 
 const router = express.Router();
 
@@ -14,32 +20,193 @@ const safeNumber = (value, fallback = 0) => {
 
 const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
 
-const calculatePayoutFromProfile = ({ paymentType, hourlyRate, salaryAmount, totalHours, deductions }) => {
-  const normalizedPaymentType = paymentType === 'SALARY' ? 'SALARY' : 'HOURLY';
-  const normalizedHours = safeNumber(totalHours, 0);
-  const normalizedDeductions = roundCurrency(deductions);
+const PAYSTUB_COMPONENTS = [
+  { name: 'regular', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current' },
+  { name: 'sick', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
+  { name: 'vacation', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
+  { name: 'stat', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
+  { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
+];
 
-  if (normalizedPaymentType === 'SALARY') {
-    const grossAmount = roundCurrency(salaryAmount);
-    return {
-      paymentType: normalizedPaymentType,
-      totalHours: normalizedHours,
-      hourlyRate: 0,
-      grossAmount,
-      deductions: normalizedDeductions,
-      netAmount: roundCurrency(grossAmount - normalizedDeductions),
-    };
+const isFullTimeEmployment = (employmentType) => (
+  String(employmentType || '').toUpperCase() === 'FULL_TIME'
+);
+
+const isPartTimeEmployment = (employmentType) => (
+  String(employmentType || '').toUpperCase() === 'PART_TIME'
+);
+
+const getDefaultPaystubRate = ({ lineItem, baseHourlyRate, employmentType }) => {
+  const normalizedRate = roundCurrency(baseHourlyRate);
+
+  switch (lineItem) {
+    case 'regular':
+    case 'sick':
+    case 'vacation':
+      return normalizedRate;
+    default:
+      return 0;
+  }
+};
+
+const getVacationAccrualBreakdown = ({
+  paymentType,
+  hourlyRate,
+  employmentType,
+  vacationAccrualEnabled,
+  vacationAccrualRate,
+  workedHours,
+  payoutVacationAccrual,
+}) => {
+  const normalizedPaymentType = paymentType === 'SALARY' ? 'SALARY' : 'HOURLY';
+  const normalizedHourlyRate = roundCurrency(hourlyRate);
+  const accrualEnabled = isVacationAccrualEnabled({
+    vacation_accrual_enabled: vacationAccrualEnabled,
+  });
+  const accrualRate = normalizeAccrualRate(
+    vacationAccrualRate,
+    DEFAULT_VACATION_ACCRUAL_RATE
+  );
+  const accruedHours = accrualEnabled
+    ? getVacationAccrualHours({ workedHours, accrualRate })
+    : 0;
+  const payoutAutomatically = accrualEnabled && isPartTimeEmployment(employmentType);
+  const payoutAllowed = normalizedPaymentType === 'HOURLY' && (
+    payoutAutomatically || (isFullTimeEmployment(employmentType) && Boolean(payoutVacationAccrual))
+  );
+  const payoutHours = payoutAllowed ? accruedHours : 0;
+  const payoutRate = payoutHours > 0 ? normalizedHourlyRate : normalizedHourlyRate;
+  const payoutCurrent = roundCurrency(payoutHours * payoutRate);
+
+  return {
+    accrualEnabled,
+    accrualRate,
+    accruedHours,
+    payoutAutomatically,
+    payoutAllowed,
+    payoutHours,
+    payoutRate,
+    payoutCurrent,
+  };
+};
+
+const getDefaultBreakdown = ({
+  paymentType,
+  hourlyRate,
+  salaryAmount,
+  totalHours,
+  grossAmount,
+  employmentType,
+  vacationHours = null,
+  vacationRate = null,
+  vacationCurrent = null,
+}) => {
+  const baseHourlyRate = roundCurrency(hourlyRate);
+  const resolvedVacationHours = roundCurrency(
+    safeNumber(vacationHours, 0)
+  );
+  const resolvedVacationRate = roundCurrency(
+    safeNumber(vacationRate, getDefaultPaystubRate({ lineItem: 'vacation', baseHourlyRate, employmentType }))
+  );
+  const resolvedVacationCurrent = roundCurrency(
+    safeNumber(vacationCurrent, resolvedVacationHours * resolvedVacationRate)
+  );
+
+  return {
+    regular_hours: roundCurrency(totalHours),
+    regular_rate: getDefaultPaystubRate({ lineItem: 'regular', baseHourlyRate, employmentType }),
+    regular_pay_current: roundCurrency(
+      paymentType === 'SALARY'
+        ? safeNumber(salaryAmount, grossAmount)
+        : safeNumber(totalHours) * getDefaultPaystubRate({ lineItem: 'regular', baseHourlyRate, employmentType })
+    ),
+    sick_hours: 0,
+    sick_rate: getDefaultPaystubRate({ lineItem: 'sick', baseHourlyRate, employmentType }),
+    sick_pay_current: 0,
+    vacation_hours: resolvedVacationHours,
+    vacation_rate: resolvedVacationRate,
+    vacation_pay_current: resolvedVacationCurrent,
+    stat_hours: 0,
+    stat_rate: 0,
+    stat_pay_current: 0,
+    retro_hours: 0,
+    retro_rate: 0,
+    retro_payment_current: 0,
+  };
+};
+
+const getBreakdownFromRecord = (record, options = {}) => {
+  const defaults = getDefaultBreakdown({
+    paymentType: record.payment_type,
+    hourlyRate: safeNumber(
+      options.defaultHourlyRate,
+      record.regular_rate ?? record.hourly_rate ?? record.profile_hourly_rate
+    ),
+    salaryAmount: safeNumber(options.salaryAmount, record.profile_salary_amount),
+    totalHours: safeNumber(record.total_hours),
+    grossAmount: safeNumber(record.gross_amount),
+    employmentType: options.employmentType ?? record.employment_type,
+  });
+
+  return PAYSTUB_COMPONENTS.reduce((accumulator, component) => {
+    accumulator[component.hoursKey] = roundCurrency(
+      safeNumber(record[component.hoursKey], defaults[component.hoursKey])
+    );
+    accumulator[component.rateKey] = roundCurrency(
+      safeNumber(record[component.rateKey], defaults[component.rateKey])
+    );
+    accumulator[component.currentKey] = roundCurrency(
+      safeNumber(record[component.currentKey], defaults[component.currentKey])
+    );
+    return accumulator;
+  }, {});
+};
+
+const calculatePayoutFromBreakdown = ({
+  paymentType,
+  salaryAmount,
+  deductions,
+  breakdown,
+  defaultRegularRate,
+}) => {
+  const normalizedPaymentType = paymentType === 'SALARY' ? 'SALARY' : 'HOURLY';
+  const normalizedDeductions = roundCurrency(deductions);
+  const storedBreakdown = {};
+  let totalHours = 0;
+  let grossAmount = 0;
+
+  PAYSTUB_COMPONENTS.forEach((component) => {
+    const hours = roundCurrency(safeNumber(breakdown[component.hoursKey], 0));
+    const rateFallback = component.name === 'regular' ? safeNumber(defaultRegularRate) : 0;
+    const rate = roundCurrency(safeNumber(breakdown[component.rateKey], rateFallback));
+    let current = roundCurrency(hours * rate);
+
+    if (normalizedPaymentType === 'SALARY' && component.name === 'regular' && current === 0) {
+      current = roundCurrency(safeNumber(breakdown[component.currentKey], salaryAmount));
+    }
+
+    storedBreakdown[component.hoursKey] = hours;
+    storedBreakdown[component.rateKey] = rate;
+    storedBreakdown[component.currentKey] = current;
+    totalHours += hours;
+    grossAmount += current;
+  });
+
+  if (normalizedPaymentType === 'SALARY' && grossAmount === 0) {
+    storedBreakdown.regular_pay_current = roundCurrency(salaryAmount);
+    grossAmount = storedBreakdown.regular_pay_current;
   }
 
-  const normalizedHourlyRate = roundCurrency(hourlyRate);
-  const grossAmount = roundCurrency(normalizedHours * normalizedHourlyRate);
+  const roundedGross = roundCurrency(grossAmount);
+  const roundedHours = roundCurrency(totalHours);
   return {
     paymentType: normalizedPaymentType,
-    totalHours: normalizedHours,
-    hourlyRate: normalizedHourlyRate,
-    grossAmount,
+    totalHours: roundedHours,
+    hourlyRate: roundCurrency(storedBreakdown.regular_rate),
+    grossAmount: roundedGross,
     deductions: normalizedDeductions,
-    netAmount: roundCurrency(grossAmount - normalizedDeductions),
+    netAmount: roundCurrency(roundedGross - normalizedDeductions),
+    breakdown: storedBreakdown,
   };
 };
 
@@ -53,7 +220,8 @@ const matchesPeriodFrequency = (period, educator) => {
 
 const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
   const result = await db.query(
-    `SELECT id, first_name, last_name, payment_type, pay_frequency, hourly_rate, salary_amount
+    `SELECT id, first_name, last_name, payment_type, pay_frequency, hourly_rate, salary_amount, employment_type,
+            vacation_accrual_enabled, vacation_accrual_rate
      FROM users
      WHERE is_active = true
        AND role = 'EDUCATOR'
@@ -71,6 +239,12 @@ const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
       pay_frequency: educator.pay_frequency,
       hourly_rate: safeNumber(educator.hourly_rate),
       salary_amount: safeNumber(educator.salary_amount),
+      employment_type: educator.employment_type,
+      vacation_accrual_enabled: Boolean(educator.vacation_accrual_enabled),
+      vacation_accrual_rate: normalizeAccrualRate(
+        educator.vacation_accrual_rate,
+        DEFAULT_VACATION_ACCRUAL_RATE
+      ),
     }));
 };
 
@@ -113,10 +287,27 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals) => {
   educators.forEach((educator) => {
     if (educator.payment_type === 'SALARY') {
       const grossAmount = roundCurrency(educator.salary_amount);
+      const vacationAccrual = getVacationAccrualBreakdown({
+        paymentType: educator.payment_type,
+        hourlyRate: educator.hourly_rate,
+        employmentType: educator.employment_type,
+        vacationAccrualEnabled: educator.vacation_accrual_enabled,
+        vacationAccrualRate: educator.vacation_accrual_rate,
+        workedHours: safeNumber(scheduleTotalsByUser.get(educator.id)?.total_hours),
+        payoutVacationAccrual: false,
+      });
       salariedEmployees.push({
         id: educator.id,
         first_name: educator.first_name,
         last_name: educator.last_name,
+        employment_type: educator.employment_type,
+        vacation_accrual_enabled: educator.vacation_accrual_enabled,
+        vacation_accrual_rate: educator.vacation_accrual_rate,
+        accrued_vacation_hours: vacationAccrual.accruedHours,
+        vacation_payout_available_hours: isFullTimeEmployment(educator.employment_type)
+          ? vacationAccrual.accruedHours
+          : 0,
+        vacation_payout_auto: vacationAccrual.payoutAutomatically,
         salary_amount: educator.salary_amount,
         gross_amount: grossAmount,
         deductions: 0,
@@ -127,12 +318,31 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals) => {
 
     const scheduleSummary = scheduleTotalsByUser.get(educator.id);
     const totalHours = roundCurrency(scheduleSummary?.total_hours || 0);
-    const grossAmount = roundCurrency(totalHours * educator.hourly_rate);
+    const vacationAccrual = getVacationAccrualBreakdown({
+      paymentType: educator.payment_type,
+      hourlyRate: educator.hourly_rate,
+      employmentType: educator.employment_type,
+      vacationAccrualEnabled: educator.vacation_accrual_enabled,
+      vacationAccrualRate: educator.vacation_accrual_rate,
+      workedHours: totalHours,
+      payoutVacationAccrual: false,
+    });
+    const grossAmount = roundCurrency(
+      (totalHours * educator.hourly_rate) + vacationAccrual.payoutCurrent
+    );
 
     hourlyEmployees.push({
       id: educator.id,
       first_name: educator.first_name,
       last_name: educator.last_name,
+      employment_type: educator.employment_type,
+      vacation_accrual_enabled: educator.vacation_accrual_enabled,
+      vacation_accrual_rate: educator.vacation_accrual_rate,
+      accrued_vacation_hours: vacationAccrual.accruedHours,
+      vacation_payout_available_hours: isFullTimeEmployment(educator.employment_type)
+        ? vacationAccrual.accruedHours
+        : 0,
+      vacation_payout_auto: vacationAccrual.payoutAutomatically,
       hourly_rate: educator.hourly_rate,
       total_hours: totalHours,
       scheduled_shifts: safeNumber(scheduleSummary?.scheduled_shifts),
@@ -168,7 +378,8 @@ router.get('/', async (req, res) => {
 
     const [educatorsResult, schedulesResult, timeEntriesResult, payoutsResult] = await Promise.all([
       pool.query(
-        `SELECT id, payment_type, pay_frequency, hourly_rate, salary_amount
+        `SELECT id, payment_type, pay_frequency, hourly_rate, salary_amount, employment_type,
+                vacation_accrual_enabled, vacation_accrual_rate
          FROM users
          WHERE is_active = true
            AND role = 'EDUCATOR'
@@ -214,6 +425,12 @@ router.get('/', async (req, res) => {
       pay_frequency: educator.pay_frequency,
       hourly_rate: safeNumber(educator.hourly_rate),
       salary_amount: safeNumber(educator.salary_amount),
+      employment_type: educator.employment_type,
+      vacation_accrual_enabled: Boolean(educator.vacation_accrual_enabled),
+      vacation_accrual_rate: normalizeAccrualRate(
+        educator.vacation_accrual_rate,
+        DEFAULT_VACATION_ACCRUAL_RATE
+      ),
     }));
 
     const payPeriods = periods.map((period) => {
@@ -262,6 +479,16 @@ router.get('/', async (req, res) => {
           employeeCount += 1;
           totalHours += scheduledHours;
           totalAmount += scheduledHours * safeNumber(educator.hourly_rate);
+          const vacationAccrual = getVacationAccrualBreakdown({
+            paymentType: educator.payment_type,
+            hourlyRate: educator.hourly_rate,
+            employmentType: educator.employment_type,
+            vacationAccrualEnabled: educator.vacation_accrual_enabled,
+            vacationAccrualRate: educator.vacation_accrual_rate,
+            workedHours: scheduledHours,
+            payoutVacationAccrual: false,
+          });
+          totalAmount += vacationAccrual.payoutCurrent;
         });
 
         return {
@@ -543,15 +770,69 @@ router.post('/:id/close', async (req, res) => {
     for (const entry of hourlyEmployees) {
       const hourlyRate = roundCurrency(entry.hourly_rate);
       const totalHours = roundCurrency(entry.total_hours);
-      const grossAmount = roundCurrency(entry.gross_amount);
+      const vacationAccrual = getVacationAccrualBreakdown({
+        paymentType: 'HOURLY',
+        hourlyRate,
+        employmentType: entry.employment_type,
+        vacationAccrualEnabled: entry.vacation_accrual_enabled,
+        vacationAccrualRate: entry.vacation_accrual_rate,
+        workedHours: totalHours,
+        payoutVacationAccrual: false,
+      });
+      const regularGrossAmount = roundCurrency(totalHours * hourlyRate);
+      const grossAmount = roundCurrency(regularGrossAmount + vacationAccrual.payoutCurrent);
       const deductions = 0;
       const netAmount = roundCurrency(entry.net_amount);
+      const breakdown = getDefaultBreakdown({
+        paymentType: 'HOURLY',
+        hourlyRate,
+        salaryAmount: 0,
+        totalHours,
+        grossAmount: regularGrossAmount,
+        employmentType: entry.employment_type,
+        vacationHours: vacationAccrual.payoutHours,
+        vacationRate: vacationAccrual.payoutRate,
+        vacationCurrent: vacationAccrual.payoutCurrent,
+      });
 
       await client.query(
         `INSERT INTO payouts
-         (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, entry.id, totalHours, hourlyRate, grossAmount, deductions, netAmount]
+         (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount,
+          regular_hours, regular_rate, regular_pay_current,
+          sick_hours, sick_rate, sick_pay_current,
+          vacation_hours, vacation_rate, vacation_pay_current,
+          stat_hours, stat_rate, stat_pay_current,
+          retro_hours, retro_rate, retro_payment_current)
+         VALUES ($1, $2, $3, $4, $5, $6, $7,
+                 $8, $9, $10,
+                 $11, $12, $13,
+                 $14, $15, $16,
+                 $17, $18, $19,
+                 $20, $21, $22)`,
+        [
+          id,
+          entry.id,
+          totalHours,
+          hourlyRate,
+          grossAmount,
+          deductions,
+          netAmount,
+          breakdown.regular_hours,
+          breakdown.regular_rate,
+          breakdown.regular_pay_current,
+          breakdown.sick_hours,
+          breakdown.sick_rate,
+          breakdown.sick_pay_current,
+          breakdown.vacation_hours,
+          breakdown.vacation_rate,
+          breakdown.vacation_pay_current,
+          breakdown.stat_hours,
+          breakdown.stat_rate,
+          breakdown.stat_pay_current,
+          breakdown.retro_hours,
+          breakdown.retro_rate,
+          breakdown.retro_payment_current,
+        ]
       );
     }
 
@@ -559,12 +840,53 @@ router.post('/:id/close', async (req, res) => {
       const grossAmount = roundCurrency(emp.gross_amount);
       const deductions = 0;
       const netAmount = roundCurrency(emp.net_amount);
+      const breakdown = getDefaultBreakdown({
+        paymentType: 'SALARY',
+        hourlyRate: 0,
+        salaryAmount: grossAmount,
+        totalHours: 0,
+        grossAmount,
+        employmentType: emp.employment_type,
+      });
 
       await client.query(
         `INSERT INTO payouts
-         (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, emp.id, 0, 0, grossAmount, deductions, netAmount]
+         (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount,
+          regular_hours, regular_rate, regular_pay_current,
+          sick_hours, sick_rate, sick_pay_current,
+          vacation_hours, vacation_rate, vacation_pay_current,
+          stat_hours, stat_rate, stat_pay_current,
+          retro_hours, retro_rate, retro_payment_current)
+         VALUES ($1, $2, $3, $4, $5, $6, $7,
+                 $8, $9, $10,
+                 $11, $12, $13,
+                 $14, $15, $16,
+                 $17, $18, $19,
+                 $20, $21, $22)`,
+        [
+          id,
+          emp.id,
+          0,
+          0,
+          grossAmount,
+          deductions,
+          netAmount,
+          breakdown.regular_hours,
+          breakdown.regular_rate,
+          breakdown.regular_pay_current,
+          breakdown.sick_hours,
+          breakdown.sick_rate,
+          breakdown.sick_pay_current,
+          breakdown.vacation_hours,
+          breakdown.vacation_rate,
+          breakdown.vacation_pay_current,
+          breakdown.stat_hours,
+          breakdown.stat_rate,
+          breakdown.stat_pay_current,
+          breakdown.retro_hours,
+          breakdown.retro_rate,
+          breakdown.retro_payment_current,
+        ]
       );
     }
 
@@ -599,7 +921,8 @@ router.get('/:id/payouts', async (req, res) => {
     const result = await pool.query(
       `SELECT p.*, u.first_name, u.last_name, u.email,
               u.payment_type, u.hourly_rate AS profile_hourly_rate,
-              u.salary_amount AS profile_salary_amount, u.employment_type
+              u.salary_amount AS profile_salary_amount, u.employment_type,
+              u.vacation_accrual_enabled, u.vacation_accrual_rate
              , ps.id AS paystub_id, ps.stub_number, ps.generated_at AS paystub_generated_at
        FROM payouts p
        JOIN users u ON p.user_id = u.id
@@ -626,25 +949,15 @@ router.patch('/payouts/:id', async (req, res) => {
     await client.query('BEGIN');
 
     const { id } = req.params;
-    const { totalHours } = req.body;
-
-    if (totalHours === undefined) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Total hours is required' });
-    }
-
-    const parsedHours = Number(totalHours);
-    if (!Number.isFinite(parsedHours) || parsedHours < 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Total hours must be a non-negative number' });
-    }
+    const { totalHours, breakdown, payoutVacationAccrual } = req.body;
 
     const payoutResult = await client.query(
       `SELECT p.*, pp.status AS pay_period_status,
               u.first_name, u.last_name, u.email, u.payment_type,
               u.hourly_rate AS profile_hourly_rate,
               u.salary_amount AS profile_salary_amount,
-              u.employment_type
+              u.employment_type,
+              u.vacation_accrual_enabled, u.vacation_accrual_rate
        FROM payouts p
        JOIN pay_periods pp ON pp.id = p.pay_period_id
        JOIN users u ON u.id = p.user_id
@@ -665,12 +978,92 @@ router.patch('/payouts/:id', async (req, res) => {
       return res.status(400).json({ error: 'Only payouts from closed pay periods can be edited' });
     }
 
-    const recalculated = calculatePayoutFromProfile({
+    let normalizedBreakdown;
+    if (breakdown && typeof breakdown === 'object') {
+      normalizedBreakdown = {};
+      let breakdownIsValid = true;
+
+      PAYSTUB_COMPONENTS.forEach((component) => {
+        if (!breakdownIsValid) {
+          return;
+        }
+
+        const hoursValue = breakdown[component.hoursKey];
+        const rateValue = breakdown[component.rateKey];
+
+        if (hoursValue === undefined || rateValue === undefined) {
+          breakdownIsValid = false;
+          return;
+        }
+
+        const parsedHours = Number(hoursValue);
+        const parsedRate = Number(rateValue);
+        if (!Number.isFinite(parsedHours) || parsedHours < 0 || !Number.isFinite(parsedRate) || parsedRate < 0) {
+          breakdownIsValid = false;
+          return;
+        }
+
+        normalizedBreakdown[component.hoursKey] = parsedHours;
+        normalizedBreakdown[component.rateKey] = parsedRate;
+        normalizedBreakdown[component.currentKey] = safeNumber(breakdown[component.currentKey]);
+      });
+
+      if (!breakdownIsValid) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Each paystub line must include non-negative hours and rate values' });
+      }
+    } else {
+      if (totalHours === undefined) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Paystub breakdown is required' });
+      }
+
+      const parsedHours = Number(totalHours);
+      if (!Number.isFinite(parsedHours) || parsedHours < 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Total hours must be a non-negative number' });
+      }
+
+      normalizedBreakdown = getDefaultBreakdown({
+        paymentType: payout.payment_type,
+        hourlyRate: safeNumber(payout.profile_hourly_rate, payout.hourly_rate),
+        salaryAmount: safeNumber(payout.profile_salary_amount),
+        totalHours: parsedHours,
+        grossAmount: parsedHours * safeNumber(payout.profile_hourly_rate, payout.hourly_rate),
+        employmentType: payout.employment_type,
+      });
+    }
+
+    const payoutProfileBreakdown = {
+      ...getBreakdownFromRecord(payout, {
+        defaultHourlyRate: payout.profile_hourly_rate,
+        salaryAmount: payout.profile_salary_amount,
+        employmentType: payout.employment_type,
+      }),
+      ...normalizedBreakdown,
+    };
+    const vacationAccrual = getVacationAccrualBreakdown({
       paymentType: payout.payment_type,
-      hourlyRate: payout.profile_hourly_rate,
+      hourlyRate: safeNumber(payout.profile_hourly_rate, payout.hourly_rate),
+      employmentType: payout.employment_type,
+      vacationAccrualEnabled: payout.vacation_accrual_enabled,
+      vacationAccrualRate: payout.vacation_accrual_rate,
+      workedHours: safeNumber(payoutProfileBreakdown.regular_hours),
+      payoutVacationAccrual,
+    });
+
+    if (vacationAccrual.accrualEnabled) {
+      payoutProfileBreakdown.vacation_hours = vacationAccrual.payoutHours;
+      payoutProfileBreakdown.vacation_rate = vacationAccrual.payoutRate;
+      payoutProfileBreakdown.vacation_pay_current = vacationAccrual.payoutCurrent;
+    }
+
+    const recalculated = calculatePayoutFromBreakdown({
+      paymentType: payout.payment_type,
       salaryAmount: payout.profile_salary_amount,
-      totalHours: parsedHours,
       deductions: payout.deductions,
+      breakdown: payoutProfileBreakdown,
+      defaultRegularRate: payout.profile_hourly_rate,
     });
 
     const updateResult = await client.query(
@@ -679,8 +1072,23 @@ router.patch('/payouts/:id', async (req, res) => {
            hourly_rate = $2,
            gross_amount = $3,
            deductions = $4,
-           net_amount = $5
-       WHERE id = $6
+           net_amount = $5,
+           regular_hours = $6,
+           regular_rate = $7,
+           regular_pay_current = $8,
+           sick_hours = $9,
+           sick_rate = $10,
+           sick_pay_current = $11,
+           vacation_hours = $12,
+           vacation_rate = $13,
+           vacation_pay_current = $14,
+           stat_hours = $15,
+           stat_rate = $16,
+           stat_pay_current = $17,
+           retro_hours = $18,
+           retro_rate = $19,
+           retro_payment_current = $20
+       WHERE id = $21
        RETURNING *`,
       [
         recalculated.totalHours,
@@ -688,6 +1096,21 @@ router.patch('/payouts/:id', async (req, res) => {
         recalculated.grossAmount,
         recalculated.deductions,
         recalculated.netAmount,
+        recalculated.breakdown.regular_hours,
+        recalculated.breakdown.regular_rate,
+        recalculated.breakdown.regular_pay_current,
+        recalculated.breakdown.sick_hours,
+        recalculated.breakdown.sick_rate,
+        recalculated.breakdown.sick_pay_current,
+        recalculated.breakdown.vacation_hours,
+        recalculated.breakdown.vacation_rate,
+        recalculated.breakdown.vacation_pay_current,
+        recalculated.breakdown.stat_hours,
+        recalculated.breakdown.stat_rate,
+        recalculated.breakdown.stat_pay_current,
+        recalculated.breakdown.retro_hours,
+        recalculated.breakdown.retro_rate,
+        recalculated.breakdown.retro_payment_current,
         id,
       ]
     );
@@ -712,6 +1135,8 @@ router.patch('/payouts/:id', async (req, res) => {
         profile_hourly_rate: payout.profile_hourly_rate,
         profile_salary_amount: payout.profile_salary_amount,
         employment_type: payout.employment_type,
+        vacation_accrual_enabled: payout.vacation_accrual_enabled,
+        vacation_accrual_rate: payout.vacation_accrual_rate,
         paystub_id: paystubResult.rows[0]?.paystub_id || null,
         stub_number: paystubResult.rows[0]?.stub_number || null,
         paystub_generated_at: paystubResult.rows[0]?.paystub_generated_at || null,

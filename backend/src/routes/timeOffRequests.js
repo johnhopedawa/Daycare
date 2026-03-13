@@ -160,10 +160,16 @@ router.post('/:id/approve', requireAdmin, async (req, res) => {
       );
     }
     if (request.request_type === 'VACATION') {
-      await client.query(
-        'UPDATE users SET vacation_days_remaining = vacation_days_remaining - $1 WHERE id = $2',
-        [hoursToDeduct, request.user_id]
+      const accrualResult = await client.query(
+        'SELECT vacation_accrual_enabled FROM users WHERE id = $1',
+        [request.user_id]
       );
+      if (!accrualResult.rows[0]?.vacation_accrual_enabled) {
+        await client.query(
+          'UPDATE users SET vacation_days_remaining = vacation_days_remaining - $1 WHERE id = $2',
+          [hoursToDeduct, request.user_id]
+        );
+      }
     }
 
     const result = await client.query(

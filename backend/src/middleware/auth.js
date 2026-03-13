@@ -1,5 +1,6 @@
 const { verifyToken } = require('../utils/jwt');
 const pool = require('../db/pool');
+const { applyVacationAccrualSnapshots } = require('../utils/leaveAccrual');
 
 /**
  * Unified authentication middleware for all user types (ADMIN, EDUCATOR, PARENT)
@@ -26,7 +27,9 @@ async function requireAuth(req, res, next) {
       `SELECT id, email, first_name, last_name, role, hourly_rate, is_active,
               address_line1, address_line2, city, province, postal_code,
               annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
-              carryover_enabled, date_employed, employment_type, created_by, must_reset_password
+              carryover_enabled, date_employed, employment_type,
+              vacation_accrual_enabled, vacation_accrual_rate,
+              created_by, must_reset_password
        FROM users WHERE id = $1`,
       [decoded.id]
     );
@@ -35,7 +38,7 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'User not found or inactive' });
     }
 
-    req.user = result.rows[0];
+    req.user = await applyVacationAccrualSnapshots(pool, result.rows[0]);
 
     // For PARENT users, bind parent profile strictly to this authenticated user.
     if (req.user.role === 'PARENT') {

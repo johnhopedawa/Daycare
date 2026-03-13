@@ -199,6 +199,18 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const ytdEi = safeNumber(user.ytd_ei) ?? 0;
       const ytdTaxTotal = ytdTax + ytdCpp + ytdEi;
       const isFullTime = String(user.employment_type || '').toUpperCase() === 'FULL_TIME';
+      const isPartTime = String(user.employment_type || '').toUpperCase() === 'PART_TIME';
+      const baseHourlyRate = safeNumber(payout.regular_rate) ?? safeNumber(payout.hourly_rate) ?? 0;
+      const getDefaultPayRate = (lineItem) => {
+        switch (lineItem) {
+          case 'regular':
+          case 'sick':
+          case 'vacation':
+            return baseHourlyRate;
+          default:
+            return 0;
+        }
+      };
 
       const buildPayRow = (label, values = {}) => {
         const hours = safeNumber(values.hours);
@@ -379,20 +391,20 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const payHeaders = ['PAY', 'Hours', 'Rate', 'Current', 'YTD'];
       const payRows = [
         buildPayRow('Regular Pay', {
-          hours: payout.total_hours,
-          rate: payout.hourly_rate,
-          current: gross,
+          hours: getNumericValue(payout, ['regular_hours', 'total_hours']),
+          rate: getNumericValue(payout, ['regular_rate', 'hourly_rate']),
+          current: getNumericValue(payout, ['regular_pay_current', 'gross_amount']),
           ytd: ytdGross,
         }),
         buildPayRow('Sick Pay', {
           hours: getNumericValue(payout, ['sick_hours', 'sick_pay_hours']),
-          rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']),
+          rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']) || getDefaultPayRate('sick'),
           current: getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount']),
           ytd: getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
         }),
         buildPayRow('Vacation Pay', {
           hours: getNumericValue(payout, ['vacation_hours', 'vacation_pay_hours']),
-          rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']),
+          rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']) || getDefaultPayRate('vacation'),
           current: getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount']),
           ytd: getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
         }),
