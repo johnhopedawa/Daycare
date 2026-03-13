@@ -1,3 +1,47 @@
+## Staff Scheduling Backdated Shift Fix (2026-03-13)
+- [x] Confirm the required scheduling and payroll context from `SYSTEM_DOCUMENTATION.xml`, `STRUCTURE.md`, and the relevant routes/pages
+- [x] Remove the UI restriction that prevents admins from creating staff shifts on previous dates
+- [x] Verify the current payroll/pay-period data source and document whether scheduled shifts flow into payroll automatically
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
+
+## Pay Period Delete And PDF Export (2026-03-13)
+- [x] Confirm the required payroll/pay-period context from `SYSTEM_DOCUMENTATION.xml`, `STRUCTURE.md`, and the relevant routes/pages
+- [x] Add a backend pay-period delete path with guardrails that avoid reopening already-closed payroll history
+- [x] Replace the pay-period Excel export with a readable payroll summary PDF export
+- [x] Update the pay periods UI to expose delete actions and the new PDF download flow
+- [x] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
+- [x] Run focused verification for the changed backend/frontend paths and record the outcome
+
+## Pay Period Frequency Dropdown UI (2026-03-13)
+- [x] Confirm the pay periods page still uses a native select for frequency
+- [x] Replace the native frequency select with the existing menu-based dropdown pattern used elsewhere in the portal
+- [x] Verify the pay periods page build/render path after the control swap
+- [x] Add review notes for the UI-only change
+
+## Pay Dates And Paystub Preview Flow (2026-03-13)
+- [x] Confirm the existing pay period, payout, and paystub backend/frontend flows
+- [ ] Add data support for `pay_date` on pay periods and carry it through paystub/PDF generation
+- [ ] Add admin access to create/view employee-specific paystubs from a pay period
+- [ ] Replace the closed-period payroll summary download button with an in-app PDF preview modal that also supports download
+- [ ] Update `SYSTEM_DOCUMENTATION.xml` and this task log with the resulting behavior and review notes
+- [ ] Run focused verification for migration syntax, backend route syntax, and frontend build/render path
+
+## Review
+- Added an admin-only delete endpoint in [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) that only allows deleting `OPEN` periods and blocks removal when payouts already exist, so closed payroll windows do not quietly reopen historical time-entry edits.
+- Replaced the pay-period Excel export route in [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) with a PDF export route backed by [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js). The generated PDF includes pay-period metadata, payroll summary totals, and a readable employee payout table.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to show delete actions for open periods, download PDFs for closed periods, and use the existing menu-style frequency selector in the auto-generate modal instead of a native browser dropdown.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to reflect the new delete guardrails, PDF export endpoint, and menu-based frequency selector behavior.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- A direct backend invocation of `generatePayrollSummaryPdf` produced a PDF buffer successfully.
+- `rg -n "<select" frontend/src/pages/PayPeriodsPage.js` returned no matches after the control swap.
+- `npm run build` in `frontend/` succeeded with pre-existing repo warnings only.
+
+## Review
+- Removed the past-date block in [`frontend/src/components/modals/AddShiftModal.js`](/C:/src/Daycare/frontend/src/components/modals/AddShiftModal.js) by stopping the modal from passing `disablePast` into the shared date/time picker. The backend scheduling endpoints already accepted previous `shiftDate` values, so no API change was required.
+- Confirmed payroll is not currently schedule-driven. [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) builds pay-period previews and payouts from approved `time_entries` within the period date range, not from `schedules`.
+- Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record both behaviors: backdated admin shift creation is allowed, and pay periods still depend on approved time entries.
+
 ## Short-Path Mobile Workspace (2026-03-13)
 - [x] Confirm the standalone `native-mobile/` workspace can be copied independently of the rest of the repo
 - [ ] Create a short-path Windows copy at `C:\src\daycare` for native Android builds

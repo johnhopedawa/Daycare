@@ -161,7 +161,9 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       const net = safeNumber(payout.net_amount);
       const netPay = net !== null ? net : gross - deductions;
 
-      const payDate = formatDate(payout.payout_created_at || payPeriod.end_date || payPeriod.start_date);
+      const payDate = formatDate(
+        payPeriod.pay_date || payout.payout_created_at || payPeriod.end_date || payPeriod.start_date
+      );
 
       const annualVac = safeNumber(user.annual_vacation_days);
       const annualSick = safeNumber(user.annual_sick_days);
@@ -1142,4 +1144,300 @@ function generateInvoice(invoice, parent, context = {}) {
   });
 }
 
-module.exports = { generatePaystub, generateReceipt, generateInvoice };
+function generatePayrollSummaryPdf(payPeriod, payouts, context = {}) {
+  return new Promise((resolve, reject) => {
+    try {
+      const { daycare = {} } = context;
+      const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 0 });
+      const chunks = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const colors = {
+        ink: '#2f241f',
+        muted: '#6f6259',
+        accent: '#b15a1a',
+        panel: '#f8f1ea',
+        panelBorder: '#e4d2c3',
+        tableHeader: '#f1e4d8',
+        rowAlt: '#fcf8f4',
+        line: '#dbc7b8',
+      };
+
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const left = 42;
+      const right = pageWidth - 42;
+      const top = 40;
+      const bottom = pageHeight - 40;
+      const contentWidth = right - left;
+
+      const daycareName = getField(daycare, ['name', 'daycare_name'], 'Daycare Management System');
+      const addressLine1 = getField(daycare, ['address_line1', 'addressLine1']);
+      const addressLine2 = getField(daycare, ['address_line2', 'addressLine2']);
+      const daycareCity = getField(daycare, ['city']);
+      const daycareProvince = getField(daycare, ['province', 'region']);
+      const daycarePostal = getField(daycare, ['postal_code', 'postalCode']);
+      const addressLines = [addressLine1, addressLine2, [daycareCity, daycareProvince, daycarePostal].filter(Boolean).join(' ')].filter(Boolean);
+
+      const safeNumber = (value) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : 0;
+      };
+
+      const normalizedPayouts = Array.isArray(payouts)
+        ? payouts.map((payout) => {
+            const totalHours = safeNumber(payout.total_hours);
+            const hourlyRate = safeNumber(payout.hourly_rate);
+            const grossAmount = safeNumber(payout.gross_amount);
+            const deductions = safeNumber(payout.deductions);
+            const netAmount = safeNumber(payout.net_amount);
+            const payType = totalHours > 0 || hourlyRate > 0 ? 'Hourly' : 'Salary';
+
+            return {
+              employeeName: `${payout.first_name || ''} ${payout.last_name || ''}`.trim() || payout.email || 'Unknown',
+              payType,
+              totalHours,
+              hourlyRate,
+              grossAmount,
+              deductions,
+              netAmount,
+            };
+          })
+        : [];
+
+      const totals = normalizedPayouts.reduce(
+        (summary, payout) => ({
+          employeeCount: summary.employeeCount + 1,
+          totalHours: summary.totalHours + payout.totalHours,
+          grossAmount: summary.grossAmount + payout.grossAmount,
+          deductions: summary.deductions + payout.deductions,
+          netAmount: summary.netAmount + payout.netAmount,
+        }),
+        {
+          employeeCount: 0,
+          totalHours: 0,
+          grossAmount: 0,
+          deductions: 0,
+          netAmount: 0,
+        }
+      );
+
+      const tableColumns = [
+        { key: 'employeeName', label: 'Employee', width: 182, align: 'left' },
+        { key: 'payType', label: 'Type', width: 72, align: 'left' },
+        { key: 'totalHours', label: 'Hours', width: 64, align: 'right' },
+        { key: 'hourlyRate', label: 'Rate', width: 78, align: 'right' },
+        { key: 'grossAmount', label: 'Gross', width: 90, align: 'right' },
+        { key: 'deductions', label: 'Deductions', width: 96, align: 'right' },
+        { key: 'netAmount', label: 'Net Pay', width: 90, align: 'right' },
+      ];
+
+      const rowHeight = 24;
+      const tableHeaderHeight = 24;
+      let y = top;
+
+      const formatHours = (value) => safeNumber(value).toFixed(2);
+      const formatRate = (payout) => (
+        payout.payType === 'Salary' && payout.hourlyRate === 0
+          ? '-'
+          : formatCurrency(payout.hourlyRate)
+      );
+
+      const drawSummaryCard = ({ x, label, value, width }) => {
+        doc.save();
+        doc.roundedRect(x, y, width, 54, 12).fillAndStroke(colors.panel, colors.panelBorder);
+        doc.restore();
+
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.muted).text(label, x + 14, y + 12, {
+          width: width - 28,
+        });
+        doc.font('Times-Roman').fontSize(18).fillColor(colors.ink).text(value, x + 14, y + 25, {
+          width: width - 28,
+        });
+      };
+
+      const drawTableHeader = () => {
+        let x = left;
+
+        doc.save();
+        doc.roundedRect(left, y, contentWidth, tableHeaderHeight, 8).fill(colors.tableHeader);
+        doc.restore();
+
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(colors.muted);
+        tableColumns.forEach((column) => {
+          doc.text(column.label, x + 8, y + 8, {
+            width: column.width - 16,
+            align: column.align,
+          });
+          x += column.width;
+        });
+
+        y += tableHeaderHeight + 6;
+      };
+
+      const drawCompactHeader = () => {
+        y = top;
+        doc.font('Times-Roman').fontSize(22).fillColor(colors.accent).text('Payroll Summary', left, y, {
+          width: contentWidth / 2,
+        });
+        doc.font('Helvetica').fontSize(10).fillColor(colors.muted).text(
+          `${payPeriod.name || 'Pay Period'} | ${formatDate(payPeriod.start_date)} - ${formatDate(payPeriod.end_date)}`,
+          left,
+          y + 26,
+          { width: contentWidth }
+        );
+        y += 54;
+        drawTableHeader();
+      };
+
+      const ensureSpace = (height) => {
+        if (y + height <= bottom) {
+          return;
+        }
+
+        doc.addPage({ size: 'LETTER', layout: 'landscape', margin: 0 });
+        drawCompactHeader();
+      };
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.muted).text(
+        `PAYROLL PERIOD #${payPeriod.id || ''}`.trim(),
+        left,
+        y
+      );
+      y += 18;
+
+      doc.font('Times-Roman').fontSize(30).fillColor(colors.accent).text('Payroll Summary', left, y, {
+        width: contentWidth * 0.55,
+      });
+
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink).text(daycareName, left, y + 8, {
+        width: contentWidth,
+        align: 'right',
+      });
+      if (addressLines.length > 0) {
+        doc.font('Helvetica').fontSize(9).fillColor(colors.muted).text(addressLines.join('\n'), right - 180, y + 24, {
+          width: 180,
+          align: 'right',
+          lineGap: 1,
+        });
+      }
+
+      y += 48;
+
+      doc.font('Helvetica').fontSize(10).fillColor(colors.ink);
+      doc.text(`Period: ${payPeriod.name || 'Unnamed pay period'}`, left, y, { width: contentWidth * 0.5 });
+      doc.text(`Dates: ${formatDate(payPeriod.start_date)} - ${formatDate(payPeriod.end_date)}`, left, y + 16, {
+        width: contentWidth * 0.5,
+      });
+      doc.text(`Pay date: ${formatDate(payPeriod.pay_date || payPeriod.end_date)}`, left, y + 32, {
+        width: contentWidth * 0.5,
+      });
+      doc.text(`Status: ${payPeriod.status || 'OPEN'}`, left, y + 48, { width: contentWidth * 0.5 });
+
+      doc.text(`Generated: ${formatDate(new Date())}`, right - 180, y, {
+        width: 180,
+        align: 'right',
+      });
+      doc.text(`Employees: ${totals.employeeCount}`, right - 180, y + 16, {
+        width: 180,
+        align: 'right',
+      });
+      doc.text(`Total net pay: ${formatCurrency(totals.netAmount)}`, right - 180, y + 32, {
+        width: 180,
+        align: 'right',
+      });
+
+      y += 78;
+
+      const cardGap = 12;
+      const cardWidth = (contentWidth - cardGap * 3) / 4;
+      drawSummaryCard({ x: left, label: 'Employees', value: String(totals.employeeCount), width: cardWidth });
+      drawSummaryCard({ x: left + cardWidth + cardGap, label: 'Approved Hours', value: formatHours(totals.totalHours), width: cardWidth });
+      drawSummaryCard({ x: left + (cardWidth + cardGap) * 2, label: 'Gross Payroll', value: formatCurrency(totals.grossAmount), width: cardWidth });
+      drawSummaryCard({ x: left + (cardWidth + cardGap) * 3, label: 'Net Payroll', value: formatCurrency(totals.netAmount), width: cardWidth });
+
+      y += 78;
+
+      doc.font('Helvetica-Bold').fontSize(12).fillColor(colors.ink).text('Employee Payouts', left, y, {
+        width: contentWidth,
+      });
+      y += 18;
+
+      if (normalizedPayouts.length === 0) {
+        doc.save();
+        doc.roundedRect(left, y, contentWidth, 72, 12).fillAndStroke(colors.rowAlt, colors.line);
+        doc.restore();
+        doc.font('Helvetica').fontSize(11).fillColor(colors.muted).text(
+          'No payouts were found for this pay period. Close the period first to generate finalized payroll totals.',
+          left + 18,
+          y + 22,
+          { width: contentWidth - 36 }
+        );
+        doc.end();
+        return;
+      }
+
+      drawTableHeader();
+
+      normalizedPayouts.forEach((payout, index) => {
+        ensureSpace(rowHeight);
+
+        let x = left;
+        if (index % 2 === 1) {
+          doc.save();
+          doc.roundedRect(left, y - 2, contentWidth, rowHeight, 6).fill(colors.rowAlt);
+          doc.restore();
+        }
+
+        doc.font('Helvetica').fontSize(10).fillColor(colors.ink);
+        tableColumns.forEach((column) => {
+          let value = payout[column.key];
+
+          if (column.key === 'totalHours') {
+            value = formatHours(value);
+          } else if (column.key === 'hourlyRate') {
+            value = formatRate(payout);
+          } else if (['grossAmount', 'deductions', 'netAmount'].includes(column.key)) {
+            value = formatCurrency(value);
+          }
+
+          doc.text(String(value), x + 8, y + 6, {
+            width: column.width - 16,
+            align: column.align,
+            ellipsis: column.align === 'left',
+          });
+          x += column.width;
+        });
+
+        doc.save();
+        doc.moveTo(left, y + rowHeight).lineTo(right, y + rowHeight).strokeColor(colors.line).lineWidth(0.5).stroke();
+        doc.restore();
+
+        y += rowHeight;
+      });
+
+      ensureSpace(40);
+      doc.save();
+      doc.roundedRect(left, y + 8, contentWidth, 30, 8).fillAndStroke(colors.panel, colors.panelBorder);
+      doc.restore();
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(colors.ink).text('Totals', left + 12, y + 18, {
+        width: 100,
+      });
+      doc.text(formatHours(totals.totalHours), left + 254, y + 18, { width: 40, align: 'right' });
+      doc.text('-', left + 318, y + 18, { width: 46, align: 'right' });
+      doc.text(formatCurrency(totals.grossAmount), left + 396, y + 18, { width: 66, align: 'right' });
+      doc.text(formatCurrency(totals.deductions), left + 486, y + 18, { width: 72, align: 'right' });
+      doc.text(formatCurrency(totals.netAmount), left + 582, y + 18, { width: 64, align: 'right' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generatePaystub, generateReceipt, generateInvoice, generatePayrollSummaryPdf };

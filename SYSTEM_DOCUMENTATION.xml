@@ -8,10 +8,9 @@
       <frontend>React, Tailwind CSS, Framer Motion</frontend>
       <authentication>JWT (JSON Web Tokens)</authentication>
       <pdf-generation>PDFKit</pdf-generation>
-      <excel-export>ExcelJS</excel-export>
     </tech-stack>
-    <last-updated>2026-03-11</last-updated>
-    <documentation-status>Updated with a dedicated admin Today workspace route (/today), staff-only care-log publishing (parents read-only), educator care-log publishing retained, admin sidebar restructuring into pinned Today + Dashboard + Messages plus clear Daily Operations and Management sections, DashboardPage refocused on management-level metrics (day-of care/reminder workflows moved to TodayPage), and legacy Admin*/backup frontend artifacts removed after a fresh checkpoint-latest snapshot. UI refresh on 2026-02-18 removed Today hero marketing copy, made the Daily Workspace badge more prominent, replaced Today care-log child/type/time native controls with menu-based custom dropdowns matching the app design system, and fixed Dashboard time-off data loading to call /api/time-off-requests without unsupported status=ALL filtering. Public-site mobile UX refresh on 2026-03-02 removed fixed floating portal pills on phone widths, moved portal access into the mobile navigation drawer, added a mobile backdrop/drawer behavior that no longer pushes page content, increased mobile readability and hierarchy across Home + all public menu pages (Vision, Services, Director, Policies, Contact), enlarged/centered the mobile site title in a flex-based header to prevent menu-icon overlap, upgraded mobile nav-drawer item typography, restyled mobile policy download cards for clearer document actions, switched the home gallery to two-column tiles on small screens, and converted desktop portal pills to a compact single-row top-right layout that avoids overlap with the navigation line on narrower desktops. Follow-up tuning on 2026-03-02 further increased mobile header title scale/fit behavior, centered the Home banner Contact Us button text within its pill container, boosted mobile Home gallery heading typography for clearer readability, normalized header spacing consistency across small and large phone widths to match mid-size devices, adjusted mobile logo title line-height/padding to prevent top-edge glyph clipping on smaller phones, and replaced Home gallery image link navigation with an in-page lightbox popup that supports semi-transparent dark backdrop, outside-click close, and left/right cycling controls using invisible click zones (no visible arrow buttons). A subsequent 2026-03-02 style correction keeps gallery image corner treatment unchanged while making only the mobile Home Contact Us CTA button square-cornered to match desktop, plus a smallest-phone override (`max-width: 380px`) that reduces CTA box/text size to avoid visual hierarchy collisions with nearby hero copy. Kubernetes hardening/documentation refresh on 2026-03-03 sanitized docker registry secret template content, updated deploy/apply scripts to skip placeholder pull-secret manifests, and aligned k8s docs with current manifest replica/resource values and deployment order including Firefly. Frontend cache-busting update on 2026-03-03 now serves `/public-overrides.css` as no-cache/no-store and appends a version query string from `REACT_APP_PUBLIC_OVERRIDES_VERSION` (default `20260303-1`) in PublicLayout to prevent stale CSS after image rollouts. Mobile architecture was corrected on 2026-03-11 by deprecating the Capacitor/mobile-web path, removing web runtime hooks for `frontend/src/mobile/`, and introducing `native-mobile/` as the canonical Expo/React Native TypeScript app with secure session storage, role-based native navigation, and explicit local-backend configuration.</documentation-status>
+    <last-updated>2026-03-13</last-updated>
+    <documentation-status>Updated with a dedicated admin Today workspace route (/today), staff-only care-log publishing (parents read-only), educator care-log publishing retained, admin sidebar restructuring into pinned Today + Dashboard + Messages plus clear Daily Operations and Management sections, DashboardPage refocused on management-level metrics (day-of care/reminder workflows moved to TodayPage), and legacy Admin*/backup frontend artifacts removed after a fresh checkpoint-latest snapshot. UI refresh on 2026-02-18 removed Today hero marketing copy, made the Daily Workspace badge more prominent, replaced Today care-log child/type/time native controls with menu-based custom dropdowns matching the app design system, and fixed Dashboard time-off data loading to call /api/time-off-requests without unsupported status=ALL filtering. Public-site mobile UX refresh on 2026-03-02 removed fixed floating portal pills on phone widths, moved portal access into the mobile navigation drawer, added a mobile backdrop/drawer behavior that no longer pushes page content, increased mobile readability and hierarchy across Home + all public menu pages (Vision, Services, Director, Policies, Contact), enlarged/centered the mobile site title in a flex-based header to prevent menu-icon overlap, upgraded mobile nav-drawer item typography, restyled mobile policy download cards for clearer document actions, switched the home gallery to two-column tiles on small screens, and converted desktop portal pills to a compact single-row top-right layout that avoids overlap with the navigation line on narrower desktops. Follow-up tuning on 2026-03-02 further increased mobile header title scale/fit behavior, centered the Home banner Contact Us button text within its pill container, boosted mobile Home gallery heading typography for clearer readability, normalized header spacing consistency across small and large phone widths to match mid-size devices, adjusted mobile logo title line-height/padding to prevent top-edge glyph clipping on smaller phones, and replaced Home gallery image link navigation with an in-page lightbox popup that supports semi-transparent dark backdrop, outside-click close, and left/right cycling controls using invisible click zones (no visible arrow buttons). A subsequent 2026-03-02 style correction keeps gallery image corner treatment unchanged while making only the mobile Home Contact Us CTA button square-cornered to match desktop, plus a smallest-phone override (`max-width: 380px`) that reduces CTA box/text size to avoid visual hierarchy collisions with nearby hero copy. Kubernetes hardening/documentation refresh on 2026-03-03 sanitized docker registry secret template content, updated deploy/apply scripts to skip placeholder pull-secret manifests, and aligned k8s docs with current manifest replica/resource values and deployment order including Firefly. Frontend cache-busting update on 2026-03-03 now serves `/public-overrides.css` as no-cache/no-store and appends a version query string from `REACT_APP_PUBLIC_OVERRIDES_VERSION` (default `20260303-1`) in PublicLayout to prevent stale CSS after image rollouts. Mobile architecture was corrected on 2026-03-11 by deprecating the Capacitor/mobile-web path, removing web runtime hooks for `frontend/src/mobile/`, and introducing `native-mobile/` as the canonical Expo/React Native TypeScript app with secure session storage, role-based native navigation, and explicit local-backend configuration. Staff scheduling behavior was updated on 2026-03-13 so admins can create backdated shifts for previous days from the Add Shift flow; payroll calculations remain driven by approved time entries rather than schedule records. Pay periods on 2026-03-13 gained open-period deletion with backend guardrails and now export readable payroll summary PDFs instead of Excel files.</documentation-status>
     <debug-runbook>BUGS_AND_FIXES.xml</debug-runbook>
   </metadata>
 
@@ -1047,30 +1046,34 @@
         <status>COMPLETE - Payments management page functional</status>
       </page>
 
-      <page file="PayPeriodsPage.js">
-        <description>Payroll period management</description>
-        <api-calls>
-          <call endpoint="GET /pay-periods"/>
-          <call endpoint="POST /pay-periods"/>
-          <call endpoint="POST /pay-periods/generate"/>
-          <call endpoint="GET /pay-periods/:id/close-preview"/>
-          <call endpoint="POST /pay-periods/:id/close"/>
-          <call endpoint="GET /documents/pay-periods/:id/export-excel"/>
-        </api-calls>
-        <displays>
-          <item>Period date ranges</item>
-          <item>Status (OPEN, CLOSED)</item>
-          <item>Total amount, employee count, total hours</item>
-          <item>Approved entries count</item>
-        </displays>
-        <features>
-          <feature>Create pay period</feature>
-          <feature>Auto-generate pay periods</feature>
-          <feature>Close period with preview</feature>
-          <feature>Export payroll to Excel</feature>
-        </features>
-        <status>COMPLETE - Create/generate/close/export enabled</status>
-      </page>
+        <page file="PayPeriodsPage.js">
+          <description>Payroll period management</description>
+          <api-calls>
+            <call endpoint="GET /pay-periods"/>
+            <call endpoint="POST /pay-periods"/>
+            <call endpoint="POST /pay-periods/generate"/>
+            <call endpoint="DELETE /pay-periods/:id"/>
+            <call endpoint="GET /pay-periods/:id/close-preview"/>
+            <call endpoint="POST /pay-periods/:id/close"/>
+            <call endpoint="GET /documents/pay-periods/:id/export-pdf"/>
+          </api-calls>
+          <displays>
+            <item>Period date ranges</item>
+            <item>Status (OPEN, CLOSED)</item>
+            <item>Total amount, employee count, total hours</item>
+            <item>Approved entries count</item>
+          </displays>
+          <features>
+            <feature>Create pay period</feature>
+            <feature>Auto-generate pay periods</feature>
+            <feature>Auto-generate modal uses the portal's menu-style frequency selector instead of a native browser dropdown</feature>
+            <feature>Close period with preview</feature>
+            <feature>Delete open pay periods that do not already have payouts</feature>
+            <feature>Export payroll to PDF</feature>
+            <feature>Payroll preview and payout generation use approved `time_entries` inside the selected period, not `schedules`</feature>
+          </features>
+          <status>COMPLETE - Create/generate/delete/close/PDF export enabled</status>
+        </page>
 
       <page file="TimeEntriesApprovalPage.js">
         <description>Admin review of educator time-off requests with per-educator summaries</description>
@@ -1112,6 +1115,7 @@
           <feature>Educator filter</feature>
           <feature>Click any date to open detail modal</feature>
           <feature>Add shift button inside day detail modal (prefilled date)</feature>
+          <feature>Add past-dated shifts for previous days when needed for historical scheduling records</feature>
           <feature>Create single shift</feature>
           <feature>Create recurring schedules (SQL date-series generation; timezone-safe date handling)</feature>
           <feature>Edit schedules</feature>
@@ -1969,14 +1973,14 @@
       </delivery>
     </integration>
 
-    <integration name="Excel Export">
-      <description>Export payroll data to Excel spreadsheets</description>
-      <service-file>backend/src/services/excelGenerator.js</service-file>
-      <library>ExcelJS</library>
+    <integration name="Payroll Summary PDF Export">
+      <description>Export closed pay-period payroll summaries as readable PDFs</description>
+      <service-file>backend/src/services/pdfGenerator.js</service-file>
+      <library>PDFKit</library>
       <exports>
         <export>Payroll summaries by pay period</export>
       </exports>
-      <status>BACKEND COMPLETE - Export button in PayPeriodsPage</status>
+      <status>BACKEND COMPLETE - PDF download button in PayPeriodsPage for closed periods</status>
     </integration>
 
     <integration name="Email Notifications">

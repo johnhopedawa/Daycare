@@ -13,3 +13,6 @@
 ## 2026-03-11
 - If the user says they do not want a wrapped website, do not default to Capacitor or any webview shell; treat that as a requirement for a real native app architecture unless they explicitly approve a hybrid approach.
 - When replacing a wrong hybrid-mobile direction, remove the old runtime hooks from the web app and mark the abandoned path deprecated in-repo; do not leave stale architecture cues that make the deprecated path look current.
+
+## 2026-03-13
+- When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.

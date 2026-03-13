@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '../components/Layout';
-import { Calendar, DollarSign, Users, CheckCircle, Clock, Download, Plus } from 'lucide-react';
+import { Calendar, Check, CheckCircle, ChevronDown, Clock, DollarSign, Download, Eye, FileText, Plus, Trash2, Users } from 'lucide-react';
 import { BaseModal } from '../components/modals/BaseModal';
 import api from '../utils/api';
+
+const FREQUENCY_OPTIONS = [
+  { value: 'BI_WEEKLY', label: 'Bi-Weekly (Every 2 weeks)' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (1st-15th, 16th-end)' },
+];
 
 export function PayPeriodsPage() {
   const [payPeriods, setPayPeriods] = useState([]);
@@ -10,9 +16,22 @@ export function PayPeriodsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isFrequencyMenuOpen, setIsFrequencyMenuOpen] = useState(false);
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState({ url: '', title: '', filename: '' });
+  const [isPaystubsOpen, setIsPaystubsOpen] = useState(false);
+  const [selectedPayPeriod, setSelectedPayPeriod] = useState(null);
+  const [paystubPayouts, setPaystubPayouts] = useState([]);
+  const [isPaystubsLoading, setIsPaystubsLoading] = useState(false);
+  const [paystubActionId, setPaystubActionId] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [formData, setFormData] = useState({ name: '', startDate: '', endDate: '' });
+  const [formData, setFormData] = useState({ name: '', startDate: '', endDate: '', payDate: '' });
   const [generateData, setGenerateData] = useState({ frequency: 'BI_WEEKLY', startDate: '' });
+  const frequencyMenuRef = useRef(null);
 
   const loadPayPeriods = useCallback(async () => {
     try {
@@ -28,6 +47,42 @@ export function PayPeriodsPage() {
   useEffect(() => {
     loadPayPeriods();
   }, [loadPayPeriods]);
+
+  useEffect(() => {
+    if (!isFrequencyMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (frequencyMenuRef.current && !frequencyMenuRef.current.contains(event.target)) {
+        setIsFrequencyMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsFrequencyMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFrequencyMenuOpen]);
+
+  useEffect(() => {
+    if (!isGenerateOpen) {
+      setIsFrequencyMenuOpen(false);
+    }
+  }, [isGenerateOpen]);
+
+  useEffect(() => () => {
+    if (pdfPreview.url) {
+      window.URL.revokeObjectURL(pdfPreview.url);
+    }
+  }, [pdfPreview.url]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -54,13 +109,17 @@ export function PayPeriodsPage() {
     backgroundColor: 'var(--background)',
     color: 'var(--muted)',
   };
+  const formatCurrency = (value) => `$${parseFloat(value || 0).toFixed(2)}`;
+  const selectedFrequencyLabel = FREQUENCY_OPTIONS.find(
+    (option) => option.value === generateData.frequency
+  )?.label || 'Select frequency';
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       await api.post('/pay-periods', formData);
       setIsCreateOpen(false);
-      setFormData({ name: '', startDate: '', endDate: '' });
+      setFormData({ name: '', startDate: '', endDate: '', payDate: '' });
       loadPayPeriods();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to create pay period');
@@ -73,6 +132,7 @@ export function PayPeriodsPage() {
       const response = await api.post('/pay-periods/generate', generateData);
       alert(response.data.message);
       setIsGenerateOpen(false);
+      setIsFrequencyMenuOpen(false);
       setGenerateData({ frequency: 'BI_WEEKLY', startDate: '' });
       loadPayPeriods();
     } catch (error) {
@@ -102,21 +162,131 @@ export function PayPeriodsPage() {
     }
   };
 
-  const downloadExcel = async (id, name) => {
+  const openDeleteModal = (period) => {
+    setDeleteTarget(period);
+    setIsDeleteOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setIsDeleteOpen(false);
+    setDeleteTarget(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget?.id) return;
+
     try {
-      const response = await api.get(`/documents/pay-periods/${id}/export-excel`, {
+      setIsDeleting(true);
+      await api.delete(`/pay-periods/${deleteTarget.id}`);
+      setIsDeleteOpen(false);
+      setDeleteTarget(null);
+      await loadPayPeriods();
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to delete pay period');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const resetPdfPreview = useCallback(() => {
+    if (pdfPreview.url) {
+      window.URL.revokeObjectURL(pdfPreview.url);
+    }
+    setPdfPreview({ url: '', title: '', filename: '' });
+    setIsPdfPreviewOpen(false);
+  }, [pdfPreview.url]);
+
+  const openPdfPreview = async (endpoint, { title, filename, errorMessage }) => {
+    try {
+      setIsPdfLoading(true);
+      const response = await api.get(endpoint, {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `payroll-${name}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      if (pdfPreview.url) {
+        window.URL.revokeObjectURL(pdfPreview.url);
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      setPdfPreview({ url, title, filename });
+      setIsPdfPreviewOpen(true);
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to download Excel');
+      alert(error.response?.data?.error || errorMessage);
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const downloadPreviewPdf = () => {
+    if (!pdfPreview.url || !pdfPreview.filename) return;
+
+    const link = document.createElement('a');
+    link.href = pdfPreview.url;
+    link.setAttribute('download', pdfPreview.filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleOpenPayrollSummary = async (period) => {
+    await openPdfPreview(`/documents/pay-periods/${period.id}/export-pdf`, {
+      title: `${period.name || `Pay Period ${period.id}`} Payroll Summary`,
+      filename: `payroll-${period.name || `period-${period.id}`}.pdf`,
+      errorMessage: 'Failed to open payroll PDF',
+    });
+  };
+
+  const closePaystubsModal = () => {
+    if (paystubActionId) return;
+    setIsPaystubsOpen(false);
+    setSelectedPayPeriod(null);
+    setPaystubPayouts([]);
+  };
+
+  const handleOpenPaystubs = async (period) => {
+    try {
+      setSelectedPayPeriod(period);
+      setIsPaystubsOpen(true);
+      setIsPaystubsLoading(true);
+      const response = await api.get(`/pay-periods/${period.id}/payouts`);
+      setPaystubPayouts(response.data.payouts || []);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to load paystubs for this pay period');
+      setIsPaystubsOpen(false);
+      setSelectedPayPeriod(null);
+    } finally {
+      setIsPaystubsLoading(false);
+    }
+  };
+
+  const handleOpenPaystub = async (payout) => {
+    try {
+      setPaystubActionId(payout.id);
+      let paystubId = payout.paystub_id;
+      let stubNumber = payout.stub_number;
+
+      if (!paystubId) {
+        const response = await api.post(`/documents/payouts/${payout.id}/generate-paystub`);
+        paystubId = response.data.paystubId;
+        stubNumber = response.data.stubNumber;
+        setPaystubPayouts((current) => current.map((item) => (
+          item.id === payout.id
+            ? { ...item, paystub_id: paystubId, stub_number: stubNumber }
+            : item
+        )));
+      }
+
+      setIsPaystubsOpen(false);
+      await openPdfPreview(`/documents/paystubs/${paystubId}/pdf`, {
+        title: `${payout.first_name} ${payout.last_name} Paystub`,
+        filename: `paystub-${stubNumber}.pdf`,
+        errorMessage: 'Failed to open paystub PDF',
+      });
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to open paystub');
+    } finally {
+      setPaystubActionId(null);
     }
   };
 
@@ -189,24 +359,48 @@ export function PayPeriodsPage() {
                   <p className="text-stone-500 text-sm">
                     {formatDate(period.start_date)} - {formatDate(period.end_date)}
                   </p>
+                  <p className="text-stone-500 text-sm">
+                    Pay date: {formatDate(period.pay_date)}
+                  </p>
                 </div>
                 <div className="flex gap-2">
-                  {period.status === 'OPEN' ? (
-                    <button
-                      onClick={() => handlePreviewClose(period.id)}
-                      className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md hover:opacity-90 transition-colors"
-                      style={{ backgroundColor: 'var(--primary)' }}
-                    >
-                      Close Period
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => downloadExcel(period.id, period.name || `period-${period.id}`)}
-                      className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2"
-                      style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
-                    >
-                      <Download size={16} /> Export Excel
-                    </button>
+                  {period.status === 'OPEN' && (
+                    <>
+                      <button
+                        onClick={() => openDeleteModal(period)}
+                        className="px-4 py-2 font-bold text-sm rounded-xl transition-colors flex items-center gap-2"
+                        style={{ backgroundColor: '#FFF1ED', color: '#C2410C' }}
+                      >
+                        <Trash2 size={16} /> Delete
+                      </button>
+                      <button
+                        onClick={() => handlePreviewClose(period.id)}
+                        className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md hover:opacity-90 transition-colors"
+                        style={{ backgroundColor: 'var(--primary)' }}
+                      >
+                        Close Period
+                      </button>
+                    </>
+                  )}
+                  {period.status === 'CLOSED' && (
+                    <>
+                      <button
+                        onClick={() => handleOpenPayrollSummary(period)}
+                        disabled={isPdfLoading}
+                        className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2 disabled:opacity-60"
+                        style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                      >
+                        <Eye size={16} /> Open
+                      </button>
+                      <button
+                        onClick={() => handleOpenPaystubs(period)}
+                        disabled={isPaystubsLoading && selectedPayPeriod?.id === period.id}
+                        className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2 disabled:opacity-60"
+                        style={{ backgroundColor: '#FFF8F3', color: 'var(--primary-dark)' }}
+                      >
+                        <FileText size={16} /> Paystubs
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -309,6 +503,18 @@ export function PayPeriodsPage() {
               required
             />
           </div>
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Pay Date *
+            </label>
+            <input
+              type="date"
+              value={formData.payDate}
+              onChange={(e) => setFormData({ ...formData, payDate: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              required
+            />
+          </div>
           <div className="flex gap-3 pt-4 border-t themed-border">
             <button
               type="button"
@@ -330,7 +536,10 @@ export function PayPeriodsPage() {
 
       <BaseModal
         isOpen={isGenerateOpen}
-        onClose={() => setIsGenerateOpen(false)}
+        onClose={() => {
+          setIsGenerateOpen(false);
+          setIsFrequencyMenuOpen(false);
+        }}
         title="Auto-Generate Pay Periods"
       >
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -341,16 +550,49 @@ export function PayPeriodsPage() {
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
               Frequency *
             </label>
-            <select
-              value={generateData.frequency}
-              onChange={(e) => setGenerateData({ ...generateData, frequency: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
-              required
-            >
-              <option value="BI_WEEKLY">Bi-Weekly (Every 2 weeks)</option>
-              <option value="MONTHLY">Monthly</option>
-              <option value="SEMI_MONTHLY">Semi-Monthly (1st-15th, 16th-end)</option>
-            </select>
+            <div ref={frequencyMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsFrequencyMenuOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-[#FFE5D9] focus:outline-none focus:ring-2 focus:ring-[#FF9B85]/50 bg-white text-sm text-left text-stone-700"
+                aria-haspopup="listbox"
+                aria-expanded={isFrequencyMenuOpen}
+              >
+                <span>{selectedFrequencyLabel}</span>
+                <ChevronDown
+                  size={16}
+                  className={`text-stone-400 transition-transform ${isFrequencyMenuOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isFrequencyMenuOpen && (
+                <div className="absolute z-30 mt-2 w-full rounded-2xl border border-[#FFE5D9] bg-white shadow-lg shadow-[#FF9B85]/10">
+                  <div className="max-h-56 overflow-y-auto p-2 space-y-1" role="listbox">
+                    {FREQUENCY_OPTIONS.map((option) => {
+                      const isSelected = generateData.frequency === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setGenerateData((prev) => ({ ...prev, frequency: option.value }));
+                            setIsFrequencyMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center justify-between gap-2 ${
+                            isSelected ? 'bg-[#FF9B85] text-white' : 'text-stone-700 hover:bg-[#FFF8F3]'
+                          }`}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          <span>{option.label}</span>
+                          {isSelected && <Check size={16} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
@@ -398,6 +640,7 @@ export function PayPeriodsPage() {
               <p className="text-stone-600">
                 <span className="font-bold text-stone-800">{preview.period.name}</span> ({formatDate(preview.period.start_date)} - {formatDate(preview.period.end_date)})
               </p>
+              <p className="text-sm text-stone-500">Pay Date: {formatDate(preview.period.pay_date)}</p>
               <p className="text-sm text-stone-500">Total Employees: {preview.total_count}</p>
             </div>
 
@@ -476,6 +719,176 @@ export function PayPeriodsPage() {
         ) : (
           <div className="text-stone-500">Loading preview...</div>
         )}
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isPaystubsOpen}
+        onClose={closePaystubsModal}
+        title={selectedPayPeriod ? `Paystubs for ${selectedPayPeriod.name}` : 'Paystubs'}
+        maxWidth="max-w-5xl"
+      >
+        {selectedPayPeriod ? (
+          <div className="space-y-5">
+            <div>
+              <p className="text-stone-600">
+                {formatDate(selectedPayPeriod.start_date)} - {formatDate(selectedPayPeriod.end_date)}
+              </p>
+              <p className="text-sm text-stone-500">
+                Pay Date: {formatDate(selectedPayPeriod.pay_date)}
+              </p>
+            </div>
+
+            {isPaystubsLoading ? (
+              <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+                Loading paystubs...
+              </div>
+            ) : paystubPayouts.length === 0 ? (
+              <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+                No employee payouts exist for this pay period yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead style={{ backgroundColor: 'var(--background)' }}>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Employee</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net Pay</th>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Paystub</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y themed-border">
+                    {paystubPayouts.map((payout) => (
+                      <tr key={payout.id} className="themed-row">
+                        <td className="px-4 py-3 text-sm text-stone-700">
+                          {payout.first_name} {payout.last_name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-600">
+                          {parseFloat(payout.total_hours || 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-700">
+                          {formatCurrency(payout.net_amount)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-stone-600">
+                          {payout.stub_number || 'Not generated'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPaystub(payout)}
+                            disabled={paystubActionId === payout.id || isPdfLoading}
+                            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md hover:opacity-90 disabled:opacity-60"
+                            style={{ backgroundColor: 'var(--primary)' }}
+                          >
+                            <Eye size={16} />
+                            {paystubActionId === payout.id ? 'Opening...' : (payout.paystub_id ? 'Open' : 'Create & Open')}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t themed-border">
+              <button
+                type="button"
+                onClick={closePaystubsModal}
+                disabled={!!paystubActionId}
+                className="px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-stone-500">Loading...</div>
+        )}
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isPdfPreviewOpen}
+        onClose={resetPdfPreview}
+        title={pdfPreview.title || 'PDF Preview'}
+        maxWidth="max-w-6xl"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap justify-between gap-3">
+            <p className="text-sm text-stone-500">
+              Review the PDF below, then download it if needed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={downloadPreviewPdf}
+                disabled={!pdfPreview.url}
+                className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold themed-hover transition-colors disabled:opacity-60"
+                style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+              >
+                <Download size={16} /> Download PDF
+              </button>
+            </div>
+          </div>
+
+          {pdfPreview.url ? (
+            <iframe
+              title={pdfPreview.title || 'PDF Preview'}
+              src={pdfPreview.url}
+              className="h-[70vh] w-full rounded-2xl border themed-border bg-white"
+            />
+          ) : (
+            <div className="rounded-2xl border themed-border px-4 py-8 text-center text-stone-500">
+              Loading PDF...
+            </div>
+          )}
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        isOpen={isDeleteOpen}
+        onClose={closeDeleteModal}
+        title="Delete Pay Period"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
+            <p className="font-bold text-red-900">
+              Delete {deleteTarget?.name || 'this pay period'}?
+            </p>
+            <p className="mt-2 text-sm text-red-800">
+              This permanently removes the open pay period. Closed periods cannot be deleted because they lock payroll history.
+            </p>
+          </div>
+
+          {deleteTarget && (
+            <div
+              className="rounded-2xl border themed-border px-4 py-4 text-sm text-stone-600"
+              style={{ backgroundColor: 'var(--background)' }}
+            >
+              {formatDate(deleteTarget.start_date)} - {formatDate(deleteTarget.end_date)}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2 border-t themed-border">
+            <button
+              type="button"
+              onClick={closeDeleteModal}
+              disabled={isDeleting}
+              className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex-1 px-6 py-3 rounded-2xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all disabled:opacity-60"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Pay Period'}
+            </button>
+          </div>
+        </div>
       </BaseModal>
     </Layout>
   );

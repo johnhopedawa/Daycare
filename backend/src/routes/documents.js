@@ -1,8 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { generatePaystub, generateReceipt } = require('../services/pdfGenerator');
-const { generatePayrollSummary } = require('../services/excelGenerator');
+const { generatePaystub, generateReceipt, generatePayrollSummaryPdf } = require('../services/pdfGenerator');
 const { generatePdfToken, verifyToken } = require('../utils/jwt');
 const { getReceiptData, ensureReceipt } = require('../services/receiptService');
 const { getDaycareSettings } = require('../services/settingsService');
@@ -144,6 +143,44 @@ const buildDaycareContext = async () => {
   };
 };
 
+const ensurePaystubForPayout = async (payoutId) => {
+  const existing = await pool.query(
+    'SELECT id, stub_number FROM paystubs WHERE payout_id = $1',
+    [payoutId]
+  );
+
+  if (existing.rows.length > 0) {
+    return {
+      created: false,
+      paystubId: existing.rows[0].id,
+      stubNumber: existing.rows[0].stub_number
+    };
+  }
+
+  const payoutResult = await pool.query(
+    'SELECT * FROM payouts WHERE id = $1',
+    [payoutId]
+  );
+
+  if (payoutResult.rows.length === 0) {
+    return null;
+  }
+
+  const stubNumber = `STUB-${Date.now()}-${payoutId}`;
+  const insertResult = await pool.query(
+    `INSERT INTO paystubs (payout_id, user_id, pay_period_id, stub_number)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, stub_number`,
+    [payoutId, payoutResult.rows[0].user_id, payoutResult.rows[0].pay_period_id, stubNumber]
+  );
+
+  return {
+    created: true,
+    paystubId: insertResult.rows[0].id,
+    stubNumber: insertResult.rows[0].stub_number
+  };
+};
+
 // === PAYSTUBS ===
 
 // Generate paystub for a payout (admin)
@@ -151,37 +188,17 @@ router.post('/payouts/:id/generate-paystub', requireAuth, requireAdmin, async (r
   try {
     const { id } = req.params;
 
-    // Check if paystub already exists
-    const existing = await pool.query(
-      'SELECT id FROM paystubs WHERE payout_id = $1',
-      [id]
-    );
+    const result = await ensurePaystubForPayout(id);
 
-    if (existing.rows.length > 0) {
-      return res.json({ message: 'Paystub already exists', paystubId: existing.rows[0].id });
-    }
-
-    // Get payout info
-    const payoutResult = await pool.query(
-      'SELECT * FROM payouts WHERE id = $1',
-      [id]
-    );
-
-    if (payoutResult.rows.length === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Payout not found' });
     }
 
-    // Generate stub number
-    const stubNumber = `STUB-${Date.now()}-${id}`;
-
-    // Create paystub record
-    await pool.query(
-      `INSERT INTO paystubs (payout_id, user_id, pay_period_id, stub_number)
-       VALUES ($1, $2, $3, $4)`,
-      [id, payoutResult.rows[0].user_id, payoutResult.rows[0].pay_period_id, stubNumber]
-    );
-
-    res.json({ message: 'Paystub generated successfully' });
+    res.json({
+      message: result.created ? 'Paystub generated successfully' : 'Paystub already exists',
+      paystubId: result.paystubId,
+      stubNumber: result.stubNumber
+    });
   } catch (error) {
     console.error('Generate paystub error:', error);
     res.status(500).json({ error: 'Failed to generate paystub' });
@@ -195,7 +212,7 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
 
     // Get paystub with related data
     const result = await pool.query(
-      `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date,
+      `SELECT ps.*, po.*, pp.name, pp.start_date, pp.end_date, pp.pay_date,
               u.first_name, u.last_name, u.email,
               u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
               u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
@@ -253,7 +270,8 @@ router.get('/paystubs/:id/pdf', requireAuth, async (req, res) => {
     const payPeriod = {
       name: data.name,
       start_date: data.start_date,
-      end_date: data.end_date
+      end_date: data.end_date,
+      pay_date: data.pay_date
     };
 
     const daycare = await buildDaycareContext();
@@ -315,6 +333,7 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
       name: 'Sample (Today)',
       start_date: todayIso,
       end_date: todayIso,
+      pay_date: todayIso,
     };
 
     const daycare = await buildDaycareContext();
@@ -333,7 +352,7 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
 router.get('/paystubs/mine', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT ps.*, pp.name as period_name, pp.start_date, pp.end_date,
+      `SELECT ps.*, pp.name as period_name, pp.start_date, pp.end_date, pp.pay_date,
               po.net_amount
        FROM paystubs ps
        JOIN pay_periods pp ON ps.pay_period_id = pp.id
@@ -356,7 +375,7 @@ router.get('/paystubs', requireAuth, requireAdmin, async (req, res) => {
     const { user_id, pay_period_id } = req.query;
 
     let query = `
-      SELECT ps.*, pp.name as period_name, pp.start_date, pp.end_date,
+      SELECT ps.*, pp.name as period_name, pp.start_date, pp.end_date, pp.pay_date,
              u.first_name, u.last_name, u.email, po.net_amount
       FROM paystubs ps
       JOIN pay_periods pp ON ps.pay_period_id = pp.id
@@ -388,8 +407,8 @@ router.get('/paystubs', requireAuth, requireAdmin, async (req, res) => {
 
 // === PAYROLL EXPORT ===
 
-// Export pay period to Excel
-router.get('/pay-periods/:id/export-excel', requireAuth, requireAdmin, async (req, res) => {
+// Export pay period payroll summary to PDF
+router.get('/pay-periods/:id/export-pdf', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -413,15 +432,16 @@ router.get('/pay-periods/:id/export-excel', requireAuth, requireAdmin, async (re
       [id]
     );
 
-    const workbook = await generatePayrollSummary(periodResult.rows[0], payoutsResult.rows);
-    const buffer = await workbook.xlsx.writeBuffer();
+    const daycare = await buildDaycareContext();
+    const buffer = await generatePayrollSummaryPdf(periodResult.rows[0], payoutsResult.rows, { daycare });
+    const safeName = sanitizeFileNamePart(periodResult.rows[0].name || `period-${id}`);
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=payroll-${periodResult.rows[0].name}.xlsx`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=payroll-${safeName}.pdf`);
     res.send(buffer);
   } catch (error) {
-    console.error('Export Excel error:', error);
-    res.status(500).json({ error: 'Failed to export to Excel' });
+    console.error('Export payroll PDF error:', error);
+    res.status(500).json({ error: 'Failed to export payroll PDF' });
   }
 });
 

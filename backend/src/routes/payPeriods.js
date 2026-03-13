@@ -29,10 +29,14 @@ router.get('/', async (req, res) => {
 // Create pay period
 router.post('/', async (req, res) => {
   try {
-    const { name, startDate, endDate, frequency } = req.body;
+    const { name, startDate, endDate, payDate, frequency } = req.body;
 
-    if (!name || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Name, start date, and end date required' });
+    if (!name || !startDate || !endDate || !payDate) {
+      return res.status(400).json({ error: 'Name, start date, end date, and pay date required' });
+    }
+
+    if (payDate < endDate) {
+      return res.status(400).json({ error: 'Pay date cannot be earlier than the end date' });
     }
 
     // Check for overlapping periods
@@ -48,10 +52,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO pay_periods (name, start_date, end_date, frequency)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO pay_periods (name, start_date, end_date, pay_date, frequency)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name, startDate, endDate, frequency || null]
+      [name, startDate, endDate, payDate, frequency || null]
     );
 
     res.json({ payPeriod: result.rows[0] });
@@ -115,10 +119,16 @@ router.post('/generate', async (req, res) => {
 
       if (overlap.rows.length === 0) {
         const result = await pool.query(
-          `INSERT INTO pay_periods (name, start_date, end_date, frequency)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO pay_periods (name, start_date, end_date, pay_date, frequency)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING *`,
-          [periodName, currentStart.toISOString().split('T')[0], currentEnd.toISOString().split('T')[0], frequency]
+          [
+            periodName,
+            currentStart.toISOString().split('T')[0],
+            currentEnd.toISOString().split('T')[0],
+            currentEnd.toISOString().split('T')[0],
+            frequency
+          ]
         );
         periods.push(result.rows[0]);
       }
@@ -148,6 +158,59 @@ router.post('/generate', async (req, res) => {
   } catch (error) {
     console.error('Generate pay periods error:', error);
     res.status(500).json({ error: 'Failed to generate pay periods' });
+  }
+});
+
+// Delete pay period
+router.delete('/:id', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+
+    const periodResult = await client.query(
+      'SELECT * FROM pay_periods WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+
+    if (periodResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Pay period not found' });
+    }
+
+    const period = periodResult.rows[0];
+
+    if (period.status !== 'OPEN') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Only open pay periods can be deleted' });
+    }
+
+    const payoutResult = await client.query(
+      'SELECT COUNT(*)::int AS payout_count FROM payouts WHERE pay_period_id = $1',
+      [id]
+    );
+
+    if (payoutResult.rows[0].payout_count > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cannot delete a pay period that already has payouts' });
+    }
+
+    await client.query(
+      'DELETE FROM pay_periods WHERE id = $1',
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({ message: 'Pay period deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete pay period error:', error);
+    res.status(500).json({ error: 'Failed to delete pay period' });
+  } finally {
+    client.release();
   }
 });
 
@@ -333,8 +396,10 @@ router.get('/:id/payouts', async (req, res) => {
 
     const result = await pool.query(
       `SELECT p.*, u.first_name, u.last_name, u.email
+             , ps.id AS paystub_id, ps.stub_number, ps.generated_at AS paystub_generated_at
        FROM payouts p
        JOIN users u ON p.user_id = u.id
+       LEFT JOIN paystubs ps ON ps.payout_id = p.id
        WHERE p.pay_period_id = $1
        ORDER BY u.last_name, u.first_name`,
       [id]

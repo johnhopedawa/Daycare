@@ -233,7 +233,6 @@ export function AddShiftModal({ isOpen, onClose, onSuccess, initialDate }) {
       initialValue={selectedDateTime}
       onClose={onClose}
       onCancel={handleCancel}
-      disablePast
       onSelectionChange={(nextSelection) => setSelection(nextSelection)}
       onConfirm={(timeSelection) => {
         if (loading) return;
