@@ -51,6 +51,100 @@ const matchesPeriodFrequency = (period, educator) => {
   return educator.pay_frequency === period.frequency;
 };
 
+const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
+  const result = await db.query(
+    `SELECT id, first_name, last_name, payment_type, pay_frequency, hourly_rate, salary_amount
+     FROM users
+     WHERE is_active = true
+       AND role = 'EDUCATOR'
+       AND created_by = $1`,
+    [adminId]
+  );
+
+  return result.rows
+    .filter((educator) => matchesPeriodFrequency(period, educator))
+    .map((educator) => ({
+      id: educator.id,
+      first_name: educator.first_name,
+      last_name: educator.last_name,
+      payment_type: educator.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY',
+      pay_frequency: educator.pay_frequency,
+      hourly_rate: safeNumber(educator.hourly_rate),
+      salary_amount: safeNumber(educator.salary_amount),
+    }));
+};
+
+const getScheduleTotalsForPeriod = async (db, adminId, period, educatorIds) => {
+  if (!educatorIds.length) {
+    return [];
+  }
+
+  const result = await db.query(
+    `SELECT s.user_id,
+            COALESCE(SUM(s.hours), 0) AS total_hours,
+            COUNT(*)::int AS scheduled_shifts
+     FROM schedules s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.created_by = $1
+       AND u.role = 'EDUCATOR'
+       AND s.shift_date >= $2
+       AND s.shift_date <= $3
+       AND s.status <> 'DECLINED'
+       AND s.user_id = ANY($4)
+     GROUP BY s.user_id`,
+    [adminId, period.start_date, period.end_date, educatorIds]
+  );
+
+  return result.rows.map((row) => ({
+    user_id: row.user_id,
+    total_hours: safeNumber(row.total_hours),
+    scheduled_shifts: safeNumber(row.scheduled_shifts),
+  }));
+};
+
+const buildPeriodCompensationPreview = (educators, scheduleTotals) => {
+  const scheduleTotalsByUser = new Map(
+    scheduleTotals.map((row) => [row.user_id, row])
+  );
+
+  const hourlyEmployees = [];
+  const salariedEmployees = [];
+
+  educators.forEach((educator) => {
+    if (educator.payment_type === 'SALARY') {
+      const grossAmount = roundCurrency(educator.salary_amount);
+      salariedEmployees.push({
+        id: educator.id,
+        first_name: educator.first_name,
+        last_name: educator.last_name,
+        salary_amount: educator.salary_amount,
+        gross_amount: grossAmount,
+        deductions: 0,
+        net_amount: grossAmount,
+      });
+      return;
+    }
+
+    const scheduleSummary = scheduleTotalsByUser.get(educator.id);
+    const totalHours = roundCurrency(scheduleSummary?.total_hours || 0);
+    const grossAmount = roundCurrency(totalHours * educator.hourly_rate);
+
+    hourlyEmployees.push({
+      id: educator.id,
+      first_name: educator.first_name,
+      last_name: educator.last_name,
+      hourly_rate: educator.hourly_rate,
+      total_hours: totalHours,
+      scheduled_shifts: safeNumber(scheduleSummary?.scheduled_shifts),
+      gross_amount: grossAmount,
+      deductions: 0,
+      net_amount: grossAmount,
+    });
+  });
+
+  return { hourlyEmployees, salariedEmployees };
+};
+
 // Get all pay periods
 router.get('/', async (req, res) => {
   try {
@@ -404,53 +498,20 @@ router.get('/:id/close-preview', async (req, res) => {
     }
 
     const period = periodResult.rows[0];
-
-    // Get matching educators based on frequency
-    let frequencyFilter = '';
-    if (period.frequency) {
-      frequencyFilter = `AND u.pay_frequency = '${period.frequency}'`;
-    }
-
-    // Get hourly educators with time entries
-    const hourlyResult = await pool.query(
-      `SELECT u.id, u.first_name, u.last_name, u.hourly_rate,
-              COALESCE(SUM(te.total_hours), 0) as total_hours
-       FROM users u
-       LEFT JOIN time_entries te ON u.id = te.user_id
-         AND te.entry_date >= $1 AND te.entry_date <= $2
-         AND te.status = 'APPROVED'
-       WHERE u.is_active = true
-         AND u.role = 'EDUCATOR'
-         AND u.created_by = $3
-         AND u.payment_type = 'HOURLY'
-         ${frequencyFilter}
-       GROUP BY u.id, u.first_name, u.last_name, u.hourly_rate`,
-      [period.start_date, period.end_date, req.user.id]
+    const educators = await getEligibleEducatorsForPeriod(pool, req.user.id, period);
+    const scheduleTotals = await getScheduleTotalsForPeriod(
+      pool,
+      req.user.id,
+      period,
+      educators.map((educator) => educator.id)
     );
-
-    // Get salaried educators
-    const salariedResult = await pool.query(
-      `SELECT u.id, u.first_name, u.last_name, u.salary_amount
-       FROM users u
-       WHERE u.is_active = true
-         AND u.role = 'EDUCATOR'
-         AND u.created_by = $1
-         AND u.payment_type = 'SALARY'
-         ${frequencyFilter}`,
-      [req.user.id]
-    );
+    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals);
 
     const preview = {
       period: period,
-      hourly_employees: hourlyResult.rows.map(emp => ({
-        ...emp,
-        gross_amount: parseFloat(emp.total_hours) * parseFloat(emp.hourly_rate || 0)
-      })),
-      salaried_employees: salariedResult.rows.map(emp => ({
-        ...emp,
-        gross_amount: parseFloat(emp.salary_amount || 0)
-      })),
-      total_count: hourlyResult.rows.length + salariedResult.rows.length
+      hourly_employees: hourlyEmployees,
+      salaried_employees: salariedEmployees,
+      total_count: hourlyEmployees.length + salariedEmployees.length
     };
 
     res.json(preview);
@@ -487,65 +548,40 @@ router.post('/:id/close', async (req, res) => {
       return res.status(400).json({ error: 'Pay period already closed' });
     }
 
-    // Get matching educators based on frequency
-    let frequencyFilter = '';
-    if (period.frequency) {
-      frequencyFilter = `AND u.pay_frequency = '${period.frequency}'`;
-    }
-
-    // Process hourly educators
-    const hourlyEntries = await client.query(
-      `SELECT u.id as user_id, u.hourly_rate, COALESCE(SUM(te.total_hours), 0) as total_hours
-       FROM users u
-       LEFT JOIN time_entries te ON u.id = te.user_id
-         AND te.entry_date >= $1 AND te.entry_date <= $2
-         AND te.status = 'APPROVED'
-       WHERE u.is_active = true
-         AND u.role = 'EDUCATOR'
-         AND u.created_by = $3
-         AND u.payment_type = 'HOURLY'
-         ${frequencyFilter}
-       GROUP BY u.id, u.hourly_rate`,
-      [period.start_date, period.end_date, req.user.id]
+    const educators = await getEligibleEducatorsForPeriod(client, req.user.id, period);
+    const scheduleTotals = await getScheduleTotalsForPeriod(
+      client,
+      req.user.id,
+      period,
+      educators.map((educator) => educator.id)
     );
+    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals);
 
-    for (const entry of hourlyEntries.rows) {
-      const hourlyRate = parseFloat(entry.hourly_rate || 0);
-      const totalHours = parseFloat(entry.total_hours);
-      const grossAmount = totalHours * hourlyRate;
+    for (const entry of hourlyEmployees) {
+      const hourlyRate = roundCurrency(entry.hourly_rate);
+      const totalHours = roundCurrency(entry.total_hours);
+      const grossAmount = roundCurrency(entry.gross_amount);
       const deductions = 0;
-      const netAmount = grossAmount - deductions;
+      const netAmount = roundCurrency(entry.net_amount);
 
       await client.query(
         `INSERT INTO payouts
          (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, entry.user_id, totalHours, hourlyRate, grossAmount, deductions, netAmount]
+        [id, entry.id, totalHours, hourlyRate, grossAmount, deductions, netAmount]
       );
     }
 
-    // Process salaried educators
-    const salariedEmployees = await client.query(
-      `SELECT u.id as user_id, u.salary_amount
-       FROM users u
-       WHERE u.is_active = true
-         AND u.role = 'EDUCATOR'
-         AND u.created_by = $1
-         AND u.payment_type = 'SALARY'
-         ${frequencyFilter}`,
-      [req.user.id]
-    );
-
-    for (const emp of salariedEmployees.rows) {
-      const grossAmount = parseFloat(emp.salary_amount || 0);
+    for (const emp of salariedEmployees) {
+      const grossAmount = roundCurrency(emp.gross_amount);
       const deductions = 0;
-      const netAmount = grossAmount - deductions;
+      const netAmount = roundCurrency(emp.net_amount);
 
       await client.query(
         `INSERT INTO payouts
          (pay_period_id, user_id, total_hours, hourly_rate, gross_amount, deductions, net_amount)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, emp.user_id, 0, 0, grossAmount, deductions, netAmount]
+        [id, emp.id, 0, 0, grossAmount, deductions, netAmount]
       );
     }
 
@@ -561,7 +597,7 @@ router.post('/:id/close', async (req, res) => {
 
     res.json({
       message: 'Pay period closed successfully',
-      payouts_created: hourlyEntries.rows.length + salariedEmployees.rows.length
+      payouts_created: hourlyEmployees.length + salariedEmployees.length
     });
   } catch (error) {
     await client.query('ROLLBACK');

@@ -17,6 +17,7 @@ export function PayPeriodsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState('review');
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -193,6 +194,17 @@ export function PayPeriodsPage() {
   const editedPayoutPreview = editingPayout
     ? calculatePayoutPreview(editingPayout, editPayoutForm.totalHours)
     : null;
+  const previewTotals = preview ? [...(preview.hourly_employees || []), ...(preview.salaried_employees || [])].reduce((totals, employee) => ({
+    totalHours: totals.totalHours + safeNumber(employee.total_hours),
+    grossAmount: totals.grossAmount + safeNumber(employee.gross_amount),
+    deductions: totals.deductions + safeNumber(employee.deductions),
+    netAmount: totals.netAmount + safeNumber(employee.net_amount),
+  }), {
+    totalHours: 0,
+    grossAmount: 0,
+    deductions: 0,
+    netAmount: 0,
+  }) : null;
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -220,9 +232,10 @@ export function PayPeriodsPage() {
     }
   };
 
-  const handlePreviewClose = async (id) => {
+  const handleOpenPeriodPreview = async (id, mode = 'review') => {
     try {
       const response = await api.get(`/pay-periods/${id}/close-preview`);
+      setPreviewMode(mode);
       setPreview(response.data);
       setIsPreviewOpen(true);
     } catch (error) {
@@ -235,11 +248,18 @@ export function PayPeriodsPage() {
     try {
       await api.post(`/pay-periods/${preview.period.id}/close`);
       setIsPreviewOpen(false);
+      setPreviewMode('review');
       setPreview(null);
       loadPayPeriods();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to close pay period');
     }
+  };
+
+  const closePreviewModal = () => {
+    setIsPreviewOpen(false);
+    setPreviewMode('review');
+    setPreview(null);
   };
 
   const openDeleteModal = (period) => {
@@ -599,6 +619,13 @@ export function PayPeriodsPage() {
                   {period.status === 'OPEN' && (
                     <>
                       <button
+                        onClick={() => handleOpenPeriodPreview(period.id, 'review')}
+                        className="px-4 py-2 font-bold text-sm rounded-xl themed-hover transition-colors flex items-center gap-2"
+                        style={{ backgroundColor: 'var(--background)', color: 'var(--primary-dark)' }}
+                      >
+                        <Eye size={16} /> Open
+                      </button>
+                      <button
                         onClick={() => openDeleteModal(period)}
                         className="px-4 py-2 font-bold text-sm rounded-xl transition-colors flex items-center gap-2"
                         style={{ backgroundColor: '#FFF1ED', color: '#C2410C' }}
@@ -606,7 +633,7 @@ export function PayPeriodsPage() {
                         <Trash2 size={16} /> Delete
                       </button>
                       <button
-                        onClick={() => handlePreviewClose(period.id)}
+                        onClick={() => handleOpenPeriodPreview(period.id, 'close')}
                         className="px-4 py-2 text-white font-bold text-sm rounded-xl shadow-md hover:opacity-90 transition-colors"
                         style={{ backgroundColor: 'var(--primary)' }}
                       >
@@ -883,12 +910,9 @@ export function PayPeriodsPage() {
 
       <BaseModal
         isOpen={isPreviewOpen}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setPreview(null);
-        }}
-        title="Close Pay Period Preview"
-        maxWidth="max-w-4xl"
+        onClose={closePreviewModal}
+        title={previewMode === 'close' ? 'Close Pay Period Preview' : 'Open Pay Period Preview'}
+        maxWidth="max-w-5xl"
       >
         {preview ? (
           <div className="space-y-6">
@@ -899,6 +923,47 @@ export function PayPeriodsPage() {
               <p className="text-sm text-stone-500">Pay Date: {formatDate(preview.period.pay_date)}</p>
               <p className="text-sm text-stone-500">Total Employees: {preview.total_count}</p>
             </div>
+
+            {previewTotals && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl" style={cardStyles[0]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[0].color }}>
+                    <Users size={16} />
+                    <span>Employees</span>
+                  </div>
+                  <p className="font-bold text-lg" style={{ color: cardStyles[0].color }}>
+                    {preview.total_count || 0}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl" style={cardStyles[1]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[1].color }}>
+                    <Clock size={16} />
+                    <span>Total Hours</span>
+                  </div>
+                  <p className="font-bold text-lg" style={{ color: cardStyles[1].color }}>
+                    {formatHours(previewTotals.totalHours)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl" style={cardStyles[2]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[2].color }}>
+                    <DollarSign size={16} />
+                    <span>Gross Payroll</span>
+                  </div>
+                  <p className="font-bold text-lg" style={{ color: cardStyles[2].color }}>
+                    {formatCurrency(previewTotals.grossAmount)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl" style={cardStyles[3]}>
+                  <div className="flex items-center gap-2 text-sm mb-1" style={{ color: cardStyles[3].color }}>
+                    <FileText size={16} />
+                    <span>Net Payroll</span>
+                  </div>
+                  <p className="font-bold text-lg" style={{ color: cardStyles[3].color }}>
+                    {formatCurrency(previewTotals.netAmount)}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {preview.hourly_employees?.length > 0 && (
               <div>
@@ -911,6 +976,8 @@ export function PayPeriodsPage() {
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Deductions</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y themed-border">
@@ -920,6 +987,8 @@ export function PayPeriodsPage() {
                           <td className="px-4 py-2 text-sm text-stone-600">{parseFloat(emp.total_hours || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.hourly_rate || 0).toFixed(2)}/hr</td>
                           <td className="px-4 py-2 text-sm text-stone-700">${parseFloat(emp.gross_amount || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.deductions || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm font-semibold text-stone-700">${parseFloat(emp.net_amount || 0).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -936,14 +1005,20 @@ export function PayPeriodsPage() {
                     <thead style={{ backgroundColor: 'var(--background)' }}>
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
                         <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Gross</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Deductions</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-stone-500 uppercase tracking-wider">Net</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y themed-border">
                       {preview.salaried_employees.map((emp) => (
                         <tr key={emp.id} className="themed-row">
                           <td className="px-4 py-2 text-sm text-stone-700">{emp.first_name} {emp.last_name}</td>
+                          <td className="px-4 py-2 text-sm text-stone-600">{parseFloat(emp.total_hours || 0).toFixed(2)}</td>
                           <td className="px-4 py-2 text-sm text-stone-700">${parseFloat(emp.gross_amount || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm text-stone-600">${parseFloat(emp.deductions || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2 text-sm font-semibold text-stone-700">${parseFloat(emp.net_amount || 0).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -955,21 +1030,20 @@ export function PayPeriodsPage() {
             <div className="flex gap-3 pt-4 border-t themed-border">
               <button
                 type="button"
-                onClick={() => {
-                  setIsPreviewOpen(false);
-                  setPreview(null);
-                }}
+                onClick={closePreviewModal}
                 className="flex-1 px-6 py-3 rounded-2xl border themed-border text-stone-600 font-bold themed-hover transition-colors"
               >
-                Cancel
+                {previewMode === 'close' ? 'Cancel' : 'Close'}
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmClose}
-                className="flex-1 px-6 py-3 rounded-2xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all"
-              >
-                Confirm & Close Period
-              </button>
+              {previewMode === 'close' && (
+                <button
+                  type="button"
+                  onClick={handleConfirmClose}
+                  className="flex-1 px-6 py-3 rounded-2xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all"
+                >
+                  Confirm & Close Period
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -1474,4 +1548,3 @@ export function PayPeriodsPage() {
     </Layout>
   );
 }
-

@@ -29,9 +29,10 @@
 
 ## Review
 - Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) to expose `PATCH /pay-periods/payouts/:id`, recalculate payout `hourly_rate`, `gross_amount`, and `net_amount` from the educator profile (`payment_type`, `hourly_rate`, `salary_amount`) when hours are edited, and return the refreshed payout row with current paystub metadata.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) open-period preview data so hourly and salaried preview rows also include gross, deductions, and net amounts for the new non-destructive Open action.
 - Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) payout list queries to include profile compensation fields (`payment_type`, `profile_hourly_rate`, `profile_salary_amount`, `employment_type`) so the frontend can show where pay is being derived from.
 - Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) paystub detail payloads so the paystub preview modal also knows the educator's live compensation settings.
-- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to add `Edit` actions in the paystubs flow, an hours-focused payout edit modal, computed gross/net previews sourced from educator profile data, and preview-header edit access for already-open paystubs.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) to add `Edit` actions in the paystubs flow, an hours-focused payout edit modal, computed gross/net previews sourced from educator profile data, preview-header edit access for already-open paystubs, and an `Open` action for open periods that shows current hours plus gross/net payroll detail without starting the close flow.
 - Updated [`SYSTEM_DOCUMENTATION.xml`](/C:/src/Daycare/SYSTEM_DOCUMENTATION.xml) to record the new payout edit API and pay-period paystub editing behavior.
 - Verification:
 - `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).

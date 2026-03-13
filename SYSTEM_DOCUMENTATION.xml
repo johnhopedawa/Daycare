@@ -1089,6 +1089,7 @@
             <feature>Auto-generate modal uses the shared custom date picker modal instead of native browser date inputs</feature>
             <feature>Close period with preview</feature>
             <feature>Delete open pay periods that do not already have payouts</feature>
+            <feature>Open pay periods expose a non-destructive Open action that shows current hours, gross, deductions, and net before closing</feature>
             <feature>Open payroll summaries in a frontend-rendered HTML modal with a separate Download PDF action</feature>
             <feature>Create and open employee-specific paystubs from closed pay periods in a frontend-rendered HTML modal with a separate Download PDF action</feature>
             <feature>Edit closed-period payout hours from the paystubs flow while gross/net pay recalculate from the educator profile compensation settings</feature>
