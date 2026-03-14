@@ -1,3 +1,20 @@
+## Employee Retro Payment In Payroll Preview (2026-03-13)
+- [x] Inspect the current employee profile, payout, and paystub HTML preview flow for retro payment support gaps
+- [x] Add a persisted admin-set retro payment field on educator records and expose it through admin user APIs
+- [x] Carry the employee retro payment into pay-period preview/close and closed-payout recalculation so payouts are seeded correctly
+- [x] Update the employee admin UI and pay-period HTML preview/editor to display and use the stored retro payment value
+- [x] Verify the touched backend/frontend files and update `SYSTEM_DOCUMENTATION.xml` with review notes
+
+## Review
+- Added [`backend/migrations/049_add_user_retro_payment.sql`](/C:/src/Daycare/backend/migrations/049_add_user_retro_payment.sql) so educator records now persist a `retro_payment_amount` defaulting to `0.00`.
+- Updated [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js) so admin educator list/create/update flows read and write the new retro payment field alongside the existing payroll profile fields.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so pay-period open totals, close previews, close processing, and closed payout recalculation all seed Retro Payment from the educator profile and treat it as an explicit flat amount instead of forcing it through `hours * rate`.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), [`frontend/src/pages/EducatorsPage.js`](/C:/src/Daycare/frontend/src/pages/EducatorsPage.js), and [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so admins can manage Retro Payment from Employees, paystub detail payloads expose that profile value, and the HTML paystub preview/editor shows Retro Payment as a flat current-amount row.
+- Verification:
+- `node --check` passed for [`backend/src/routes/admin.js`](/C:/src/Daycare/backend/src/routes/admin.js), [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), and [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js).
+- `npm exec eslint -- src/pages/EducatorsPage.js src/pages/PayPeriodsPage.js` passed.
+- `npm run build` in `frontend/` succeeded with the repo's existing warnings only.
+
 ## Paystub PDF Layout Spacing And Benefits Header (2026-03-13)
 - [x] Inspect the current paystub PDF layout for label/value crowding in pay, taxes, summary, and benefits sections
 - [x] Record the planned work in `tasks/todo.md` before implementation
@@ -601,3 +618,21 @@
 - Validation:
   - `npm run build` in `frontend/` succeeded with `REACT_APP_MOBILE_APP=true`, `REACT_APP_DEFAULT_MODE=portal`, and `REACT_APP_API_URL=/api`
   - Build completed with pre-existing repo warnings plus no new blocking errors from the mobile implementation
+## Paystub Deduction And Layout Fixes (2026-03-13)
+- [x] Inspect the paystub calculation/rendering paths for tax deductions, sick-pay math, plain-text deduction notes, and overlapping layout
+- [x] Record the plan in `tasks/todo.md` before implementation
+- [x] Implement CRA/BC payroll deduction calculations for paystub previews and stored payouts, including current deduction component breakdowns
+- [x] Fix paystub sick-pay math so leave pay does not stack incorrectly on top of regular pay
+- [x] Replace the plain-text deduction note in paystub output with structured deduction rows and move detail content lower so it no longer overlaps the fold line
+- [x] Verify the changed backend/frontend paths and document the review in `tasks/todo.md` and `SYSTEM_DOCUMENTATION.xml`
+
+## Review
+- Added [`backend/src/utils/payrollDeductions.js`](/C:/src/Daycare/backend/src/utils/payrollDeductions.js) so the backend can resolve missing paystub deductions on the educator `My Paystubs` route using CRA payroll formulas and BC tax constants, with the current app’s default assumption of basic claim-code amounts because TD1 claim fields are not stored in this schema.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so `GET /api/documents/paystubs/mine`, `GET /api/documents/paystubs/:id/details`, and `GET /api/documents/paystubs/:id/pdf` all pass through the same payout resolver before returning net pay or generating the PDF.
+- The payout resolver now backfills legacy paystub rows where `regular_pay_current` / `regular_hours` were effectively missing, so sick pay no longer double-counts by leaving the full gross amount on the Regular row and then adding Sick Pay again.
+- Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so the paystub PDF removes the prose placeholder deduction note, shows structured deduction totals instead, separates `Taxes` from other payroll deductions in the summary, and nudges the pay-stub detail block lower to avoid crowding the fold line.
+- Verification:
+- `node --check` passed for [`backend/src/utils/payrollDeductions.js`](/C:/src/Daycare/backend/src/utils/payrollDeductions.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- A direct helper smoke test returned non-zero estimated deductions for a bi-weekly 2026 sample and corrected the resolved regular line from `0` to `72 hours / $2880` when `8` sick hours were present.
+- A direct PDF smoke test invoked `generatePaystub(...)` with resolved deduction values and returned a non-empty PDF buffer (`pdf:2900`).
+

@@ -273,7 +273,7 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       }
 
       const detailLineHeight = doc.currentLineHeight();
-      let detailCursor = headerTop;
+      let detailCursor = headerTop + 12;
       doc.font('Helvetica').fontSize(11).fillColor(colors.ink);
       doc.text('Pay Stub Detail', detailX, detailCursor, {
         width: detailWidth,
@@ -385,10 +385,6 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       doc.text('NET PAY:', rightColX, rightY, { width: rightColWidth * 0.6, align: 'left' });
       doc.text(formatCurrency(netPay), rightColX, rightY, { width: rightColWidth, align: 'right' });
 
-      const memoY = Math.max(fold2Y - 12, leftY + 6);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(colors.ink);
-      doc.text('MEMO:', leftColX, memoY);
-
       // Bottom tables (row 1)
       const bottomTop = fold2Y + 12;
       const bottomGap = 26;
@@ -469,10 +465,10 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         headerFontSize: 9,
       });
 
-      const deductionsHeaders = ["DEDUCTIONS", '', ''];
+      const deductionsHeaders = ["DEDUCTIONS", 'Current', ''];
       const deductionsRows = [
-        ['Income Tax, EI, CPP', '', ''],
-        [currentCpp2 !== null || ytdCpp2 > 0 ? 'CPP2 also applies when required' : 'CPP2 if earnings are high enough', '', ''],
+        ['Total Deductions', formatCurrency(deductions), ''],
+        ['Net Pay', formatCurrency(netPay), ''],
       ];
 
       drawTable({
@@ -522,10 +518,14 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
       });
 
       const summaryHeaders = ['SUMMARY', 'Current', 'YTD'];
+      const currentOtherDeductions = (currentEi !== null ? currentEi : 0)
+        + (currentCpp !== null ? currentCpp : 0)
+        + (currentCpp2 !== null ? currentCpp2 : 0);
+      const ytdOtherDeductions = ytdCpp + ytdEi + ytdCpp2;
       const summaryRows = [
         ['Total Pay', formatCurrency(gross), formatCurrency(ytdGross)],
-        ['Taxes', formatCurrency(deductions), formatCurrency(ytdTaxTotal)],
-        ['Deductions', formatCurrency(0), formatCurrency(0)],
+        ['Taxes', formatCurrency(currentIncomeTax || 0), formatCurrency(ytdTax)],
+        ['Deductions', formatCurrency(currentOtherDeductions), formatCurrency(ytdOtherDeductions)],
       ];
 
       const summaryPadding = 6;

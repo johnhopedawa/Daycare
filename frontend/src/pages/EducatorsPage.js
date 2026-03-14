@@ -37,6 +37,7 @@ const createEmptyEducatorForm = () => ({
   employmentType: 'FULL_TIME',
   hourlyRate: '',
   salaryAmount: '',
+  retroPaymentAmount: '0',
   annualSickDays: '80',
   annualVacationDays: '80',
   vacationAccrualEnabled: false,
@@ -299,6 +300,7 @@ export function EducatorsPage() {
       employmentType: educator.employment_type || 'PART_TIME',
       hourlyRate: educator.hourly_rate || '',
       salaryAmount: educator.salary_amount || '',
+      retroPaymentAmount: educator.retro_payment_amount || 0,
       dateOfBirth: normalizeDateValue(educator.date_of_birth),
       addressLine1: educator.address_line1 || '',
       addressLine2: educator.address_line2 || '',
@@ -513,6 +515,13 @@ export function EducatorsPage() {
                 <span className="text-stone-500 text-sm">Employment</span>
                 <span className="font-bold text-stone-700 text-sm">
                   {educator.employment_type === 'FULL_TIME' ? 'Full Time' : 'Part Time'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center p-3 bg-[var(--background)] rounded-xl">
+                <span className="text-stone-500 text-sm">Retro Payment</span>
+                <span className="font-bold text-stone-700 text-sm">
+                  ${parseFloat(educator.retro_payment_amount || 0).toFixed(2)}
                 </span>
               </div>
 
@@ -794,6 +803,24 @@ export function EducatorsPage() {
             </div>
           )}
 
+          <div>
+            <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+              Retro Payment
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.retroPaymentAmount}
+              onChange={(e) => setFormData({ ...formData, retroPaymentAmount: e.target.value })}
+              className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              placeholder="0.00"
+            />
+            <p className="mt-2 text-xs text-stone-500">
+              Fixed admin-set retro amount added to this educator&apos;s pay-period preview and payout.
+            </p>
+          </div>
+
           {/* Time Off */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -1058,6 +1085,22 @@ export function EducatorsPage() {
                   />
                 </div>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2 font-quicksand">
+                Retro Payment
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editForm.retroPaymentAmount}
+                onChange={(e) => setEditForm({ ...editForm, retroPaymentAmount: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border themed-border themed-ring bg-white"
+              />
+              <p className="mt-2 text-xs text-stone-500">
+                Fixed admin-set retro amount that seeds this educator&apos;s payroll preview and paystub line.
+              </p>
             </div>
           </div>
 

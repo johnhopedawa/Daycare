@@ -22,6 +22,8 @@
 - In numeric payroll editors, spinner step behavior and typed-decimal behavior are separate concerns: use whole-number `step` increments when requested without blocking manual decimal entry.
 - When the user gives a multiplier hint like `0.04 so 4%`, interpret it literally as `0.04x` unless they explicitly say `0.4x`.
 - When paystub editing exists for closed periods, check whether the same draft-review capability is also expected before closing so the preview and stored payout flows stay aligned.
+- When a user points to a specific payroll surface like the educator `My Paystubs` route, trace that exact frontend route and its backing `/api/documents/paystubs/*` endpoints before broadening the fix to adjacent payroll screens.
+- When a paystub shows both `Current` and `YTD`, do not let YTD display below the current stub amount; at minimum it must reflect the current paystub values, and if the user asks for YTD editing in the HTML preview, wire that through the real paystub edit flow instead of leaving it as read-only display text.
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.

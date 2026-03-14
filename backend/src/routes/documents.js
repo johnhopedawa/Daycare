@@ -6,6 +6,7 @@ const { generatePdfToken, verifyToken } = require('../utils/jwt');
 const { getReceiptData, ensureReceipt } = require('../services/receiptService');
 const { getDaycareSettings } = require('../services/settingsService');
 const { applyVacationAccrualSnapshots } = require('../utils/leaveAccrual');
+const { resolvePaystubPayout } = require('../utils/payrollDeductions');
 
 const router = express.Router();
 
@@ -191,14 +192,14 @@ const getPaystubRow = async (id) => {
             ps.stub_number,
             ps.generated_at,
             po.*,
-            pp.name, pp.start_date, pp.end_date, pp.pay_date,
+            pp.name, pp.start_date, pp.end_date, pp.pay_date, pp.frequency,
             u.first_name, u.last_name, u.email,
             u.address_line1, u.address_line2, u.city, u.province, u.postal_code,
-            u.payment_type, u.hourly_rate AS profile_hourly_rate, u.salary_amount,
+            u.payment_type, u.pay_frequency, u.hourly_rate AS profile_hourly_rate, u.salary_amount,
             u.ytd_gross, u.ytd_cpp, u.ytd_ei, u.ytd_tax, u.ytd_hours,
             u.annual_sick_days, u.annual_vacation_days, u.employment_type,
             u.sick_days_remaining, u.vacation_days_remaining,
-            u.vacation_accrual_enabled, u.vacation_accrual_rate,
+            u.vacation_accrual_enabled, u.vacation_accrual_rate, u.retro_payment_amount,
             po.created_at AS payout_created_at
      FROM paystubs ps
      JOIN payouts po ON ps.payout_id = po.id
@@ -256,6 +257,7 @@ const buildPaystubContext = async (id) => {
     province: data.province,
     postal_code: data.postal_code,
     payment_type: data.payment_type,
+    pay_frequency: data.pay_frequency,
     profile_hourly_rate: data.profile_hourly_rate,
     salary_amount: data.salary_amount,
     ytd_gross: data.ytd_gross,
@@ -270,13 +272,15 @@ const buildPaystubContext = async (id) => {
     vacation_days_remaining: data.vacation_days_remaining,
     vacation_accrual_enabled: data.vacation_accrual_enabled,
     vacation_accrual_rate: data.vacation_accrual_rate,
+    retro_payment_amount: data.retro_payment_amount,
   };
 
   const payPeriod = {
     name: data.name,
     start_date: data.start_date,
     end_date: data.end_date,
-    pay_date: data.pay_date
+    pay_date: data.pay_date,
+    frequency: data.frequency,
   };
 
   const paystub = {
@@ -290,7 +294,9 @@ const buildPaystubContext = async (id) => {
     asOfDate: payPeriod.end_date,
   });
 
-  return { data, payout, user, payPeriod, paystub };
+  const resolvedPayout = resolvePaystubPayout({ payout, user, payPeriod });
+
+  return { data, payout: resolvedPayout, user, payPeriod, paystub };
 };
 
 // === PAYSTUBS ===
@@ -389,7 +395,7 @@ router.get('/paystubs/sample', requireAuth, async (req, res) => {
               ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
               annual_sick_days, annual_vacation_days, employment_type,
               sick_days_remaining, vacation_days_remaining,
-              vacation_accrual_enabled, vacation_accrual_rate
+              vacation_accrual_enabled, vacation_accrual_rate, retro_payment_amount
        FROM users
        WHERE id = $1`,
       [targetUserId]
@@ -451,7 +457,21 @@ router.get('/paystubs/mine', requireAuth, async (req, res) => {
       [req.user.id]
     );
 
-    res.json({ paystubs: result.rows });
+    const paystubs = await Promise.all(result.rows.map(async (stub) => {
+      const context = await buildPaystubContext(stub.id);
+      if (!context) {
+        return stub;
+      }
+
+      return {
+        ...stub,
+        gross_amount: context.payout.gross_amount,
+        deductions: context.payout.deductions,
+        net_amount: context.payout.net_amount,
+      };
+    }));
+
+    res.json({ paystubs });
   } catch (error) {
     console.error('Get my paystubs error:', error);
     res.status(500).json({ error: 'Failed to fetch paystubs' });

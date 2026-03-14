@@ -170,6 +170,7 @@ router.get('/users', async (req, res) => {
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                  carryover_enabled, date_employed, employment_type,
                  vacation_accrual_enabled, vacation_accrual_rate,
+                 retro_payment_amount,
                  sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours,
                  created_at FROM users WHERE created_by = $1`;
     const params = [req.user.id];
@@ -199,6 +200,7 @@ router.post('/users', async (req, res) => {
       addressLine1, addressLine2, city, province, postalCode,
       annualSickDays, annualVacationDays, carryoverEnabled,
       dateEmployed, employmentType, vacationAccrualEnabled, vacationAccrualRate,
+      retroPaymentAmount,
       sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
@@ -246,15 +248,17 @@ router.post('/users', async (req, res) => {
         annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
         carryover_enabled, date_employed, employment_type,
         vacation_accrual_enabled, vacation_accrual_rate,
+        retro_payment_amount,
         sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
        )
-       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+       VALUES ($1, $2, $3, $4, 'EDUCATOR', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
        RETURNING id, email, first_name, last_name, role, hourly_rate, is_active,
                  payment_type, pay_frequency, salary_amount, date_of_birth,
                  address_line1, address_line2, city, province, postal_code,
                  annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                  carryover_enabled, date_employed, employment_type,
                  vacation_accrual_enabled, vacation_accrual_rate,
+                 retro_payment_amount,
                  sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours`,
       [
         email, passwordHash, firstName, lastName, parsedHourlyRate,
@@ -270,6 +274,7 @@ router.post('/users', async (req, res) => {
         normalizedEmploymentType,
         normalizedVacationAccrualEnabled,
         normalizedVacationAccrualRate,
+        parseFloat(retroPaymentAmount) || 0,
         sin || null,
         parseFloat(ytdGross) || 0,
         parseFloat(ytdCpp) || 0,
@@ -298,6 +303,7 @@ router.patch('/users/:id', async (req, res) => {
       annualSickDays, annualVacationDays, sickDaysRemaining, vacationDaysRemaining,
       carryoverEnabled, dateEmployed, employmentType,
       vacationAccrualEnabled, vacationAccrualRate,
+      retroPaymentAmount,
       sin, ytdGross, ytdCpp, ytdEi, ytdTax, ytdHours
     } = req.body;
 
@@ -443,6 +449,11 @@ router.patch('/users/:id', async (req, res) => {
       updates.push(`vacation_accrual_rate = $${params.length}`);
     }
 
+    if (retroPaymentAmount !== undefined) {
+      params.push(parseFloat(retroPaymentAmount) || 0);
+      updates.push(`retro_payment_amount = $${params.length}`);
+    }
+
     if (sin !== undefined) {
       params.push(sin || null);
       updates.push(`sin = $${params.length}`);
@@ -490,6 +501,7 @@ router.patch('/users/:id', async (req, res) => {
                 annual_sick_days, annual_vacation_days, sick_days_remaining, vacation_days_remaining,
                 carryover_enabled, date_employed, employment_type,
                 vacation_accrual_enabled, vacation_accrual_rate,
+                retro_payment_amount,
                 sin, ytd_gross, ytd_cpp, ytd_ei, ytd_tax, ytd_hours
     `;
 

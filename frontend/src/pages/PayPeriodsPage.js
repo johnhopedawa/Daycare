@@ -12,12 +12,12 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const PAYSTUB_LINE_ITEMS = [
-  { key: 'regular', label: 'Regular Pay', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current' },
-  { key: 'sick', label: 'Sick Pay', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
-  { key: 'vacation', label: 'Vacation Pay', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
-  { key: 'stat', label: 'Stat Pay', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
-  { key: 'bonus', label: 'Bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current' },
-  { key: 'retro', label: 'Retro Payment', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
+  { key: 'regular', label: 'Regular Pay', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current', ytdKey: 'regular_pay_ytd', aggregateYtdKey: 'ytd_gross' },
+  { key: 'sick', label: 'Sick Pay', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current', ytdKey: 'sick_pay_ytd' },
+  { key: 'vacation', label: 'Vacation Pay', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current', ytdKey: 'vacation_pay_ytd' },
+  { key: 'stat', label: 'Stat Pay', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current', ytdKey: 'stat_pay_ytd' },
+  { key: 'bonus', label: 'Bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current', ytdKey: 'bonus_pay_ytd' },
+  { key: 'retro', label: 'Retro Payment', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current', ytdKey: 'retro_payment_ytd', usesExplicitCurrent: true },
 ];
 
 const DEFAULT_VACATION_ACCRUAL_RATE = 0.04;
@@ -156,6 +156,15 @@ export function PayPeriodsPage() {
   };
   const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
   const formatEditorNumber = (value) => roundCurrency(value).toFixed(2);
+  const usesExplicitCurrentLineItem = (item) => Boolean(item?.usesExplicitCurrent);
+  const getDisplayedYearToDateValue = (storedValue, currentValue) => roundCurrency(
+    Math.max(safeNumber(storedValue, 0), safeNumber(currentValue, 0))
+  );
+  const getLineYearToDateValue = (item, payout, user, current) => {
+    const storedLineYtd = payout?.[item.ytdKey];
+    const aggregateYtd = item.aggregateYtdKey ? user?.[item.aggregateYtdKey] ?? payout?.[item.aggregateYtdKey] : null;
+    return getDisplayedYearToDateValue(storedLineYtd ?? aggregateYtd, current);
+  };
   const getPaymentTypeLabel = (paymentType) => (paymentType === 'SALARY' ? 'Salary' : 'Hourly');
   const getCompensationLabel = (payout) => (
     payout?.payment_type === 'SALARY'
@@ -247,6 +256,12 @@ export function PayPeriodsPage() {
       bonus_rate: safeNumber(payout?.bonus_rate),
       retro_hours: safeNumber(payout?.retro_hours),
       retro_rate: safeNumber(payout?.retro_rate),
+      retro_payment_current: safeNumber(payout?.retro_payment_current, payout?.retro_payment_amount),
+      ytd_gross: getDisplayedYearToDateValue(payout?.ytd_gross, payout?.gross_amount),
+      ytd_hours: getDisplayedYearToDateValue(payout?.ytd_hours, payout?.total_hours),
+      ytd_cpp: getDisplayedYearToDateValue(payout?.ytd_cpp, payout?.cpp_current),
+      ytd_ei: getDisplayedYearToDateValue(payout?.ytd_ei, payout?.ei_current),
+      ytd_tax: getDisplayedYearToDateValue(payout?.ytd_tax, payout?.income_tax_current),
       payoutVacationAccrual,
     };
 
@@ -277,7 +292,11 @@ export function PayPeriodsPage() {
         ? roundCurrency(safeNumber(formOverrides[item.rateKey]))
         : roundCurrency(safeNumber(payout?.[item.rateKey], fallbackRate));
       let current = formOverrides
-        ? roundCurrency(hours * rate)
+        ? roundCurrency(
+          usesExplicitCurrentLineItem(item)
+            ? safeNumber(formOverrides[item.currentKey], safeNumber(payout?.[item.currentKey], hours * rate))
+            : (hours * rate)
+        )
         : roundCurrency(safeNumber(
           payout?.[item.currentKey],
           item.key === 'regular' ? safeNumber(payout?.gross_amount) : hours * rate
@@ -300,6 +319,7 @@ export function PayPeriodsPage() {
         hours,
         rate,
         current,
+        ytd: getLineYearToDateValue(item, payout, user, current),
       };
     }).filter((row) => (
       row.key !== 'bonus'
@@ -312,6 +332,23 @@ export function PayPeriodsPage() {
     const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
     const grossAmount = rows.reduce((sum, row) => sum + row.current, 0);
     const hourlyRate = rows.find((row) => row.key === 'regular')?.rate || 0;
+    const ytdSummary = {
+      gross: formOverrides
+        ? roundCurrency(safeNumber(formOverrides.ytd_gross, getDisplayedYearToDateValue(user?.ytd_gross ?? payout?.ytd_gross, grossAmount)))
+        : getDisplayedYearToDateValue(user?.ytd_gross ?? payout?.ytd_gross, grossAmount),
+      hours: formOverrides
+        ? roundCurrency(safeNumber(formOverrides.ytd_hours, getDisplayedYearToDateValue(user?.ytd_hours ?? payout?.ytd_hours, totalHours)))
+        : getDisplayedYearToDateValue(user?.ytd_hours ?? payout?.ytd_hours, totalHours),
+      cpp: formOverrides
+        ? roundCurrency(safeNumber(formOverrides.ytd_cpp, getDisplayedYearToDateValue(user?.ytd_cpp ?? payout?.ytd_cpp, payout?.cpp_current)))
+        : getDisplayedYearToDateValue(user?.ytd_cpp ?? payout?.ytd_cpp, payout?.cpp_current),
+      ei: formOverrides
+        ? roundCurrency(safeNumber(formOverrides.ytd_ei, getDisplayedYearToDateValue(user?.ytd_ei ?? payout?.ytd_ei, payout?.ei_current)))
+        : getDisplayedYearToDateValue(user?.ytd_ei ?? payout?.ytd_ei, payout?.ei_current),
+      tax: formOverrides
+        ? roundCurrency(safeNumber(formOverrides.ytd_tax, getDisplayedYearToDateValue(user?.ytd_tax ?? payout?.ytd_tax, payout?.income_tax_current)))
+        : getDisplayedYearToDateValue(user?.ytd_tax ?? payout?.ytd_tax, payout?.income_tax_current),
+    };
 
     return {
       paymentType,
@@ -324,6 +361,7 @@ export function PayPeriodsPage() {
       vacationAccrualEnabled,
       vacationAccrualHours,
       vacationPayoutEnabled,
+      ytdSummary,
     };
   };
   const selectedFrequencyLabel = FREQUENCY_OPTIONS.find(
@@ -350,7 +388,13 @@ export function PayPeriodsPage() {
       const row = rowsByKey.get(item.key);
       const hours = row ? row.hours : roundCurrency(safeNumber(formState[item.hoursKey]));
       const rate = row ? row.rate : roundCurrency(safeNumber(formState[item.rateKey]));
-      const current = row ? row.current : roundCurrency(hours * rate);
+      const current = row
+        ? row.current
+        : roundCurrency(
+          usesExplicitCurrentLineItem(item)
+            ? safeNumber(formState[item.currentKey], hours * rate)
+            : (hours * rate)
+        );
 
       accumulator[item.hoursKey] = hours;
       accumulator[item.rateKey] = rate;
@@ -366,6 +410,11 @@ export function PayPeriodsPage() {
     gross_amount: payoutPreview.grossAmount,
     deductions: payoutPreview.deductions,
     net_amount: payoutPreview.netAmount,
+    ytd_gross: payoutPreview.ytdSummary.gross,
+    ytd_hours: payoutPreview.ytdSummary.hours,
+    ytd_cpp: payoutPreview.ytdSummary.cpp,
+    ytd_ei: payoutPreview.ytdSummary.ei,
+    ytd_tax: payoutPreview.ytdSummary.tax,
     payoutVacationAccrual: Boolean(formState.payoutVacationAccrual),
   });
   const buildClosePayoutOverrides = () => (
@@ -1662,6 +1711,7 @@ export function PayPeriodsPage() {
                   <p>{paystubPreview.user.email}</p>
                   <p>{getPaymentTypeLabel(paystubPreview.user.payment_type)} compensation</p>
                   <p>{paystubPreview.user.employment_type || 'Employment type not set'}</p>
+                  <p>Default Retro Payment: {formatCurrency(paystubPreview.user.retro_payment_amount || 0)}</p>
                   {paystubPreview.user.vacation_accrual_enabled ? (
                     <p>Vacation accrual: {(safeNumber(paystubPreview.user.vacation_accrual_rate, DEFAULT_VACATION_ACCRUAL_RATE) * 100).toFixed(2)}%</p>
                   ) : null}
@@ -1750,7 +1800,7 @@ export function PayPeriodsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                   <h4 className="font-bold text-stone-800">Paystub HTML Preview</h4>
-                  <p className="text-sm text-stone-500">Edit hours and rate for each line. Current pay updates automatically.</p>
+                  <p className="text-sm text-stone-500">Edit hours and rate for each line. Retro Payment stays a flat amount and is edited in the Current column.</p>
                 </div>
                 <div className="text-sm text-stone-500">
                   Paystub: {editingPayout.stub_number || 'Not generated yet'}
@@ -1809,11 +1859,11 @@ export function PayPeriodsPage() {
                               [row.hoursKey]: event.target.value,
                             }))}
                             className={`ml-auto block w-28 rounded-xl border themed-border px-3 py-2 text-right text-sm themed-ring ${
-                              row.key === 'vacation' && editingPayoutHasVacationAccrual
+                              (row.key === 'vacation' && editingPayoutHasVacationAccrual) || usesExplicitCurrentLineItem(row)
                                 ? 'bg-stone-100 text-stone-500 cursor-not-allowed'
                                 : 'bg-white'
                             }`}
-                            disabled={row.key === 'vacation' && editingPayoutHasVacationAccrual}
+                            disabled={(row.key === 'vacation' && editingPayoutHasVacationAccrual) || usesExplicitCurrentLineItem(row)}
                             required
                           />
                         </td>
@@ -1828,16 +1878,33 @@ export function PayPeriodsPage() {
                               [row.rateKey]: event.target.value,
                             }))}
                             className={`ml-auto block w-28 rounded-xl border themed-border px-3 py-2 text-right text-sm themed-ring ${
-                              row.key === 'vacation' && editingPayoutHasVacationAccrual
+                              (row.key === 'vacation' && editingPayoutHasVacationAccrual) || usesExplicitCurrentLineItem(row)
                                 ? 'bg-stone-100 text-stone-500 cursor-not-allowed'
                                 : 'bg-white'
                             }`}
-                            disabled={row.key === 'vacation' && editingPayoutHasVacationAccrual}
+                            disabled={(row.key === 'vacation' && editingPayoutHasVacationAccrual) || usesExplicitCurrentLineItem(row)}
                             required
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-semibold text-stone-700">
-                          {formatCurrency(row.current)}
+                        <td className="px-4 py-3">
+                          {usesExplicitCurrentLineItem(row) ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editPayoutForm[row.currentKey] || formatEditorNumber(row.current)}
+                              onChange={(event) => setEditPayoutForm((current) => ({
+                                ...current,
+                                [row.currentKey]: event.target.value,
+                              }))}
+                              className="ml-auto block w-32 rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                              required
+                            />
+                          ) : (
+                            <div className="text-sm text-right font-semibold text-stone-700">
+                              {formatCurrency(row.current)}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

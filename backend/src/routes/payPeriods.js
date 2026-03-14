@@ -26,8 +26,10 @@ const PAYSTUB_COMPONENTS = [
   { name: 'vacation', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
   { name: 'stat', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
   { name: 'bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current' },
-  { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current' },
+  { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current', usesExplicitCurrent: true },
 ];
+
+const usesExplicitCurrentAmount = (component) => Boolean(component?.usesExplicitCurrent);
 
 const isFullTimeEmployment = (employmentType) => (
   String(employmentType || '').toUpperCase() === 'FULL_TIME'
@@ -101,6 +103,7 @@ const getDefaultBreakdown = ({
   vacationHours = null,
   vacationRate = null,
   vacationCurrent = null,
+  retroPaymentAmount = 0,
 }) => {
   const baseHourlyRate = roundCurrency(hourlyRate);
   const resolvedVacationHours = roundCurrency(
@@ -135,7 +138,7 @@ const getDefaultBreakdown = ({
     bonus_pay_current: 0,
     retro_hours: 0,
     retro_rate: 0,
-    retro_payment_current: 0,
+    retro_payment_current: roundCurrency(retroPaymentAmount),
   };
 };
 
@@ -183,7 +186,11 @@ const calculatePayoutFromBreakdown = ({
     const hours = roundCurrency(safeNumber(breakdown[component.hoursKey], 0));
     const rateFallback = component.name === 'regular' ? safeNumber(defaultRegularRate) : 0;
     const rate = roundCurrency(safeNumber(breakdown[component.rateKey], rateFallback));
-    let current = roundCurrency(hours * rate);
+    let current = roundCurrency(
+      usesExplicitCurrentAmount(component)
+        ? safeNumber(breakdown[component.currentKey], hours * rate)
+        : (hours * rate)
+    );
 
     if (normalizedPaymentType === 'SALARY' && component.name === 'regular' && current === 0) {
       current = roundCurrency(safeNumber(breakdown[component.currentKey], salaryAmount));
@@ -225,7 +232,7 @@ const matchesPeriodFrequency = (period, educator) => {
 const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
   const result = await db.query(
     `SELECT id, first_name, last_name, email, payment_type, pay_frequency, hourly_rate, salary_amount, employment_type,
-            vacation_accrual_enabled, vacation_accrual_rate
+            vacation_accrual_enabled, vacation_accrual_rate, retro_payment_amount
      FROM users
      WHERE is_active = true
        AND role = 'EDUCATOR'
@@ -250,6 +257,7 @@ const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
         educator.vacation_accrual_rate,
         DEFAULT_VACATION_ACCRUAL_RATE
       ),
+      retro_payment_amount: safeNumber(educator.retro_payment_amount),
     }));
 };
 
@@ -310,6 +318,7 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
         totalHours: 0,
         grossAmount: educator.salary_amount,
         employmentType: educator.employment_type,
+        retroPaymentAmount: educator.retro_payment_amount,
       });
       const payoutBreakdown = {
         ...defaultBreakdown,
@@ -341,6 +350,7 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
         vacation_payout_auto: vacationAccrual.payoutAutomatically,
         payoutVacationAccrual: Boolean(override?.payoutVacationAccrual),
         salary_amount: educator.salary_amount,
+        retro_payment_amount: educator.retro_payment_amount,
         total_hours: recalculated.totalHours,
         hourly_rate: recalculated.hourlyRate,
         gross_amount: recalculated.grossAmount,
@@ -364,6 +374,7 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
       vacationHours: vacationAccrual.payoutHours,
       vacationRate: vacationAccrual.payoutRate,
       vacationCurrent: vacationAccrual.payoutCurrent,
+      retroPaymentAmount: educator.retro_payment_amount,
     });
     const payoutBreakdown = {
       ...defaultBreakdown,
@@ -401,6 +412,7 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
           : 0,
       vacation_payout_auto: vacationAccrual.payoutAutomatically,
       payoutVacationAccrual: Boolean(override?.payoutVacationAccrual),
+      retro_payment_amount: educator.retro_payment_amount,
       hourly_rate: recalculated.hourlyRate,
       total_hours: recalculated.totalHours,
       scheduled_shifts: safeNumber(scheduleSummary?.scheduled_shifts),
@@ -438,7 +450,7 @@ router.get('/', async (req, res) => {
     const [educatorsResult, schedulesResult, timeEntriesResult, payoutsResult] = await Promise.all([
       pool.query(
         `SELECT id, payment_type, pay_frequency, hourly_rate, salary_amount, employment_type,
-                vacation_accrual_enabled, vacation_accrual_rate
+                vacation_accrual_enabled, vacation_accrual_rate, retro_payment_amount
          FROM users
          WHERE is_active = true
            AND role = 'EDUCATOR'
@@ -490,6 +502,7 @@ router.get('/', async (req, res) => {
         educator.vacation_accrual_rate,
         DEFAULT_VACATION_ACCRUAL_RATE
       ),
+      retro_payment_amount: safeNumber(educator.retro_payment_amount),
     }));
 
     const payPeriods = periods.map((period) => {
@@ -526,7 +539,7 @@ router.get('/', async (req, res) => {
         eligibleEducators.forEach((educator) => {
           if (educator.payment_type === 'SALARY') {
             employeeCount += 1;
-            totalAmount += safeNumber(educator.salary_amount);
+            totalAmount += safeNumber(educator.salary_amount) + safeNumber(educator.retro_payment_amount);
             return;
           }
 
@@ -538,6 +551,7 @@ router.get('/', async (req, res) => {
           employeeCount += 1;
           totalHours += scheduledHours;
           totalAmount += scheduledHours * safeNumber(educator.hourly_rate);
+          totalAmount += safeNumber(educator.retro_payment_amount);
           const vacationAccrual = getVacationAccrualBreakdown({
             paymentType: educator.payment_type,
             hourlyRate: educator.hourly_rate,
@@ -1035,7 +1049,8 @@ router.patch('/payouts/:id', async (req, res) => {
               u.hourly_rate AS profile_hourly_rate,
               u.salary_amount AS profile_salary_amount,
               u.employment_type,
-              u.vacation_accrual_enabled, u.vacation_accrual_rate
+              u.vacation_accrual_enabled, u.vacation_accrual_rate,
+              u.retro_payment_amount
        FROM payouts p
        JOIN pay_periods pp ON pp.id = p.pay_period_id
        JOIN users u ON u.id = p.user_id
@@ -1110,6 +1125,7 @@ router.patch('/payouts/:id', async (req, res) => {
         totalHours: parsedHours,
         grossAmount: parsedHours * safeNumber(payout.profile_hourly_rate, payout.hourly_rate),
         employmentType: payout.employment_type,
+        retroPaymentAmount: payout.retro_payment_amount,
       });
     }
 
