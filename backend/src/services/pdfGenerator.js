@@ -55,6 +55,16 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         }
         return formatCurrency(num);
       };
+      const getDisplayedYtdValue = (storedValue, currentValue) => {
+        const stored = safeNumber(storedValue);
+        const current = safeNumber(currentValue);
+
+        if (stored === null && current === null) {
+          return null;
+        }
+
+        return Math.max(stored ?? 0, current ?? 0);
+      };
 
       const getNumericValue = (source, keys) => {
         if (!source) {
@@ -193,11 +203,6 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         ? Math.max(0, annualSick - remainingSick)
         : null;
 
-      const ytdGross = safeNumber(user.ytd_gross) ?? gross;
-      const ytdTax = safeNumber(user.ytd_tax) ?? 0;
-      const ytdCpp = safeNumber(user.ytd_cpp) ?? 0;
-      const ytdEi = safeNumber(user.ytd_ei) ?? 0;
-      const ytdCpp2 = getNumericValue(user, ['ytd_cpp2', 'ytd_second_cpp', 'ytd_second_canada_pension_plan']) ?? 0;
       const currentIncomeTax = getNumericValue(payout, ['income_tax_current', 'tax_current', 'current_tax']);
       const currentEi = getNumericValue(payout, ['ei_current', 'employment_insurance_current', 'current_ei']);
       const currentCpp = getNumericValue(payout, ['cpp_current', 'canada_pension_plan_current', 'current_cpp']);
@@ -205,6 +210,14 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         payout,
         ['cpp2_current', 'second_cpp_current', 'second_canada_pension_plan_current', 'current_cpp2']
       );
+      const ytdGross = getDisplayedYtdValue(user.ytd_gross, gross) ?? gross;
+      const ytdTax = getDisplayedYtdValue(user.ytd_tax, currentIncomeTax) ?? 0;
+      const ytdCpp = getDisplayedYtdValue(user.ytd_cpp, currentCpp) ?? 0;
+      const ytdEi = getDisplayedYtdValue(user.ytd_ei, currentEi) ?? 0;
+      const ytdCpp2 = getDisplayedYtdValue(
+        getNumericValue(user, ['ytd_cpp2', 'ytd_second_cpp', 'ytd_second_canada_pension_plan']),
+        currentCpp2
+      ) ?? 0;
       const ytdTaxTotal = ytdTax + ytdCpp + ytdEi + ytdCpp2;
       const isFullTime = String(user.employment_type || '').toUpperCase() === 'FULL_TIME';
       const isPartTime = String(user.employment_type || '').toUpperCase() === 'PART_TIME';
@@ -407,19 +420,28 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         hours: getNumericValue(payout, ['regular_hours', 'total_hours']),
         rate: getNumericValue(payout, ['regular_rate', 'hourly_rate']),
         current: getNumericValue(payout, ['regular_pay_current', 'gross_amount']),
-        ytd: ytdGross,
+        ytd: getDisplayedYtdValue(
+          getNumericValue(payout, ['regular_pay_ytd', 'ytd_regular_pay']),
+          getNumericValue(payout, ['regular_pay_current', 'gross_amount'])
+        ) ?? ytdGross,
       });
       addPayRow(payRows, 'Sick Pay', {
         hours: getNumericValue(payout, ['sick_hours', 'sick_pay_hours']),
         rate: getNumericValue(payout, ['sick_rate', 'sick_pay_rate']) || getDefaultPayRate('sick'),
         current: getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount']),
-        ytd: getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
+        ytd: getDisplayedYtdValue(
+          getNumericValue(payout, ['sick_pay_ytd', 'ytd_sick_pay']),
+          getNumericValue(payout, ['sick_pay_current', 'sick_pay', 'sick_amount'])
+        ),
       });
       addPayRow(payRows, 'Vacation Pay', {
         hours: getNumericValue(payout, ['vacation_hours', 'vacation_pay_hours']),
         rate: getNumericValue(payout, ['vacation_rate', 'vacation_pay_rate']) || getDefaultPayRate('vacation'),
         current: getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount']),
-        ytd: getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
+        ytd: getDisplayedYtdValue(
+          getNumericValue(payout, ['vacation_pay_ytd', 'ytd_vacation_pay']),
+          getNumericValue(payout, ['vacation_pay_current', 'vacation_pay', 'vacation_amount'])
+        ),
       });
 
       if (isFullTime) {
@@ -427,7 +449,10 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
           hours: getNumericValue(payout, ['stat_hours', 'stat_pay_hours', 'holiday_hours']),
           rate: getNumericValue(payout, ['stat_rate', 'stat_pay_rate', 'holiday_rate']),
           current: getNumericValue(payout, ['stat_pay_current', 'stat_pay', 'holiday_pay']),
-          ytd: getNumericValue(payout, ['stat_pay_ytd', 'ytd_stat_pay', 'holiday_pay_ytd']),
+          ytd: getDisplayedYtdValue(
+            getNumericValue(payout, ['stat_pay_ytd', 'ytd_stat_pay', 'holiday_pay_ytd']),
+            getNumericValue(payout, ['stat_pay_current', 'stat_pay', 'holiday_pay'])
+          ),
         });
       }
 
@@ -435,7 +460,10 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         hours: getNumericValue(payout, ['bonus_hours', 'bonus_pay_hours']),
         rate: getNumericValue(payout, ['bonus_rate', 'bonus_pay_rate']),
         current: getNumericValue(payout, ['bonus_pay_current', 'bonus_pay', 'bonus_amount']),
-        ytd: getNumericValue(payout, ['bonus_pay_ytd', 'ytd_bonus_pay']),
+        ytd: getDisplayedYtdValue(
+          getNumericValue(payout, ['bonus_pay_ytd', 'ytd_bonus_pay']),
+          getNumericValue(payout, ['bonus_pay_current', 'bonus_pay', 'bonus_amount'])
+        ),
       };
       if (shouldIncludeCurrentPayRow(bonusRowValues)) {
         addPayRow(payRows, 'Bonus', bonusRowValues);
@@ -445,7 +473,10 @@ function generatePaystub(payout, user, payPeriod, context = {}) {
         hours: getNumericValue(payout, ['retro_hours', 'retro_payment_hours']),
         rate: getNumericValue(payout, ['retro_rate', 'retro_payment_rate']),
         current: getNumericValue(payout, ['retro_payment_current', 'retro_payment', 'retro_pay']),
-        ytd: getNumericValue(payout, ['retro_payment_ytd', 'ytd_retro_payment', 'retro_pay_ytd']),
+        ytd: getDisplayedYtdValue(
+          getNumericValue(payout, ['retro_payment_ytd', 'ytd_retro_payment', 'retro_pay_ytd']),
+          getNumericValue(payout, ['retro_payment_current', 'retro_payment', 'retro_pay'])
+        ),
       });
 
       const payHeight = drawTable({

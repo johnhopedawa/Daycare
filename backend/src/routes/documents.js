@@ -237,12 +237,18 @@ const buildPaystubContext = async (id) => {
     stat_hours: data.stat_hours,
     stat_rate: data.stat_rate,
     stat_pay_current: data.stat_pay_current,
+    regular_pay_ytd: data.regular_pay_ytd,
+    sick_pay_ytd: data.sick_pay_ytd,
+    vacation_pay_ytd: data.vacation_pay_ytd,
+    stat_pay_ytd: data.stat_pay_ytd,
     bonus_hours: data.bonus_hours,
     bonus_rate: data.bonus_rate,
     bonus_pay_current: data.bonus_pay_current,
+    bonus_pay_ytd: data.bonus_pay_ytd,
     retro_hours: data.retro_hours,
     retro_rate: data.retro_rate,
     retro_payment_current: data.retro_payment_current,
+    retro_payment_ytd: data.retro_payment_ytd,
     payout_created_at: data.payout_created_at
   };
 

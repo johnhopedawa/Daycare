@@ -631,8 +631,26 @@
 - Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) so `GET /api/documents/paystubs/mine`, `GET /api/documents/paystubs/:id/details`, and `GET /api/documents/paystubs/:id/pdf` all pass through the same payout resolver before returning net pay or generating the PDF.
 - The payout resolver now backfills legacy paystub rows where `regular_pay_current` / `regular_hours` were effectively missing, so sick pay no longer double-counts by leaving the full gross amount on the Regular row and then adding Sick Pay again.
 - Updated [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so the paystub PDF removes the prose placeholder deduction note, shows structured deduction totals instead, separates `Taxes` from other payroll deductions in the summary, and nudges the pay-stub detail block lower to avoid crowding the fold line.
+- Follow-up YTD correction: updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js), [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so paystub HTML preview rows now show a YTD column, displayed YTD values never fall below the current paystub amount, and the paystub editor includes editable aggregate YTD fields (`gross`, `hours`, `CPP`, `EI`, `tax`) that persist through the closed-payout update endpoint.
 - Verification:
 - `node --check` passed for [`backend/src/utils/payrollDeductions.js`](/C:/src/Daycare/backend/src/utils/payrollDeductions.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
 - A direct helper smoke test returned non-zero estimated deductions for a bi-weekly 2026 sample and corrected the resolved regular line from `0` to `72 hours / $2880` when `8` sick hours were present.
 - A direct PDF smoke test invoked `generatePaystub(...)` with resolved deduction values and returned a non-empty PDF buffer (`pdf:2900`).
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), `npm exec eslint -- src/pages/PayPeriodsPage.js` passed, and a direct PDF smoke test with `current gross = 13.25` / stored YTD `0` still produced a valid PDF buffer (`pdf:2689`) after the YTD fallback change.
+
+## Paystub YTD Editing Expansion (2026-03-13)
+- [x] Confirm whether per-line YTD values already persist in the payroll schema
+- [x] Add persisted payout YTD fields for paystub line items and load them in paystub routes/PDF generation
+- [x] Extend the closed-paystub edit endpoint so per-line YTD edits are validated and saved
+- [x] Make every YTD value editable in the paystub HTML editor and keep preview/PDF output aligned
+- [x] Verify the schema/backend/frontend changes and record the review
+
+## Review
+- Added [`backend/migrations/049_add_payout_ytd_fields.sql`](/C:/src/Daycare/backend/migrations/049_add_payout_ytd_fields.sql) so payouts can now persist per-line YTD values for `regular`, `sick`, `vacation`, `stat`, `bonus`, and `retro` pay rows.
+- Updated [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js) so open-period close previews and closed-payout edits now carry YTD line values and current-period deduction estimates together. The normalization rule now matches the user requirement: if an admin enters a YTD value below the current amount, the saved/displayed YTD becomes `entered + current`.
+- Updated [`frontend/src/pages/PayPeriodsPage.js`](/C:/src/Daycare/frontend/src/pages/PayPeriodsPage.js) so every YTD value in the paystub HTML editor is editable, including the per-row YTD column and the aggregate YTD fields. The editor preview also now derives deductions from the current deduction components instead of leaving the footer at `0.00`.
+- Updated [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js) and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js) so persisted line-level YTD values flow into paystub details/PDFs and the PDF uses the same normalized YTD behavior as the HTML preview.
+- Verification:
+- `node --check` passed for [`backend/src/routes/payPeriods.js`](/C:/src/Daycare/backend/src/routes/payPeriods.js), [`backend/src/routes/documents.js`](/C:/src/Daycare/backend/src/routes/documents.js), and [`backend/src/services/pdfGenerator.js`](/C:/src/Daycare/backend/src/services/pdfGenerator.js).
+- `npm exec eslint -- src/pages/PayPeriodsPage.js` passed.
 

@@ -24,6 +24,7 @@
 - When paystub editing exists for closed periods, check whether the same draft-review capability is also expected before closing so the preview and stored payout flows stay aligned.
 - When a user points to a specific payroll surface like the educator `My Paystubs` route, trace that exact frontend route and its backing `/api/documents/paystubs/*` endpoints before broadening the fix to adjacent payroll screens.
 - When a paystub shows both `Current` and `YTD`, do not let YTD display below the current stub amount; at minimum it must reflect the current paystub values, and if the user asks for YTD editing in the HTML preview, wire that through the real paystub edit flow instead of leaving it as read-only display text.
+- When admins can edit YTD paystub values, normalize entries below the current amount as `entered + current` instead of clamping straight to current; apply that same rule consistently across the preview, save path, and PDF output.
 
 ## 2026-03-13
 - When a user retracts a reported issue, stop pursuing that verification path and focus only on the remaining requested change instead of continuing to optimize the abandoned concern.

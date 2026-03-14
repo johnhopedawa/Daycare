@@ -7,6 +7,7 @@ const {
   isVacationAccrualEnabled,
   normalizeAccrualRate,
 } = require('../utils/leaveAccrual');
+const { calculateEstimatedPayrollDeductions } = require('../utils/payrollDeductions');
 
 const router = express.Router();
 
@@ -19,17 +20,30 @@ const safeNumber = (value, fallback = 0) => {
 };
 
 const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
+const normalizeEditableYtdValue = (value, currentValue, fallback = null) => {
+  const current = roundCurrency(safeNumber(currentValue));
+  const parsed = Number(value);
+  const baseValue = Number.isFinite(parsed)
+    ? roundCurrency(parsed)
+    : roundCurrency(safeNumber(fallback, current));
+
+  return roundCurrency(baseValue < current ? baseValue + current : baseValue);
+};
 
 const PAYSTUB_COMPONENTS = [
-  { name: 'regular', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current' },
-  { name: 'sick', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current' },
-  { name: 'vacation', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current' },
-  { name: 'stat', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current' },
-  { name: 'bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current' },
-  { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current', usesExplicitCurrent: true },
+  { name: 'regular', hoursKey: 'regular_hours', rateKey: 'regular_rate', currentKey: 'regular_pay_current', ytdKey: 'regular_pay_ytd' },
+  { name: 'sick', hoursKey: 'sick_hours', rateKey: 'sick_rate', currentKey: 'sick_pay_current', ytdKey: 'sick_pay_ytd' },
+  { name: 'vacation', hoursKey: 'vacation_hours', rateKey: 'vacation_rate', currentKey: 'vacation_pay_current', ytdKey: 'vacation_pay_ytd' },
+  { name: 'stat', hoursKey: 'stat_hours', rateKey: 'stat_rate', currentKey: 'stat_pay_current', ytdKey: 'stat_pay_ytd' },
+  { name: 'bonus', hoursKey: 'bonus_hours', rateKey: 'bonus_rate', currentKey: 'bonus_pay_current', ytdKey: 'bonus_pay_ytd' },
+  { name: 'retro', hoursKey: 'retro_hours', rateKey: 'retro_rate', currentKey: 'retro_payment_current', ytdKey: 'retro_payment_ytd', usesExplicitCurrent: true },
 ];
 
 const usesExplicitCurrentAmount = (component) => Boolean(component?.usesExplicitCurrent);
+const getDefaultYtdBreakdown = (breakdown) => PAYSTUB_COMPONENTS.reduce((accumulator, component) => {
+  accumulator[component.ytdKey] = roundCurrency(safeNumber(breakdown?.[component.currentKey]));
+  return accumulator;
+}, {});
 
 const isFullTimeEmployment = (employmentType) => (
   String(employmentType || '').toUpperCase() === 'FULL_TIME'
@@ -232,6 +246,7 @@ const matchesPeriodFrequency = (period, educator) => {
 const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
   const result = await db.query(
     `SELECT id, first_name, last_name, email, payment_type, pay_frequency, hourly_rate, salary_amount, employment_type,
+            ytd_gross, ytd_cpp, ytd_ei, ytd_tax,
             vacation_accrual_enabled, vacation_accrual_rate, retro_payment_amount
      FROM users
      WHERE is_active = true
@@ -252,6 +267,10 @@ const getEligibleEducatorsForPeriod = async (db, adminId, period) => {
       hourly_rate: safeNumber(educator.hourly_rate),
       salary_amount: safeNumber(educator.salary_amount),
       employment_type: educator.employment_type,
+      ytd_gross: safeNumber(educator.ytd_gross),
+      ytd_cpp: safeNumber(educator.ytd_cpp),
+      ytd_ei: safeNumber(educator.ytd_ei),
+      ytd_tax: safeNumber(educator.ytd_tax),
       vacation_accrual_enabled: Boolean(educator.vacation_accrual_enabled),
       vacation_accrual_rate: normalizeAccrualRate(
         educator.vacation_accrual_rate,
@@ -289,7 +308,7 @@ const getScheduleTotalsForPeriod = async (db, adminId, period, educatorIds) => {
   }));
 };
 
-const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUserId = new Map()) => {
+const buildPeriodCompensationPreview = (educators, scheduleTotals, period, overridesByUserId = new Map()) => {
   const scheduleTotalsByUser = new Map(
     scheduleTotals.map((row) => [row.user_id, row])
   );
@@ -331,6 +350,31 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
         breakdown: payoutBreakdown,
         defaultRegularRate: educator.hourly_rate,
       });
+      const estimatedDeductions = calculateEstimatedPayrollDeductions({
+        grossPay: recalculated.grossAmount,
+        payDate: period.pay_date || period.end_date,
+        payFrequency: educator.pay_frequency || period.frequency,
+        periodStart: period.start_date,
+        periodEnd: period.end_date,
+        ytdGross: educator.ytd_gross,
+        ytdCpp: educator.ytd_cpp,
+        ytdEi: educator.ytd_ei,
+      });
+      const ytdBreakdown = PAYSTUB_COMPONENTS.reduce((accumulator, component) => {
+        accumulator[component.ytdKey] = normalizeEditableYtdValue(
+          override?.ytdBreakdown?.[component.ytdKey],
+          recalculated.breakdown[component.currentKey],
+          recalculated.breakdown[component.currentKey]
+        );
+        return accumulator;
+      }, {});
+      const aggregateYtd = {
+        ytd_gross: normalizeEditableYtdValue(override?.ytd?.gross, recalculated.grossAmount, educator.ytd_gross),
+        ytd_hours: normalizeEditableYtdValue(override?.ytd?.hours, recalculated.totalHours, recalculated.totalHours),
+        ytd_cpp: normalizeEditableYtdValue(override?.ytd?.cpp, estimatedDeductions.cpp, educator.ytd_cpp),
+        ytd_ei: normalizeEditableYtdValue(override?.ytd?.ei, estimatedDeductions.ei, educator.ytd_ei),
+        ytd_tax: normalizeEditableYtdValue(override?.ytd?.tax, estimatedDeductions.incomeTax, educator.ytd_tax),
+      };
 
       salariedEmployees.push({
         id: educator.id,
@@ -354,9 +398,15 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
         total_hours: recalculated.totalHours,
         hourly_rate: recalculated.hourlyRate,
         gross_amount: recalculated.grossAmount,
-        deductions: recalculated.deductions,
-        net_amount: recalculated.netAmount,
+        deductions: estimatedDeductions.total,
+        net_amount: roundCurrency(recalculated.grossAmount - estimatedDeductions.total),
+        income_tax_current: estimatedDeductions.incomeTax,
+        ei_current: estimatedDeductions.ei,
+        cpp_current: estimatedDeductions.cpp,
+        cpp2_current: estimatedDeductions.cpp2,
+        ...aggregateYtd,
         ...recalculated.breakdown,
+        ...ytdBreakdown,
       });
       return;
     }
@@ -394,6 +444,31 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
       breakdown: payoutBreakdown,
       defaultRegularRate: educator.hourly_rate,
     });
+    const estimatedDeductions = calculateEstimatedPayrollDeductions({
+      grossPay: recalculated.grossAmount,
+      payDate: period.pay_date || period.end_date,
+      payFrequency: educator.pay_frequency || period.frequency,
+      periodStart: period.start_date,
+      periodEnd: period.end_date,
+      ytdGross: educator.ytd_gross,
+      ytdCpp: educator.ytd_cpp,
+      ytdEi: educator.ytd_ei,
+    });
+    const ytdBreakdown = PAYSTUB_COMPONENTS.reduce((accumulator, component) => {
+      accumulator[component.ytdKey] = normalizeEditableYtdValue(
+        override?.ytdBreakdown?.[component.ytdKey],
+        recalculated.breakdown[component.currentKey],
+        recalculated.breakdown[component.currentKey]
+      );
+      return accumulator;
+    }, {});
+    const aggregateYtd = {
+      ytd_gross: normalizeEditableYtdValue(override?.ytd?.gross, recalculated.grossAmount, educator.ytd_gross),
+      ytd_hours: normalizeEditableYtdValue(override?.ytd?.hours, recalculated.totalHours, recalculated.totalHours),
+      ytd_cpp: normalizeEditableYtdValue(override?.ytd?.cpp, estimatedDeductions.cpp, educator.ytd_cpp),
+      ytd_ei: normalizeEditableYtdValue(override?.ytd?.ei, estimatedDeductions.ei, educator.ytd_ei),
+      ytd_tax: normalizeEditableYtdValue(override?.ytd?.tax, estimatedDeductions.incomeTax, educator.ytd_tax),
+    };
 
     hourlyEmployees.push({
       id: educator.id,
@@ -417,9 +492,15 @@ const buildPeriodCompensationPreview = (educators, scheduleTotals, overridesByUs
       total_hours: recalculated.totalHours,
       scheduled_shifts: safeNumber(scheduleSummary?.scheduled_shifts),
       gross_amount: recalculated.grossAmount,
-      deductions: recalculated.deductions,
-      net_amount: recalculated.netAmount,
+      deductions: estimatedDeductions.total,
+      net_amount: roundCurrency(recalculated.grossAmount - estimatedDeductions.total),
+      income_tax_current: estimatedDeductions.incomeTax,
+      ei_current: estimatedDeductions.ei,
+      cpp_current: estimatedDeductions.cpp,
+      cpp2_current: estimatedDeductions.cpp2,
+      ...aggregateYtd,
       ...recalculated.breakdown,
+      ...ytdBreakdown,
     });
   });
 
@@ -788,7 +869,7 @@ router.get('/:id/close-preview', async (req, res) => {
       period,
       educators.map((educator) => educator.id)
     );
-    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals);
+    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals, period);
 
     const preview = {
       period: period,
@@ -844,6 +925,7 @@ router.post('/:id/close', async (req, res) => {
       }
 
       const breakdown = {};
+      const ytdBreakdown = {};
       let isValid = true;
       PAYSTUB_COMPONENTS.forEach((component) => {
         if (!isValid) {
@@ -867,6 +949,11 @@ router.post('/:id/close', async (req, res) => {
         breakdown[component.hoursKey] = parsedHours;
         breakdown[component.rateKey] = parsedRate;
         breakdown[component.currentKey] = safeNumber(override?.breakdown?.[component.currentKey]);
+        ytdBreakdown[component.ytdKey] = normalizeEditableYtdValue(
+          override?.ytdBreakdown?.[component.ytdKey],
+          breakdown[component.currentKey],
+          breakdown[component.currentKey]
+        );
       });
 
       if (!isValid) {
@@ -874,8 +961,24 @@ router.post('/:id/close', async (req, res) => {
         return res.status(400).json({ error: 'Each pre-close paystub edit must include non-negative hours and rate values' });
       }
 
+      const rawYtd = override?.ytd && typeof override.ytd === 'object'
+        ? {
+            gross: Number(override.ytd.gross),
+            hours: Number(override.ytd.hours),
+            cpp: Number(override.ytd.cpp),
+            ei: Number(override.ytd.ei),
+            tax: Number(override.ytd.tax),
+          }
+        : null;
+      if (rawYtd && Object.values(rawYtd).some((value) => !Number.isFinite(value) || value < 0)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Each pre-close paystub edit must include non-negative YTD values' });
+      }
+
       overridesByUserId.set(userId, {
         breakdown,
+        ytdBreakdown,
+        ytd: rawYtd,
         payoutVacationAccrual: Boolean(override?.payoutVacationAccrual),
       });
     }
@@ -886,7 +989,7 @@ router.post('/:id/close', async (req, res) => {
       period,
       educators.map((educator) => educator.id)
     );
-    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals, overridesByUserId);
+    const { hourlyEmployees, salariedEmployees } = buildPeriodCompensationPreview(educators, scheduleTotals, period, overridesByUserId);
 
     for (const entry of hourlyEmployees) {
       await client.query(
@@ -897,14 +1000,16 @@ router.post('/:id/close', async (req, res) => {
          vacation_hours, vacation_rate, vacation_pay_current,
          stat_hours, stat_rate, stat_pay_current,
          bonus_hours, bonus_rate, bonus_pay_current,
-         retro_hours, retro_rate, retro_payment_current)
+         retro_hours, retro_rate, retro_payment_current,
+         regular_pay_ytd, sick_pay_ytd, vacation_pay_ytd, stat_pay_ytd, bonus_pay_ytd, retro_payment_ytd)
          VALUES ($1, $2, $3, $4, $5, $6, $7,
                  $8, $9, $10,
                  $11, $12, $13,
                  $14, $15, $16,
                  $17, $18, $19,
                  $20, $21, $22,
-                 $23, $24, $25)`,
+                 $23, $24, $25,
+                 $26, $27, $28, $29, $30, $31)`,
         [
           id,
           entry.id,
@@ -931,6 +1036,12 @@ router.post('/:id/close', async (req, res) => {
           entry.retro_hours,
           entry.retro_rate,
           entry.retro_payment_current,
+          entry.regular_pay_ytd,
+          entry.sick_pay_ytd,
+          entry.vacation_pay_ytd,
+          entry.stat_pay_ytd,
+          entry.bonus_pay_ytd,
+          entry.retro_payment_ytd,
         ]
       );
     }
@@ -944,14 +1055,16 @@ router.post('/:id/close', async (req, res) => {
          vacation_hours, vacation_rate, vacation_pay_current,
          stat_hours, stat_rate, stat_pay_current,
          bonus_hours, bonus_rate, bonus_pay_current,
-         retro_hours, retro_rate, retro_payment_current)
+         retro_hours, retro_rate, retro_payment_current,
+         regular_pay_ytd, sick_pay_ytd, vacation_pay_ytd, stat_pay_ytd, bonus_pay_ytd, retro_payment_ytd)
          VALUES ($1, $2, $3, $4, $5, $6, $7,
                  $8, $9, $10,
                  $11, $12, $13,
                  $14, $15, $16,
                  $17, $18, $19,
                  $20, $21, $22,
-                 $23, $24, $25)`,
+                 $23, $24, $25,
+                 $26, $27, $28, $29, $30, $31)`,
         [
           id,
           emp.id,
@@ -978,6 +1091,33 @@ router.post('/:id/close', async (req, res) => {
           emp.retro_hours,
           emp.retro_rate,
           emp.retro_payment_current,
+          emp.regular_pay_ytd,
+          emp.sick_pay_ytd,
+          emp.vacation_pay_ytd,
+          emp.stat_pay_ytd,
+          emp.bonus_pay_ytd,
+          emp.retro_payment_ytd,
+        ]
+      );
+    }
+
+    for (const entry of [...hourlyEmployees, ...salariedEmployees]) {
+      await client.query(
+        `UPDATE users
+         SET ytd_gross = $1,
+             ytd_hours = $2,
+             ytd_cpp = $3,
+             ytd_ei = $4,
+             ytd_tax = $5,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [
+          entry.ytd_gross,
+          entry.ytd_hours,
+          entry.ytd_cpp,
+          entry.ytd_ei,
+          entry.ytd_tax,
+          entry.id,
         ]
       );
     }
@@ -1041,14 +1181,15 @@ router.patch('/payouts/:id', async (req, res) => {
     await client.query('BEGIN');
 
     const { id } = req.params;
-    const { totalHours, breakdown, payoutVacationAccrual } = req.body;
+    const { totalHours, breakdown, payoutVacationAccrual, ytd, ytdBreakdown } = req.body;
 
     const payoutResult = await client.query(
-      `SELECT p.*, pp.status AS pay_period_status,
-              u.first_name, u.last_name, u.email, u.payment_type,
+      `SELECT p.*, pp.status AS pay_period_status, pp.pay_date, pp.start_date, pp.end_date, pp.frequency,
+              u.first_name, u.last_name, u.email, u.payment_type, u.pay_frequency,
               u.hourly_rate AS profile_hourly_rate,
               u.salary_amount AS profile_salary_amount,
               u.employment_type,
+              u.ytd_gross, u.ytd_hours, u.ytd_cpp, u.ytd_ei, u.ytd_tax,
               u.vacation_accrual_enabled, u.vacation_accrual_rate,
               u.retro_payment_amount
        FROM payouts p
@@ -1073,6 +1214,7 @@ router.patch('/payouts/:id', async (req, res) => {
     }
 
     let normalizedBreakdown;
+    let normalizedYtdBreakdown = null;
     if (breakdown && typeof breakdown === 'object') {
       normalizedBreakdown = {};
       let breakdownIsValid = true;
@@ -1106,6 +1248,14 @@ router.patch('/payouts/:id', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Each paystub line must include non-negative hours and rate values' });
       }
+      normalizedYtdBreakdown = PAYSTUB_COMPONENTS.reduce((accumulator, component) => {
+        accumulator[component.ytdKey] = normalizeEditableYtdValue(
+          ytdBreakdown?.[component.ytdKey],
+          normalizedBreakdown[component.currentKey],
+          payout[component.ytdKey] ?? normalizedBreakdown[component.currentKey]
+        );
+        return accumulator;
+      }, {});
     } else {
       if (totalHours === undefined) {
         await client.query('ROLLBACK');
@@ -1127,6 +1277,7 @@ router.patch('/payouts/:id', async (req, res) => {
         employmentType: payout.employment_type,
         retroPaymentAmount: payout.retro_payment_amount,
       });
+      normalizedYtdBreakdown = getDefaultYtdBreakdown(normalizedBreakdown);
     }
 
     const payoutProfileBreakdown = {
@@ -1153,13 +1304,38 @@ router.patch('/payouts/:id', async (req, res) => {
       payoutProfileBreakdown.vacation_pay_current = vacationAccrual.payoutCurrent;
     }
 
+    const estimatedDeductions = calculateEstimatedPayrollDeductions({
+      grossPay: PAYSTUB_COMPONENTS.reduce(
+        (sum, component) => sum + safeNumber(payoutProfileBreakdown[component.currentKey]),
+        0
+      ),
+      payDate: payout.pay_date || payout.end_date,
+      payFrequency: payout.pay_frequency || payout.frequency,
+      periodStart: payout.start_date,
+      periodEnd: payout.end_date,
+      ytdGross: payout.ytd_gross,
+      ytdCpp: payout.ytd_cpp,
+      ytdEi: payout.ytd_ei,
+    });
+
     const recalculated = calculatePayoutFromBreakdown({
       paymentType: payout.payment_type,
       salaryAmount: payout.profile_salary_amount,
-      deductions: payout.deductions,
+      deductions: estimatedDeductions.total,
       breakdown: payoutProfileBreakdown,
       defaultRegularRate: payout.profile_hourly_rate,
     });
+
+    let normalizedYtd = null;
+    if (ytd && typeof ytd === 'object') {
+      normalizedYtd = {
+        gross: normalizeEditableYtdValue(ytd.gross, recalculated.grossAmount, payout.ytd_gross),
+        hours: normalizeEditableYtdValue(ytd.hours, recalculated.totalHours, payout.ytd_hours),
+        cpp: normalizeEditableYtdValue(ytd.cpp, estimatedDeductions.cpp, payout.ytd_cpp),
+        ei: normalizeEditableYtdValue(ytd.ei, estimatedDeductions.ei, payout.ytd_ei),
+        tax: normalizeEditableYtdValue(ytd.tax, estimatedDeductions.incomeTax, payout.ytd_tax),
+      };
+    }
 
     const updateResult = await client.query(
       `UPDATE payouts
@@ -1185,8 +1361,14 @@ router.patch('/payouts/:id', async (req, res) => {
            bonus_pay_current = $20,
            retro_hours = $21,
            retro_rate = $22,
-           retro_payment_current = $23
-       WHERE id = $24
+           retro_payment_current = $23,
+           regular_pay_ytd = $24,
+           sick_pay_ytd = $25,
+           vacation_pay_ytd = $26,
+           stat_pay_ytd = $27,
+           bonus_pay_ytd = $28,
+           retro_payment_ytd = $29
+       WHERE id = $30
        RETURNING *`,
       [
         recalculated.totalHours,
@@ -1212,6 +1394,12 @@ router.patch('/payouts/:id', async (req, res) => {
         recalculated.breakdown.retro_hours,
         recalculated.breakdown.retro_rate,
         recalculated.breakdown.retro_payment_current,
+        normalizedYtdBreakdown.regular_pay_ytd,
+        normalizedYtdBreakdown.sick_pay_ytd,
+        normalizedYtdBreakdown.vacation_pay_ytd,
+        normalizedYtdBreakdown.stat_pay_ytd,
+        normalizedYtdBreakdown.bonus_pay_ytd,
+        normalizedYtdBreakdown.retro_payment_ytd,
         id,
       ]
     );
@@ -1223,6 +1411,27 @@ router.patch('/payouts/:id', async (req, res) => {
        LIMIT 1`,
       [id]
     );
+
+    if (normalizedYtd) {
+      await client.query(
+        `UPDATE users
+         SET ytd_gross = $1,
+             ytd_hours = $2,
+             ytd_cpp = $3,
+             ytd_ei = $4,
+             ytd_tax = $5,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [
+          normalizedYtd.gross,
+          normalizedYtd.hours,
+          normalizedYtd.cpp,
+          normalizedYtd.ei,
+          normalizedYtd.tax,
+          payout.user_id,
+        ]
+      );
+    }
 
     await client.query('COMMIT');
 
@@ -1236,6 +1445,15 @@ router.patch('/payouts/:id', async (req, res) => {
         profile_hourly_rate: payout.profile_hourly_rate,
         profile_salary_amount: payout.profile_salary_amount,
         employment_type: payout.employment_type,
+        ytd_gross: normalizedYtd ? normalizedYtd.gross : payout.ytd_gross,
+        ytd_hours: normalizedYtd ? normalizedYtd.hours : payout.ytd_hours,
+        ytd_cpp: normalizedYtd ? normalizedYtd.cpp : payout.ytd_cpp,
+        ytd_ei: normalizedYtd ? normalizedYtd.ei : payout.ytd_ei,
+        ytd_tax: normalizedYtd ? normalizedYtd.tax : payout.ytd_tax,
+        income_tax_current: estimatedDeductions.incomeTax,
+        ei_current: estimatedDeductions.ei,
+        cpp_current: estimatedDeductions.cpp,
+        cpp2_current: estimatedDeductions.cpp2,
         vacation_accrual_enabled: payout.vacation_accrual_enabled,
         vacation_accrual_rate: payout.vacation_accrual_rate,
         paystub_id: paystubResult.rows[0]?.paystub_id || null,

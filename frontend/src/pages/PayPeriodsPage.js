@@ -157,13 +157,31 @@ export function PayPeriodsPage() {
   const roundCurrency = (value) => Math.round((safeNumber(value) + Number.EPSILON) * 100) / 100;
   const formatEditorNumber = (value) => roundCurrency(value).toFixed(2);
   const usesExplicitCurrentLineItem = (item) => Boolean(item?.usesExplicitCurrent);
-  const getDisplayedYearToDateValue = (storedValue, currentValue) => roundCurrency(
-    Math.max(safeNumber(storedValue, 0), safeNumber(currentValue, 0))
-  );
+  const normalizeEditableYtdValue = (inputValue, currentValue, fallbackValue = null) => {
+    const current = roundCurrency(safeNumber(currentValue));
+    const parsed = Number(inputValue);
+    const baseValue = Number.isFinite(parsed)
+      ? roundCurrency(parsed)
+      : roundCurrency(safeNumber(fallbackValue, current));
+    return roundCurrency(baseValue < current ? baseValue + current : baseValue);
+  };
+  const getDisplayedYearToDateValue = (storedValue, currentValue) => normalizeEditableYtdValue(null, currentValue, storedValue);
   const getLineYearToDateValue = (item, payout, user, current) => {
     const storedLineYtd = payout?.[item.ytdKey];
     const aggregateYtd = item.aggregateYtdKey ? user?.[item.aggregateYtdKey] ?? payout?.[item.aggregateYtdKey] : null;
     return getDisplayedYearToDateValue(storedLineYtd ?? aggregateYtd, current);
+  };
+  const getResolvedCurrentDeductions = (payout) => {
+    const explicit = roundCurrency(safeNumber(payout?.deductions));
+    if (explicit > 0) {
+      return explicit;
+    }
+    return roundCurrency(
+      safeNumber(payout?.income_tax_current)
+      + safeNumber(payout?.ei_current)
+      + safeNumber(payout?.cpp_current)
+      + safeNumber(payout?.cpp2_current)
+    );
   };
   const getPaymentTypeLabel = (paymentType) => (paymentType === 'SALARY' ? 'Salary' : 'Hourly');
   const getCompensationLabel = (payout) => (
@@ -257,6 +275,12 @@ export function PayPeriodsPage() {
       retro_hours: safeNumber(payout?.retro_hours),
       retro_rate: safeNumber(payout?.retro_rate),
       retro_payment_current: safeNumber(payout?.retro_payment_current, payout?.retro_payment_amount),
+      regular_pay_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[0], payout, payout, safeNumber(payout?.regular_pay_current, payout?.gross_amount)),
+      sick_pay_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[1], payout, payout, safeNumber(payout?.sick_pay_current)),
+      vacation_pay_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[2], payout, payout, safeNumber(payout?.vacation_pay_current)),
+      stat_pay_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[3], payout, payout, safeNumber(payout?.stat_pay_current)),
+      bonus_pay_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[4], payout, payout, safeNumber(payout?.bonus_pay_current)),
+      retro_payment_ytd: getLineYearToDateValue(PAYSTUB_LINE_ITEMS[5], payout, payout, safeNumber(payout?.retro_payment_current, payout?.retro_payment_amount)),
       ytd_gross: getDisplayedYearToDateValue(payout?.ytd_gross, payout?.gross_amount),
       ytd_hours: getDisplayedYearToDateValue(payout?.ytd_hours, payout?.total_hours),
       ytd_cpp: getDisplayedYearToDateValue(payout?.ytd_cpp, payout?.cpp_current),
@@ -272,7 +296,6 @@ export function PayPeriodsPage() {
   };
   const buildPaystubPreview = (payout, user, formOverrides = null, options = {}) => {
     const paymentType = payout?.payment_type === 'SALARY' || user?.payment_type === 'SALARY' ? 'SALARY' : 'HOURLY';
-    const deductions = roundCurrency(payout?.deductions);
     const includeZeroBonus = Boolean(options.includeZeroBonus);
     const regularHours = formOverrides
       ? roundCurrency(safeNumber(formOverrides.regular_hours))
@@ -319,7 +342,9 @@ export function PayPeriodsPage() {
         hours,
         rate,
         current,
-        ytd: getLineYearToDateValue(item, payout, user, current),
+        ytd: formOverrides
+          ? normalizeEditableYtdValue(formOverrides[item.ytdKey], current, getLineYearToDateValue(item, payout, user, current))
+          : getLineYearToDateValue(item, payout, user, current),
       };
     }).filter((row) => (
       row.key !== 'bonus'
@@ -332,21 +357,22 @@ export function PayPeriodsPage() {
     const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
     const grossAmount = rows.reduce((sum, row) => sum + row.current, 0);
     const hourlyRate = rows.find((row) => row.key === 'regular')?.rate || 0;
+    const deductions = getResolvedCurrentDeductions(payout);
     const ytdSummary = {
       gross: formOverrides
-        ? roundCurrency(safeNumber(formOverrides.ytd_gross, getDisplayedYearToDateValue(user?.ytd_gross ?? payout?.ytd_gross, grossAmount)))
+        ? normalizeEditableYtdValue(formOverrides.ytd_gross, grossAmount, user?.ytd_gross ?? payout?.ytd_gross)
         : getDisplayedYearToDateValue(user?.ytd_gross ?? payout?.ytd_gross, grossAmount),
       hours: formOverrides
-        ? roundCurrency(safeNumber(formOverrides.ytd_hours, getDisplayedYearToDateValue(user?.ytd_hours ?? payout?.ytd_hours, totalHours)))
+        ? normalizeEditableYtdValue(formOverrides.ytd_hours, totalHours, user?.ytd_hours ?? payout?.ytd_hours)
         : getDisplayedYearToDateValue(user?.ytd_hours ?? payout?.ytd_hours, totalHours),
       cpp: formOverrides
-        ? roundCurrency(safeNumber(formOverrides.ytd_cpp, getDisplayedYearToDateValue(user?.ytd_cpp ?? payout?.ytd_cpp, payout?.cpp_current)))
+        ? normalizeEditableYtdValue(formOverrides.ytd_cpp, payout?.cpp_current, user?.ytd_cpp ?? payout?.ytd_cpp)
         : getDisplayedYearToDateValue(user?.ytd_cpp ?? payout?.ytd_cpp, payout?.cpp_current),
       ei: formOverrides
-        ? roundCurrency(safeNumber(formOverrides.ytd_ei, getDisplayedYearToDateValue(user?.ytd_ei ?? payout?.ytd_ei, payout?.ei_current)))
+        ? normalizeEditableYtdValue(formOverrides.ytd_ei, payout?.ei_current, user?.ytd_ei ?? payout?.ytd_ei)
         : getDisplayedYearToDateValue(user?.ytd_ei ?? payout?.ytd_ei, payout?.ei_current),
       tax: formOverrides
-        ? roundCurrency(safeNumber(formOverrides.ytd_tax, getDisplayedYearToDateValue(user?.ytd_tax ?? payout?.ytd_tax, payout?.income_tax_current)))
+        ? normalizeEditableYtdValue(formOverrides.ytd_tax, payout?.income_tax_current, user?.ytd_tax ?? payout?.ytd_tax)
         : getDisplayedYearToDateValue(user?.ytd_tax ?? payout?.ytd_tax, payout?.income_tax_current),
     };
 
@@ -402,9 +428,21 @@ export function PayPeriodsPage() {
       return accumulator;
     }, {});
   };
+  const getYtdBreakdownFromPreviewState = (payoutPreview, formState = editPayoutForm) => {
+    const rowsByKey = new Map((payoutPreview?.rows || []).map((row) => [row.key, row]));
+
+    return PAYSTUB_LINE_ITEMS.reduce((accumulator, item) => {
+      const row = rowsByKey.get(item.key);
+      accumulator[item.ytdKey] = row
+        ? row.ytd
+        : normalizeEditableYtdValue(formState[item.ytdKey], formState[item.currentKey], formState[item.currentKey]);
+      return accumulator;
+    }, {});
+  };
   const applyEditedPreviewPayout = (payout, payoutPreview, formState = editPayoutForm) => ({
     ...payout,
     ...getBreakdownFromPreviewState(payoutPreview, formState),
+    ...getYtdBreakdownFromPreviewState(payoutPreview, formState),
     total_hours: payoutPreview.totalHours,
     hourly_rate: payoutPreview.hourlyRate,
     gross_amount: payoutPreview.grossAmount,
@@ -428,6 +466,17 @@ export function PayPeriodsPage() {
           accumulator[item.currentKey] = roundCurrency(safeNumber(employee[item.currentKey]));
           return accumulator;
         }, {}),
+        ytdBreakdown: PAYSTUB_LINE_ITEMS.reduce((accumulator, item) => {
+          accumulator[item.ytdKey] = roundCurrency(safeNumber(employee[item.ytdKey]));
+          return accumulator;
+        }, {}),
+        ytd: {
+          gross: roundCurrency(safeNumber(employee.ytd_gross)),
+          hours: roundCurrency(safeNumber(employee.ytd_hours)),
+          cpp: roundCurrency(safeNumber(employee.ytd_cpp)),
+          ei: roundCurrency(safeNumber(employee.ytd_ei)),
+          tax: roundCurrency(safeNumber(employee.ytd_tax)),
+        },
       }))
       : []
   );
@@ -792,7 +841,20 @@ export function PayPeriodsPage() {
 
       const response = await api.patch(`/pay-periods/payouts/${editingPayout.id}`, {
         breakdown: editPayoutForm,
+        ytdBreakdown: PAYSTUB_LINE_ITEMS.reduce((accumulator, item) => {
+          accumulator[item.ytdKey] = roundCurrency(
+            normalizeEditableYtdValue(editPayoutForm[item.ytdKey], editPayoutForm[item.currentKey], editPayoutForm[item.currentKey])
+          );
+          return accumulator;
+        }, {}),
         payoutVacationAccrual: Boolean(editPayoutForm.payoutVacationAccrual),
+        ytd: {
+          gross: roundCurrency(normalizeEditableYtdValue(editPayoutForm.ytd_gross, editedPayoutPreview.grossAmount, editingPayout.ytd_gross)),
+          hours: roundCurrency(normalizeEditableYtdValue(editPayoutForm.ytd_hours, editedPayoutPreview.totalHours, editingPayout.ytd_hours)),
+          cpp: roundCurrency(normalizeEditableYtdValue(editPayoutForm.ytd_cpp, editingPayout.cpp_current, editingPayout.ytd_cpp)),
+          ei: roundCurrency(normalizeEditableYtdValue(editPayoutForm.ytd_ei, editingPayout.ei_current, editingPayout.ytd_ei)),
+          tax: roundCurrency(normalizeEditableYtdValue(editPayoutForm.ytd_tax, editingPayout.income_tax_current, editingPayout.ytd_tax)),
+        },
       });
 
       const updatedPayout = response.data.payout;
@@ -1616,6 +1678,11 @@ export function PayPeriodsPage() {
                       profile_hourly_rate: paystubPreview.user.profile_hourly_rate,
                       profile_salary_amount: paystubPreview.user.salary_amount,
                       employment_type: paystubPreview.user.employment_type,
+                      ytd_gross: paystubPreview.user.ytd_gross,
+                      ytd_hours: paystubPreview.user.ytd_hours,
+                      ytd_cpp: paystubPreview.user.ytd_cpp,
+                      ytd_ei: paystubPreview.user.ytd_ei,
+                      ytd_tax: paystubPreview.user.ytd_tax,
                       paystub_id: paystubPreview.paystubId,
                       stub_number: paystubPreview.stubNumber,
                     })}
@@ -1679,6 +1746,7 @@ export function PayPeriodsPage() {
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Current</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">YTD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y themed-border">
@@ -1688,6 +1756,7 @@ export function PayPeriodsPage() {
                         <td className="px-4 py-3 text-sm text-right text-stone-600">{formatHours(row.hours)}</td>
                         <td className="px-4 py-3 text-sm text-right text-stone-600">{formatCurrency(row.rate)}</td>
                         <td className="px-4 py-3 text-sm text-right font-semibold text-stone-700">{formatCurrency(row.current)}</td>
+                        <td className="px-4 py-3 text-sm text-right text-stone-600">{formatCurrency(row.ytd)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1697,6 +1766,7 @@ export function PayPeriodsPage() {
                       <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatHours(paystubHtmlPreview.totalHours)}</td>
                       <td className="px-4 py-3 text-sm text-right text-stone-500">Deductions {formatCurrency(paystubHtmlPreview.deductions)}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(paystubHtmlPreview.grossAmount)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(paystubHtmlPreview.ytdSummary.gross)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1720,11 +1790,11 @@ export function PayPeriodsPage() {
               <div className="rounded-2xl border themed-border p-4" style={{ backgroundColor: 'var(--background)' }}>
                 <h4 className="font-bold text-stone-800 mb-3">Year To Date</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm text-stone-600">
-                  <p>Gross: {formatCurrency(paystubPreview.user.ytd_gross)}</p>
-                  <p>Hours: {formatHours(paystubPreview.user.ytd_hours)}</p>
-                  <p>CPP: {formatCurrency(paystubPreview.user.ytd_cpp)}</p>
-                  <p>EI: {formatCurrency(paystubPreview.user.ytd_ei)}</p>
-                  <p>Tax: {formatCurrency(paystubPreview.user.ytd_tax)}</p>
+                  <p>Gross: {formatCurrency(paystubHtmlPreview.ytdSummary.gross)}</p>
+                  <p>Hours: {formatHours(paystubHtmlPreview.ytdSummary.hours)}</p>
+                  <p>CPP: {formatCurrency(paystubHtmlPreview.ytdSummary.cpp)}</p>
+                  <p>EI: {formatCurrency(paystubHtmlPreview.ytdSummary.ei)}</p>
+                  <p>Tax: {formatCurrency(paystubHtmlPreview.ytdSummary.tax)}</p>
                 </div>
                 <p className="mt-3 text-xs text-stone-500">
                   Deductions include Income Tax, EI, CPP, and CPP2 when applicable.
@@ -1800,7 +1870,7 @@ export function PayPeriodsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                   <h4 className="font-bold text-stone-800">Paystub HTML Preview</h4>
-                  <p className="text-sm text-stone-500">Edit hours and rate for each line. Retro Payment stays a flat amount and is edited in the Current column.</p>
+                  <p className="text-sm text-stone-500">Edit hours, rate, and YTD for each line. If a YTD entry is lower than Current, the preview treats it as prior YTD and adds Current on top.</p>
                 </div>
                 <div className="text-sm text-stone-500">
                   Paystub: {editingPayout.stub_number || 'Not generated yet'}
@@ -1842,6 +1912,7 @@ export function PayPeriodsPage() {
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Hours</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Rate</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">Current</th>
+                      <th className="px-4 py-2 text-right text-xs font-bold text-stone-500 uppercase tracking-wider">YTD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y themed-border">
@@ -1906,6 +1977,20 @@ export function PayPeriodsPage() {
                             </div>
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editPayoutForm[row.ytdKey] || formatEditorNumber(row.ytd)}
+                            onChange={(event) => setEditPayoutForm((current) => ({
+                              ...current,
+                              [row.ytdKey]: event.target.value,
+                            }))}
+                            className="ml-auto block w-32 rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                            required
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1915,9 +2000,74 @@ export function PayPeriodsPage() {
                       <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatHours(editedPayoutPreview.totalHours)}</td>
                       <td className="px-4 py-3 text-sm text-right text-stone-500">Deductions {formatCurrency(editedPayoutPreview.deductions)}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(editedPayoutPreview.grossAmount)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-stone-700">{formatCurrency(editedPayoutPreview.ytdSummary.gross)}</td>
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border themed-border p-4 text-sm text-stone-600" style={{ backgroundColor: 'var(--background)' }}>
+              <div className="mb-3">
+                <h4 className="font-bold text-stone-800">Year To Date</h4>
+                <p className="text-sm text-stone-500">YTD defaults to at least the current paystub values and can be adjusted here when needed.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">Gross</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPayoutForm.ytd_gross || '0.00'}
+                    onChange={(event) => setEditPayoutForm((current) => ({ ...current, ytd_gross: event.target.value }))}
+                    className="block w-full rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">Hours</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPayoutForm.ytd_hours || '0.00'}
+                    onChange={(event) => setEditPayoutForm((current) => ({ ...current, ytd_hours: event.target.value }))}
+                    className="block w-full rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">CPP</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPayoutForm.ytd_cpp || '0.00'}
+                    onChange={(event) => setEditPayoutForm((current) => ({ ...current, ytd_cpp: event.target.value }))}
+                    className="block w-full rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">EI</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPayoutForm.ytd_ei || '0.00'}
+                    onChange={(event) => setEditPayoutForm((current) => ({ ...current, ytd_ei: event.target.value }))}
+                    className="block w-full rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">Tax</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editPayoutForm.ytd_tax || '0.00'}
+                    onChange={(event) => setEditPayoutForm((current) => ({ ...current, ytd_tax: event.target.value }))}
+                    className="block w-full rounded-xl border themed-border bg-white px-3 py-2 text-right text-sm themed-ring"
+                  />
+                </label>
               </div>
             </div>
 
@@ -1927,6 +2077,8 @@ export function PayPeriodsPage() {
                 <p>Employment: {editingPayout.employment_type || 'Employment type not set'}</p>
                 <p>Profile Rate: {formatCurrency(editingPayout.profile_hourly_rate || 0)}/hr</p>
                 <p>Deductions: {formatCurrency(editedPayoutPreview.deductions)}</p>
+                <p>YTD Gross: {formatCurrency(editedPayoutPreview.ytdSummary.gross)}</p>
+                <p>YTD Hours: {formatHours(editedPayoutPreview.ytdSummary.hours)}</p>
                 {editingPayoutHasVacationAccrual ? (
                   <p>Vacation Accrual: {(getVacationAccrualRate(editingPayout, editingPayout) * 100).toFixed(2)}%</p>
                 ) : null}
